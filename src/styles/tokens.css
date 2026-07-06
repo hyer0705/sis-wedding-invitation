@@ -1,0 +1,29 @@
+/* 디자인 토큰 — CLAUDE.md 토큰표와 1:1. 색감 변경 요청은 여기서만 수정한다 */
+:root {
+  --primary: #7e9079;
+  --bg: #f5f3ea;
+  --card: #fffefb;
+  --text: #3a3631;
+  --text-body: #4a463e;
+  --text-sub: #7a766b;
+  --muted: #a7a496;
+  --muted-2: #9aa18d;
+  --surface: #f2f4ec;
+  --surface-2: #eef1e8;
+  --surface-3: #f7f9f3;
+  --input-bg: #fbfcf8;
+  --input-border: #e6e8dd;
+  --on-primary: #f7f8f1;
+  --on-primary-sub: #e2e8d8;
+  --on-primary-title: #e7ecde;
+  --overlay: rgba(40, 46, 38, 0.94);
+
+  --font-script: "Parisienne", cursive;
+  --font-serif: "Nanum Myeongjo", serif;
+  --font-caption: "Gowun Dodum", sans-serif;
+
+  --radius-card: 24px;
+  --radius-control: 14px;
+  --shadow-card: 0 16px 40px rgba(80, 95, 75, 0.08);
+  --shadow-green-card: 0 18px 44px rgba(110, 128, 105, 0.28);
+}

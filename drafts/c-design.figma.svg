@@ -1,0 +1,209 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  c.dc.html 디자인 → Figma 임포트용 SVG
+  - Figma 캔버스에 이 파일을 드래그&드롭하면 섹션별 그룹/텍스트 레이어로 임포트됩니다.
+  - 폰트: Parisienne / Nanum Myeongjo / Gowun Dodum (모두 Figma 기본 Google Fonts에 있음)
+  - 사진 영역은 플레이스홀더(연녹색 박스)로 표현했습니다. Figma에서 Fill > Image로 교체하세요.
+  - 오른쪽 열(x=470~)은 추가 상태: 라이트박스 / 토스트 / RSVP 제출완료 카드
+-->
+<svg width="950" height="4680" viewBox="0 0 950 4680" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="footerLine" x1="0" y1="4496" x2="0" y2="4530" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#c6cdba"/>
+      <stop offset="1" stop-color="#c6cdba" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+
+  <!-- ===== 본문 프레임 (430 x 4680) ===== -->
+  <g id="mobile-invitation-c">
+    <rect id="page-bg" x="0" y="0" width="430" height="4680" fill="#f5f3ea"/>
+
+    <!-- ===== 1. COVER ===== -->
+    <g id="01-cover">
+      <text x="215" y="80" text-anchor="middle" font-family="Parisienne" font-size="30" fill="#7e9079">The wedding of</text>
+      <text x="215" y="104" text-anchor="middle" font-family="Gowun Dodum" font-size="11" letter-spacing="4.4" fill="#a7a496">2026 . 12 . 06</text>
+      <!-- 메인 사진: 아치형(상단 라운드 200 / 하단 18), 비율 4:5 -->
+      <path id="cover-photo-placeholder" d="M 26 325 A 189 189 0 0 1 404 325 L 404 590 Q 404 608 386 608 L 44 608 Q 26 608 26 590 Z" fill="#e6e7da"/>
+      <rect x="185" y="361" width="60" height="22" rx="11" fill="#f7f8f1"/>
+      <text x="215" y="376" text-anchor="middle" font-family="Courier New" font-size="10" fill="#8a9080">4:5</text>
+      <text x="215" y="668" text-anchor="middle" font-family="Nanum Myeongjo" font-weight="700" font-size="30" letter-spacing="1.8" fill="#3a3631">박희빈 <tspan fill="#7e9079" font-weight="400">&amp;</tspan> 조혜정</text>
+      <text x="215" y="702" text-anchor="middle" font-family="Nanum Myeongjo" font-size="14" fill="#7a766b">일요일 오전 11시</text>
+      <text x="215" y="726" text-anchor="middle" font-family="Nanum Myeongjo" font-size="14" fill="#7a766b">신도림 웨스턴베니스 7F</text>
+      <text x="215" y="778" text-anchor="middle" font-family="Parisienne" font-size="17" fill="#a9b3a1">scroll</text>
+      <text x="215" y="800" text-anchor="middle" font-family="Nanum Myeongjo" font-size="15" fill="#bcc4b2">↓</text>
+    </g>
+
+    <!-- ===== 2. INVITATION ===== -->
+    <g id="02-invitation">
+      <rect x="20" y="874" width="390" height="448" rx="24" fill="#fffefb"/>
+      <text x="215" y="946" text-anchor="middle" font-family="Parisienne" font-size="26" fill="#7e9079">Invitation</text>
+      <rect x="198" y="963" width="34" height="1" fill="#cfd6c4"/>
+      <text x="215" y="1010" text-anchor="middle" font-family="Nanum Myeongjo" font-size="16.5" fill="#4a463e">두 사람이 평생을 함께하기 위해</text>
+      <text x="215" y="1046" text-anchor="middle" font-family="Nanum Myeongjo" font-size="16.5" fill="#4a463e">서로의 반려자가 되려 합니다.</text>
+      <text x="215" y="1082" text-anchor="middle" font-family="Nanum Myeongjo" font-size="16.5" fill="#4a463e">그 시작의 자리에</text>
+      <text x="215" y="1118" text-anchor="middle" font-family="Nanum Myeongjo" font-size="16.5" fill="#4a463e">소중한 분들을 모십니다.</text>
+      <rect id="btn-more" x="170" y="1140" width="90" height="38" rx="19" fill="#eef1e8"/>
+      <text x="215" y="1164" text-anchor="middle" font-family="Nanum Myeongjo" font-size="13" fill="#5f7060">더보기</text>
+      <rect x="50" y="1212" width="330" height="1" fill="#f0efe6"/>
+      <text x="215" y="1250" text-anchor="middle" font-family="Nanum Myeongjo" font-size="15" fill="#4a463e">박○○ · ○○○ <tspan fill="#7e9079" font-size="13">의 아들</tspan> 희빈</text>
+      <text x="215" y="1276" text-anchor="middle" font-family="Nanum Myeongjo" font-size="15" fill="#4a463e">유○○ · ○○○ <tspan fill="#7e9079" font-size="13">의 딸</tspan> 혜정</text>
+    </g>
+
+    <!-- ===== 3. WHEN & WHERE (그린 카드) ===== -->
+    <g id="03-details">
+      <rect x="20" y="1350" width="390" height="266" rx="24" fill="#7e9079"/>
+      <text x="215" y="1419" text-anchor="middle" font-family="Parisienne" font-size="25" fill="#e7ecde">When &amp; Where</text>
+      <text x="215" y="1464" text-anchor="middle" font-family="Nanum Myeongjo" font-weight="700" font-size="27" fill="#f7f8f1">2026년 12월 6일</text>
+      <text x="215" y="1487" text-anchor="middle" font-family="Nanum Myeongjo" font-size="15" fill="#e2e8d8">일요일 오전 11시</text>
+      <rect x="200" y="1512" width="30" height="1" fill="#f7f8f1" fill-opacity="0.5"/>
+      <text x="215" y="1550" text-anchor="middle" font-family="Nanum Myeongjo" font-weight="700" font-size="18" fill="#f7f8f1">신도림 웨스턴베니스</text>
+      <text x="215" y="1572" text-anchor="middle" font-family="Nanum Myeongjo" font-size="14" fill="#e2e8d8">7F 다이너스티홀</text>
+    </g>
+
+    <!-- ===== 4. D-DAY ===== -->
+    <g id="04-dday">
+      <rect x="20" y="1644" width="390" height="246" rx="24" fill="#fffefb"/>
+      <text x="215" y="1708" text-anchor="middle" font-family="Parisienne" font-size="24" fill="#7e9079">D-Day</text>
+      <rect x="46" y="1734" width="78" height="78" rx="16" fill="#f2f4ec"/>
+      <rect x="132" y="1734" width="78" height="78" rx="16" fill="#f2f4ec"/>
+      <rect x="219" y="1734" width="78" height="78" rx="16" fill="#f2f4ec"/>
+      <rect x="305" y="1734" width="78" height="78" rx="16" fill="#7e9079"/>
+      <text x="85" y="1778" text-anchor="middle" font-family="Nanum Myeongjo" font-weight="700" font-size="28" fill="#3a3631">153</text>
+      <text x="171" y="1778" text-anchor="middle" font-family="Nanum Myeongjo" font-weight="700" font-size="28" fill="#3a3631">10</text>
+      <text x="258" y="1778" text-anchor="middle" font-family="Nanum Myeongjo" font-weight="700" font-size="28" fill="#3a3631">24</text>
+      <text x="344" y="1778" text-anchor="middle" font-family="Nanum Myeongjo" font-weight="700" font-size="28" fill="#ffffff">08</text>
+      <text x="85" y="1798" text-anchor="middle" font-family="Nanum Myeongjo" font-size="10.5" letter-spacing="1" fill="#9aa18d">일</text>
+      <text x="171" y="1798" text-anchor="middle" font-family="Nanum Myeongjo" font-size="10.5" letter-spacing="1" fill="#9aa18d">시</text>
+      <text x="258" y="1798" text-anchor="middle" font-family="Nanum Myeongjo" font-size="10.5" letter-spacing="1" fill="#9aa18d">분</text>
+      <text x="344" y="1798" text-anchor="middle" font-family="Nanum Myeongjo" font-size="10.5" letter-spacing="1" fill="#dfe6d6">초</text>
+      <text x="215" y="1850" text-anchor="middle" font-family="Nanum Myeongjo" font-size="14" fill="#7a766b">희빈, 혜정의 결혼식까지 <tspan fill="#7e9079" font-weight="700">153</tspan>일</text>
+    </g>
+
+    <!-- ===== 5. GALLERY ===== -->
+    <g id="05-gallery">
+      <text x="215" y="1942" text-anchor="middle" font-family="Parisienne" font-size="24" fill="#7e9079">Our moments</text>
+      <text x="215" y="1962" text-anchor="middle" font-family="Nanum Myeongjo" font-size="12.5" fill="#a7a496">사진을 탭하면 크게 볼 수 있어요</text>
+      <rect x="20" y="1984" width="190" height="238" rx="18" fill="#e6e7da"/>
+      <rect x="220" y="1984" width="190" height="238" rx="18" fill="#e6e7da"/>
+      <rect x="20" y="2232" width="190" height="238" rx="18" fill="#e6e7da"/>
+      <rect x="220" y="2232" width="190" height="238" rx="18" fill="#e6e7da"/>
+      <rect x="20" y="2480" width="190" height="238" rx="18" fill="#e6e7da"/>
+      <rect x="220" y="2480" width="190" height="238" rx="18" fill="#e6e7da"/>
+      <g id="gallery-chips" font-family="Courier New" font-size="10" fill="#8a9080">
+        <rect x="93" y="2093" width="44" height="20" rx="10" fill="#f7f8f1"/>
+        <text x="115" y="2107" text-anchor="middle">4:5</text>
+        <rect x="293" y="2093" width="44" height="20" rx="10" fill="#f7f8f1"/>
+        <text x="315" y="2107" text-anchor="middle">4:5</text>
+        <rect x="93" y="2341" width="44" height="20" rx="10" fill="#f7f8f1"/>
+        <text x="115" y="2355" text-anchor="middle">4:5</text>
+        <rect x="293" y="2341" width="44" height="20" rx="10" fill="#f7f8f1"/>
+        <text x="315" y="2355" text-anchor="middle">4:5</text>
+        <rect x="93" y="2589" width="44" height="20" rx="10" fill="#f7f8f1"/>
+        <text x="115" y="2603" text-anchor="middle">4:5</text>
+        <rect x="293" y="2589" width="44" height="20" rx="10" fill="#f7f8f1"/>
+        <text x="315" y="2603" text-anchor="middle">4:5</text>
+      </g>
+    </g>
+
+    <!-- ===== 6. LOCATION ===== -->
+    <g id="06-location">
+      <rect x="20" y="2750" width="390" height="664" rx="24" fill="#fffefb"/>
+      <text x="215" y="2812" text-anchor="middle" font-family="Parisienne" font-size="24" fill="#7e9079">Location</text>
+      <text x="215" y="2839" text-anchor="middle" font-family="Nanum Myeongjo" font-weight="700" font-size="17" fill="#3a3631">신도림 웨스턴베니스 7F</text>
+      <text x="215" y="2859" text-anchor="middle" font-family="Nanum Myeongjo" font-size="14" fill="#7a766b">서울 구로구 경인로 577</text>
+      <rect id="map-placeholder" x="46" y="2881" width="338" height="211" rx="18" fill="#e6e7da"/>
+      <rect x="160" y="2974" width="110" height="24" rx="12" fill="#f7f8f1"/>
+      <text x="215" y="2990" text-anchor="middle" font-family="Courier New" font-size="11" fill="#8a9080">MAP PREVIEW</text>
+      <rect x="46" y="3106" width="107" height="44" rx="14" fill="#f2f4ec"/>
+      <text x="100" y="3132" text-anchor="middle" font-family="Nanum Myeongjo" font-size="13" fill="#5f7060">네이버지도</text>
+      <rect x="161" y="3106" width="107" height="44" rx="14" fill="#f2f4ec"/>
+      <text x="215" y="3132" text-anchor="middle" font-family="Nanum Myeongjo" font-size="13" fill="#5f7060">카카오내비</text>
+      <rect x="276" y="3106" width="107" height="44" rx="14" fill="#f2f4ec"/>
+      <text x="330" y="3132" text-anchor="middle" font-family="Nanum Myeongjo" font-size="13" fill="#5f7060">티맵</text>
+      <rect x="46" y="3158" width="338" height="44" rx="14" fill="#7e9079"/>
+      <text x="215" y="3184" text-anchor="middle" font-family="Nanum Myeongjo" font-size="13" fill="#f7f8f1">주소 복사하기</text>
+      <text x="46" y="3240" font-family="Nanum Myeongjo" font-weight="700" font-size="12.5" fill="#7e9079">지하철</text>
+      <text x="46" y="3260" font-family="Nanum Myeongjo" font-size="14" fill="#5a564d">1·2호선 신도림역 3번 출구 도보 5분</text>
+      <text x="46" y="3298" font-family="Nanum Myeongjo" font-weight="700" font-size="12.5" fill="#7e9079">자가용</text>
+      <text x="46" y="3318" font-family="Nanum Myeongjo" font-size="14" fill="#5a564d">내비게이션 “웨스턴베니스” 검색</text>
+      <text x="46" y="3356" font-family="Nanum Myeongjo" font-weight="700" font-size="12.5" fill="#7e9079">주차</text>
+      <text x="46" y="3376" font-family="Nanum Myeongjo" font-size="14" fill="#5a564d">건물 내 주차장 2시간 무료</text>
+    </g>
+
+    <!-- ===== 7. ACCOUNTS ===== -->
+    <g id="07-accounts">
+      <rect x="20" y="3442" width="390" height="293" rx="24" fill="#fffefb"/>
+      <text x="215" y="3504" text-anchor="middle" font-family="Parisienne" font-size="24" fill="#7e9079">Thanks heart</text>
+      <text x="215" y="3530" text-anchor="middle" font-family="Nanum Myeongjo" font-size="14" fill="#7a766b">참석이 어려우신 분들을 위해</text>
+      <text x="215" y="3557" text-anchor="middle" font-family="Nanum Myeongjo" font-size="14" fill="#7a766b">마음 전하실 곳을 안내드립니다.</text>
+      <rect x="46" y="3583" width="338" height="52" rx="16" fill="#f7f9f3" stroke="#eef1e8"/>
+      <text x="66" y="3615" font-family="Nanum Myeongjo" font-size="14.5" fill="#3a3631">신랑측 마음 전하실 곳</text>
+      <text x="364" y="3616" text-anchor="end" font-family="Nanum Myeongjo" font-size="18" fill="#7e9079">+</text>
+      <rect x="46" y="3645" width="338" height="52" rx="16" fill="#f7f9f3" stroke="#eef1e8"/>
+      <text x="66" y="3677" font-family="Nanum Myeongjo" font-size="14.5" fill="#3a3631">신부측 마음 전하실 곳</text>
+      <text x="364" y="3678" text-anchor="end" font-family="Nanum Myeongjo" font-size="18" fill="#7e9079">+</text>
+    </g>
+
+    <!-- ===== 8. RSVP ===== -->
+    <g id="08-rsvp">
+      <rect x="20" y="3763" width="390" height="563" rx="24" fill="#fffefb"/>
+      <text x="215" y="3827" text-anchor="middle" font-family="Parisienne" font-size="24" fill="#7e9079">R.S.V.P</text>
+      <text x="215" y="3847" text-anchor="middle" font-family="Nanum Myeongjo" font-size="14" fill="#7a766b">참석 여부를 알려주시면</text>
+      <text x="215" y="3872" text-anchor="middle" font-family="Nanum Myeongjo" font-size="14" fill="#7a766b">준비에 큰 도움이 됩니다.</text>
+      <!-- 선택 버튼 (좌: 선택됨 / 우: 미선택 상태 예시) -->
+      <rect x="46" y="3898" width="165" height="44" rx="14" fill="#7e9079"/>
+      <text x="129" y="3926" text-anchor="middle" font-family="Nanum Myeongjo" font-size="14" fill="#f7f8f1">신랑측 하객</text>
+      <rect x="219" y="3898" width="165" height="44" rx="14" fill="#fbfcf8" stroke="#e6e8dd"/>
+      <text x="302" y="3926" text-anchor="middle" font-family="Nanum Myeongjo" font-size="14" fill="#7a766b">신부측 하객</text>
+      <rect x="46" y="3954" width="165" height="44" rx="14" fill="#7e9079"/>
+      <text x="129" y="3982" text-anchor="middle" font-family="Nanum Myeongjo" font-size="14" fill="#f7f8f1">참석합니다</text>
+      <rect x="219" y="3954" width="165" height="44" rx="14" fill="#fbfcf8" stroke="#e6e8dd"/>
+      <text x="302" y="3982" text-anchor="middle" font-family="Nanum Myeongjo" font-size="14" fill="#7a766b">참석 어려워요</text>
+      <rect x="46" y="4010" width="338" height="48" rx="14" fill="#fbfcf8" stroke="#e6e8dd"/>
+      <text x="62" y="4040" font-family="Nanum Myeongjo" font-size="15" fill="#a7a496">성함</text>
+      <rect x="46" y="4070" width="338" height="48" rx="14" fill="#fbfcf8" stroke="#e6e8dd"/>
+      <text x="62" y="4100" font-family="Nanum Myeongjo" font-size="15" fill="#a7a496">참석 인원 (본인 포함)</text>
+      <rect x="46" y="4130" width="338" height="92" rx="14" fill="#fbfcf8" stroke="#e6e8dd"/>
+      <text x="62" y="4158" font-family="Nanum Myeongjo" font-size="15" fill="#a7a496">전하고 싶은 말 (선택)</text>
+      <rect x="46" y="4234" width="338" height="52" rx="14" fill="#7e9079"/>
+      <text x="215" y="4266" text-anchor="middle" font-family="Nanum Myeongjo" font-size="15" fill="#f7f8f1">참석 의사 전하기</text>
+    </g>
+
+    <!-- ===== 9. FOOTER ===== -->
+    <g id="09-footer">
+      <text x="215" y="4430" text-anchor="middle" font-family="Parisienne" font-size="34" fill="#7e9079">Thank you</text>
+      <text x="215" y="4474" text-anchor="middle" font-family="Parisienne" font-size="34" fill="#7e9079">for your love</text>
+      <rect x="214.5" y="4496" width="1" height="34" fill="url(#footerLine)"/>
+      <text x="215" y="4566" text-anchor="middle" font-family="Nanum Myeongjo" font-size="14" fill="#7a766b">박희빈 · 조혜정</text>
+      <text x="215" y="4586" text-anchor="middle" font-family="Nanum Myeongjo" font-size="12" fill="#aab09e">2026. 12. 06</text>
+    </g>
+  </g>
+
+  <!-- ===== 추가 상태 (오버레이 컴포넌트) ===== -->
+  <g id="extra-states">
+    <!-- 라이트박스 -->
+    <g id="state-lightbox">
+      <rect x="470" y="0" width="430" height="780" fill="#282e26" fill-opacity="0.94"/>
+      <rect x="505" y="100" width="360" height="450" rx="20" fill="#454a3e"/>
+      <text x="685" y="330" text-anchor="middle" font-family="Courier New" font-size="12" letter-spacing="1.2" fill="#b6bca8">PHOTO · 1 / 6</text>
+      <circle cx="615" cy="618" r="23" stroke="#f7f8f1" stroke-opacity="0.3"/>
+      <text x="615" y="624" text-anchor="middle" font-family="Nanum Myeongjo" font-size="18" fill="#f7f8f1">‹</text>
+      <text x="685" y="624" text-anchor="middle" font-family="Parisienne" font-size="18" fill="#b6bca8">1 / 6</text>
+      <circle cx="755" cy="618" r="23" stroke="#f7f8f1" stroke-opacity="0.3"/>
+      <text x="755" y="624" text-anchor="middle" font-family="Nanum Myeongjo" font-size="18" fill="#f7f8f1">›</text>
+      <text x="874" y="48" text-anchor="end" font-family="Nanum Myeongjo" font-size="26" fill="#f7f8f1">×</text>
+    </g>
+    <!-- 토스트 -->
+    <g id="state-toast">
+      <rect x="585" y="820" width="200" height="44" rx="22" fill="#3a3631"/>
+      <text x="685" y="847" text-anchor="middle" font-family="Nanum Myeongjo" font-size="14" fill="#f7f8f1">복사되었습니다</text>
+    </g>
+    <!-- RSVP 제출 완료 -->
+    <g id="state-rsvp-submitted">
+      <rect x="490" y="910" width="390" height="160" rx="18" fill="#f7f9f3"/>
+      <text x="685" y="965" text-anchor="middle" font-family="Parisienne" font-size="30" fill="#7e9079">Thank you</text>
+      <text x="685" y="998" text-anchor="middle" font-family="Nanum Myeongjo" font-size="14" fill="#5a564d">참석 의사가 전달되었습니다.</text>
+      <text x="685" y="1023" text-anchor="middle" font-family="Nanum Myeongjo" font-size="14" fill="#5a564d">당일 따뜻하게 맞이하겠습니다.</text>
+    </g>
+  </g>
+</svg>

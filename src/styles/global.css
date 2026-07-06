@@ -1,0 +1,45 @@
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background: #eceae1;
+}
+
+.page {
+  max-width: 430px;
+  margin: 0 auto;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-serif);
+  min-height: 100vh;
+  box-shadow: 0 0 70px rgba(60, 70, 55, 0.18);
+  overflow: hidden;
+}
+
+.card {
+  background: var(--card);
+  border-radius: var(--radius-card);
+  padding: 40px 26px;
+  box-shadow: var(--shadow-card);
+  text-align: center;
+}
+
+.script-title {
+  font-family: var(--font-script);
+  font-size: 24px;
+  color: var(--primary);
+}
+
+/* 시안 이식 전 임시 표시용 */
+.todo {
+  margin: 18px 0 0;
+  font-size: 13px;
+  color: var(--muted);
+}
