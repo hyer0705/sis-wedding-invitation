@@ -134,6 +134,7 @@ hotfix/sis-{번호}-{요약}    main에서 직접 분기, main과 develop 양쪽
 | E2E 대상 서버 | dev 서버는 모듈을 요청 시점에 변환해 병렬 워커에서 타이밍이 흔들린다. `playwright.config.ts`는 빌드 후 `preview`를 띄워 실제 배포와 같은 조건으로 검증한다. |
 | axe 색상 대비 | c안 확정 토큰 `--muted`(#a7a496, 대비 2.25)와 `--text-sub`(#7a766b, 대비 4.07)이 배경 `--bg` 위에서 WCAG AA 4.5:1에 미달한다. **토큰 변경은 고객 승인 사항**이라 `color-contrast` 규칙을 제외한 상태이며, 품질 게이트 이슈에서 고객 확인 후 처리한다. |
 | axe 검사 시점 | `MotionConfig reducedMotion`은 transform만 줄이고 opacity 페이드는 유지한다(Motion 사양). 페이드인이 끝나기 전에 검사하면 합성된 중간 색상을 읽으므로, 커버의 `opacity`가 1이 될 때까지 기다린 뒤 검사한다. |
+| CI 의존성 설치 | `npm ci`를 쓰지 않고 `npm install`을 쓴다. sharp의 wasm32 변형이 요구하는 `@emnapi/runtime`·`core`가 lock에 최상위 엔트리로 없어(macOS에서 설치 대상이 아니라 npm이 생략) `npm ci`가 중단되고, lock을 재생성하면 이번엔 리눅스 네이티브 바이너리가 빠져 빌드가 깨진다. **`package-lock.json`을 재생성하지 말 것** — 현재 lock은 전 플랫폼 네이티브 바이너리를 담고 있다. sharp나 npm이 이 문제를 고치면 `npm ci`로 되돌린다. |
 
 ## 8. 명령어
 

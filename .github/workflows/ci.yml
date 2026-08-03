@@ -21,7 +21,12 @@ jobs:
           cache: npm
 
       - name: 의존성 설치
-        run: npm ci
+        # npm ci를 쓰지 못하는 이유:
+        # sharp의 wasm32 변형이 요구하는 @emnapi/runtime·core가 package-lock.json에
+        # 최상위 엔트리로 기록되지 않아(macOS에서 설치 대상이 아니라 npm이 생략) npm ci가
+        # 무결성 검사에서 중단된다. lock을 재생성하면 이번엔 리눅스 네이티브 바이너리가
+        # 빠져 빌드가 깨지므로, 전 플랫폼 정보를 담은 현재 lock을 유지하고 install을 쓴다.
+        run: npm install --no-audit --no-fund
 
       - name: 포맷·린트·타입·유닛테스트·빌드
         run: npm run check
