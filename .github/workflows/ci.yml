@@ -1,0 +1,47 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main, develop]
+  push:
+    branches: [develop]
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    env:
+      # D-Day 계산이 KST 기준이므로 러너 시간대를 고정한다
+      TZ: Asia/Seoul
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: 의존성 설치
+        # npm ci를 쓰지 못하는 이유:
+        # sharp의 wasm32 변형이 요구하는 @emnapi/runtime·core가 package-lock.json에
+        # 최상위 엔트리로 기록되지 않아(macOS에서 설치 대상이 아니라 npm이 생략) npm ci가
+        # 무결성 검사에서 중단된다. lock을 재생성하면 이번엔 리눅스 네이티브 바이너리가
+        # 빠져 빌드가 깨지므로, 전 플랫폼 정보를 담은 현재 lock을 유지하고 install을 쓴다.
+        run: npm install --no-audit --no-fund
+
+      - name: 포맷·린트·타입·유닛테스트·빌드
+        run: npm run check
+
+      - name: Playwright 브라우저 설치
+        # webkit은 iOS Safari(CM-09) 엔진 검증용이라 함께 설치한다
+        run: npx playwright install --with-deps chromium webkit
+
+      - name: E2E 테스트
+        run: npm run test:e2e
+
+      - name: 실패 시 리포트 업로드
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7

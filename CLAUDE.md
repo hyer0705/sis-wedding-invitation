@@ -2,6 +2,11 @@
 
 모바일 청첩장 제작 프로젝트. 고객(신랑·신부)의 수정 요청에 빠르고 정확하게 대응하는 것이 최우선 목표.
 
+## 작업 워크플로
+브랜치 전략·마일스톤·이슈 진행 규칙은 **`docs/WORKFLOW.md`** 를 따른다.
+"M1 / M2 / M3 진행해줘" 요청을 받으면 그 문서의 「마일스톤 진행 절차」를 그대로 실행한다.
+이슈는 Linear 팀 `Sis-wedding-project`(식별자 `SIS`)에서 관리하며, 로컬에 별도 작업 목록을 만들지 않는다.
+
 ## 기준 디자인
 - **확정 시안: c안** (`drafts/c.dc.html`, Figma용: `drafts/c-design.figma.svg`)
 - `drafts/a.dc.html`, `drafts/b.dc.html`은 탈락 시안 — 참고만 하고 절대 수정하지 않는다
@@ -22,9 +27,12 @@
 | 명령 | 역할 |
 |---|---|
 | `npm run dev` | 개발 서버 |
-| `npm run check` | prettier + eslint + tsc + build (커밋 전 게이트) |
+| `npm test` | Vitest watch |
+| `npm run test:unit` | Vitest 1회 실행 (CI용) |
+| `npm run test:e2e` | Playwright — 모바일 3종 뷰포트 + 접근성 |
+| `npm run check` | prettier + eslint + 유닛테스트 + tsc + build (커밋 전 게이트) |
 | `npm run optimize` | 원본 사진 → WebP 변환 |
-| `npm run verify` | **배포 게이트** — placeholder 잔존·이미지 3MB 초과·og-image 부재 시 실패 |
+| `npm run verify` | **배포 게이트** — mock 상태·placeholder 잔존·이미지 3MB 초과·og-image 부재 시 실패 |
 
 ## 고객 정보 관리 원칙
 - 예식 일시·장소·혼주 성함·계좌번호 등 모든 고객 정보는 `src/invite.ts`의 `INVITE` 상수 **한 곳에서만** 관리한다. 하드코딩 중복 금지 (리포지토리는 프라이빗이므로 코드 내 보관 허용)

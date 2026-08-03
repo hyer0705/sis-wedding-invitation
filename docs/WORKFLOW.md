@@ -1,0 +1,172 @@
+# 작업 워크플로
+
+이 문서는 **세션이 바뀌어도 동일한 방식으로 작업이 이어지도록** 하는 기준이다.
+"M1 진행해줘" 같은 요청을 받으면 이 문서의 [마일스톤 진행 절차](#마일스톤-진행-절차)를 그대로 실행한다.
+
+## 1. 이슈 관리 — Linear
+
+- 워크스페이스 팀: `Sis-wedding-project` (식별자 `SIS`)
+- 프로젝트: **모바일 청첩장 v1 — 프론트엔드**
+- 이슈 조회·생성·상태 변경은 모두 Linear MCP로 처리한다. 로컬에 별도 작업 목록을 만들지 않는다.
+- 기능 요구사항 명세서의 기능 ID(`CV-01`, `GL-02` 등)를 이슈 본문에 반드시 남긴다. 고객 문의를 기능 ID로 추적하기 위함이다.
+
+### 우선순위 매핑
+
+명세서의 우선순위를 Linear priority로 옮긴다.
+
+| 명세서 | Linear priority |
+|---|---|
+| 필수 | Urgent |
+| 권장 | High |
+| 선택 | Medium |
+
+### 라벨
+
+- 기능 라벨: `커버` `초대글` `연락처` `일시` `갤러리` `오시는길` `안내` `계좌` `RSVP` `공유` `공통` `인프라`
+- 상태 라벨: `고객정보대기` `백엔드필요`
+
+## 2. 브랜치 전략 — 경량 Git Flow
+
+```
+main                      배포(Vercel Production). develop에서 PR로만 병합
+develop                   통합 브랜치. 모든 feature PR의 목적지
+feature/sis-{번호}-{요약}   기능 개발
+hotfix/sis-{번호}-{요약}    main에서 직접 분기, main과 develop 양쪽에 병합
+```
+
+- release 브랜치는 사용하지 않는다. Vercel PR 프리뷰 URL이 고객 검수 역할을 대신한다.
+- `main`에 직접 커밋하지 않는다.
+- 브랜치명은 Linear의 "Copy git branch name"(`Cmd/Ctrl + Shift + .`)으로 복사한 값을 사용한다.
+
+## 3. 마일스톤
+
+| 마일스톤 | 기간 | 범위 |
+|---|---|---|
+| **M1 기반 세팅** | 8/3 (월) | 워크플로 문서, 브랜치, PR 템플릿, CI, 테스트 인프라 |
+| **M2 데이터·콘텐츠** | 8/4 (화) | mock 데이터·배포 게이트, 콘텐츠 섹션 5종 |
+| **M3 인터랙션·검수** | 8/5 (수) | 계좌·안내·RSVP·공유·공통 UX·품질 게이트·릴리스 |
+
+8/6(목)은 고객 정보 반영·실사진 교체·실기기 수동 QA용 버퍼다.
+
+### 마일스톤 완료 조건
+
+| 마일스톤 | 완료 조건 |
+|---|---|
+| M1 | Linear↔GitHub 연동 동작 · `develop` 존재 · 이 문서 커밋됨 · CI가 PR에서 통과 · `npm run test:unit` 통과 |
+| M2 | `npm run verify`가 mock 상태에서 **실패** · mock 이미지 12장 생성 · 섹션 5종에 `.todo` 문구 0개 · 컴포넌트 테스트 통과 · 375/430px 화면이 c안과 일치 |
+| M3 | 범위 내 기능 전부 동작 · Playwright 3종 뷰포트 통과 · axe critical/serious 0건 · `develop`→`main` PR 생성 |
+
+## 4. 마일스톤 진행 절차
+
+"M{n} 진행해줘" 요청을 받으면 다음을 순서대로 수행한다.
+
+1. Linear에서 프로젝트 `모바일 청첩장 v1 — 프론트엔드`의 마일스톤 `M{n}`에 속한 이슈를 조회한다. 상태가 `Todo`인 것만 대상으로 하고, 이슈 번호 오름차순으로 처리한다.
+2. 이슈마다 아래 사이클을 반복한다.
+   1. Linear 이슈 상태를 `In Progress`로 변경한다.
+   2. `develop`에서 `feature/sis-{번호}-{요약}` 브랜치를 만든다.
+   3. 구현한다. 확정 디자인은 c안(`drafts/c.dc.html`)이며, `drafts/`는 읽기 전용이다.
+   4. 테스트를 추가한다 (아래 [이슈 완료 조건](#5-이슈-완료-조건) 참조).
+   5. `npm run check`를 통과시킨다.
+   6. 커밋하고 푸시한 뒤 `develop`을 대상으로 PR을 만든다.
+3. 마일스톤의 모든 이슈가 끝나면 완료 조건을 대조하고 결과를 보고한다.
+
+**중단 규칙**: 이슈가 고객 정보 부재나 외부 키 미발급으로 막히면, 해당 이슈를 `Blocked` 상태로 바꾸고 `고객정보대기` 라벨을 붙인 뒤 **다음 이슈로 넘어간다.** 마일스톤 전체를 멈추지 않는다.
+
+## 5. 이슈 완료 조건
+
+이슈 하나가 완료이려면 다음을 모두 만족해야 한다.
+
+1. 명세서의 해당 기능 ID 상세 요구사항을 충족한다.
+2. 로직이 포함되면 유닛 테스트를, UI 상호작용이 있으면 컴포넌트 테스트를 추가한다.
+3. `npm run check`가 통과한다.
+4. `src/styles/tokens.css`의 기존 토큰만 사용한다. 새 색상·폰트를 추가하지 않는다.
+5. PR을 만들고 Vercel 프리뷰에서 육안 확인한다.
+6. PR 병합으로 Linear 이슈가 `Done`으로 전환된다.
+
+## 6. 커밋·PR 규약
+
+### 커밋 메시지
+
+```
+<타입>(<범위>): <한국어 요약>
+```
+
+- 타입: `feat` `fix` `refactor` `test` `chore` `docs` `style`
+- 범위: 섹션 또는 모듈명 (`gallery`, `rsvp`, `ci` 등)
+- 본문은 한국어로 작성한다.
+- **고객 개인정보(실명·계좌번호·연락처)를 커밋 메시지나 주석에 남기지 않는다.**
+
+### PR
+
+- 제목에 Linear 이슈 ID를 포함한다: `feat(gallery): 갤러리 그리드·라이트박스 구현 (SIS-7)`
+- 본문에 매직워드로 이슈를 연결한다: `Fixes SIS-7`
+- 대상 브랜치는 `develop`이다. `main` 대상 PR은 릴리스 시에만 만든다.
+- CI 통과 전에는 병합하지 않는다.
+
+### Linear 상태 자동 전환
+
+| GitHub 이벤트 | Linear 상태 |
+|---|---|
+| PR 오픈 | In Progress |
+| 리뷰 요청 | In Review |
+| `develop`에 병합 | Done |
+
+## 7. 테스트 계층
+
+백엔드가 없으므로 네 층으로 나눠 검증한다.
+
+| 층 | 도구 | 대상 |
+|---|---|---|
+| 유닛 | Vitest | `src/lib/` 순수 로직 (D-Day 계산, .ics 생성, 지도 링크, 클립보드, RSVP 페이로드) |
+| 컴포넌트 | Vitest + React Testing Library | 아코디언·토글·폼 검증·라이트박스 등 상호작용 |
+| E2E | Playwright (모바일 3종 뷰포트) + axe | 전체 스크롤, 클립보드, 링크 href, 접근성, 시각 회귀 |
+| 수동 | 실기기 | 카카오톡 인앱 브라우저, iOS Safari, 지도 앱 연결, 카톡 공유 카드 — `docs/manual-qa.md` |
+
+로직은 컴포넌트에 두지 않고 `src/lib/`로 분리한다. 테스트 가능성이 설계 기준이다.
+
+시간에 의존하는 로직은 `vi.setSystemTime()`으로 고정하고 **KST 기준으로 검증**한다. CI는 `TZ=Asia/Seoul`로 실행한다.
+
+### 알려진 제약
+
+| 항목 | 내용 |
+|---|---|
+| webkit 로컬 실행 | macOS(arm64)에서 Playwright webkit 바이너리가 Bus error로 죽는다. `ios-safari` 프로젝트는 CI에서만 실행하며, iOS 실동작은 실기기 수동 QA로 확인한다. |
+| E2E 대상 서버 | dev 서버는 모듈을 요청 시점에 변환해 병렬 워커에서 타이밍이 흔들린다. `playwright.config.ts`는 빌드 후 `preview`를 띄워 실제 배포와 같은 조건으로 검증한다. |
+| axe 색상 대비 | c안 확정 토큰 `--muted`(#a7a496, 대비 2.25)와 `--text-sub`(#7a766b, 대비 4.07)이 배경 `--bg` 위에서 WCAG AA 4.5:1에 미달한다. **토큰 변경은 고객 승인 사항**이라 `color-contrast` 규칙을 제외한 상태이며, 품질 게이트 이슈에서 고객 확인 후 처리한다. |
+| axe 검사 시점 | `MotionConfig reducedMotion`은 transform만 줄이고 opacity 페이드는 유지한다(Motion 사양). 페이드인이 끝나기 전에 검사하면 합성된 중간 색상을 읽으므로, 커버의 `opacity`가 1이 될 때까지 기다린 뒤 검사한다. |
+| CI 의존성 설치 | `npm ci`를 쓰지 않고 `npm install`을 쓴다. sharp의 wasm32 변형이 요구하는 `@emnapi/runtime`·`core`가 lock에 최상위 엔트리로 없어(macOS에서 설치 대상이 아니라 npm이 생략) `npm ci`가 중단되고, lock을 재생성하면 이번엔 리눅스 네이티브 바이너리가 빠져 빌드가 깨진다. **`package-lock.json`을 재생성하지 말 것** — 현재 lock은 전 플랫폼 네이티브 바이너리를 담고 있다. sharp나 npm이 이 문제를 고치면 `npm ci`로 되돌린다. |
+
+## 8. 명령어
+
+| 명령 | 역할 |
+|---|---|
+| `npm run dev` | 개발 서버 |
+| `npm test` | Vitest watch |
+| `npm run test:unit` | Vitest 1회 실행 (CI용) |
+| `npm run test:e2e` | Playwright |
+| `npm run check` | prettier + eslint + tsc + build + 유닛 테스트 — **커밋 전 게이트** |
+| `npm run optimize` | 원본 사진 → WebP 변환 |
+| `npm run mock:images` | picsum에서 mock 갤러리 이미지·og-image 생성 |
+| `npm run verify` | **배포 게이트** — mock 상태·placeholder 잔존·이미지 초과 시 실패 |
+
+## 9. 배포 게이트
+
+`npm run verify`는 다음 중 하나라도 해당하면 실패한다.
+
+- `INVITE.isMock`이 `true` (실 고객 정보 미반영)
+- `public/images/mock/` 존재 (mock 이미지 잔존)
+- 소스에 placeholder(`○○`, `000-000-000000`, `MAP PREVIEW`) 잔존
+- `public/images` 총용량 3MB 초과
+- `public/og-image.jpg` 부재
+
+**개발 기간 중에는 이 명령이 실패하는 것이 정상이다.** 통과해버리면 게이트가 깨진 것이므로 원인을 찾는다.
+
+## 10. 고객 정보 반영 절차
+
+고객이 확정 정보를 전달하면:
+
+1. `src/invite.ts`의 `INVITE` 상수만 수정한다. 다른 파일에 값을 하드코딩하지 않는다.
+2. `isMock`을 `false`로 바꾼다.
+3. 실사진을 `photos-original/`에 넣고 `npm run optimize`를 실행한 뒤 `public/images/mock/`을 삭제한다.
+4. 계좌번호·예금주·연락처는 **커밋 전에 고객에게 다시 확인받는다.**
+5. `npm run verify`가 통과하는지 확인한다.

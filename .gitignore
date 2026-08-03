@@ -144,3 +144,15 @@ vite.config.ts.timestamp-*
 
 # 원본 사진 (최적화 산출물 public/images/만 커밋)
 photos-original/
+
+# Playwright
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/
+
+# mock 자산 — 배포에 섞이면 안 되므로 커밋 금지
+/public/images/mock/
+
+# Claude Code 개인 로컬 설정 (팀 공유 설정은 .claude/settings.json)
+.claude/settings.local.json
