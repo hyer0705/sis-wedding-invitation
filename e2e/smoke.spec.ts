@@ -1,12 +1,14 @@
 import { test, expect } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
+import { INVITE } from "../src/invite";
 
 test.describe("청첩장 기본 동작", () => {
   test("페이지가 열리고 신랑·신부 이름과 예식 일시가 보인다", async ({ page }) => {
     await page.goto("/");
 
     await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
-    await expect(page.getByText("2026년 12월 6일")).toBeVisible();
+    // 날짜를 적어 두면 예식 일시가 바뀔 때마다 여기도 고쳐야 한다. INVITE를 본다.
+    await expect(page.getByText(INVITE.dateText)).toBeVisible();
   });
 
   test("커버부터 푸터까지 스크롤하는 동안 콘솔 에러가 없다", async ({ page }) => {

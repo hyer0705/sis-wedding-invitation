@@ -18,7 +18,9 @@ import { orMock, parseAccounts, type Account } from "./lib/private-data";
 // `// mock` 주석이 붙은 값은 고객 확정값이 아니다. 형식만 진짜와 같게 채워
 // 레이아웃 깨짐을 미리 드러내는 용도이며, 실값을 받는 대로 교체한다.
 
-const env = import.meta.env as Record<string, string | undefined>;
+// Playwright(E2E)는 Vite를 거치지 않고 이 파일을 직접 읽으므로 import.meta.env 가 없다.
+// 그때는 빈 객체로 떨어져 아래 mock 이 쓰인다 — E2E가 보는 값이 개발 화면과 같아진다.
+const env = (import.meta.env ?? {}) as Record<string, string | undefined>;
 
 // 형식만 진짜와 같은 가짜다. 실값은 .env 에 있다.
 const MOCK_ACCOUNTS: Record<"groom" | "bride", Account[]> = {
