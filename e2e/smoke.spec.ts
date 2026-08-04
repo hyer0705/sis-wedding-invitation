@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect, type Page } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
 import { INVITE } from "../src/invite";
 
@@ -30,6 +30,30 @@ test.describe("청첩장 기본 동작", () => {
     // CM-01: 320~430px 어디서도 페이지가 가로로 넘치면 안 된다
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth);
     expect(overflow).toBe(false);
+  });
+
+  // CV-02 — 커버 패럴랙스. 스크롤 값에 직접 물린 애니메이션이라 MotionConfig가
+  // 대신 꺼주지 않는다. 동작과 reduced-motion 대응을 양쪽 다 고정한다.
+  test.describe("커버 패럴랙스", () => {
+    const coverTransform = (page: Page) => page.locator("header img").evaluate((el) => getComputedStyle(el).transform);
+
+    test("스크롤하면 커버 사진이 따라 내려온다", async ({ page }) => {
+      await page.goto("/");
+      const before = await coverTransform(page);
+
+      await page.evaluate(() => window.scrollTo(0, 400));
+      await expect.poll(() => coverTransform(page)).not.toBe(before);
+    });
+
+    test("모션을 줄인 설정에서는 사진이 움직이지 않는다", async ({ page }) => {
+      await page.emulateMedia({ reducedMotion: "reduce" });
+      await page.goto("/");
+      const before = await coverTransform(page);
+
+      await page.evaluate(() => window.scrollTo(0, 400));
+      await page.waitForTimeout(300);
+      expect(await coverTransform(page)).toBe(before);
+    });
   });
 
   // 페이드인이 진행 중이면 axe가 합성된 중간 색상을 읽어 색상 대비를 오탐한다.
