@@ -7,6 +7,30 @@ on:
     branches: [develop]
 
 jobs:
+  # 유출 게이트. 로컬 pre-commit 훅은 --no-verify로 우회되므로 이 잡이 최종 방어선이다.
+  # 이 리포는 프라이빗 + 무료 플랜이라 브랜치 보호·시크릿 스캐닝 푸시 차단을 못 쓴다.
+  review:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # develop...HEAD 비교와 커밋 메시지 검사에 전체 히스토리가 필요하다
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: 의존성 설치
+        run: npm install --no-audit --no-fund
+
+      - name: 시크릿·개인정보·금지 파일 검사
+        run: npm run review:branch
+
+      - name: 의존성 취약점 검사
+        run: npm audit --audit-level=high --omit=dev
+
   check:
     runs-on: ubuntu-latest
     env:

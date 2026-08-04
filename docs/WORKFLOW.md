@@ -3,6 +3,13 @@
 이 문서는 **세션이 바뀌어도 동일한 방식으로 작업이 이어지도록** 하는 기준이다.
 "M1 진행해줘" 같은 요청을 받으면 이 문서의 [마일스톤 진행 절차](#마일스톤-진행-절차)를 그대로 실행한다.
 
+관련 문서:
+
+| 문서 | 내용 |
+|---|---|
+| [`REVIEW.md`](REVIEW.md) | PR 검토 기준, 유출 게이트, 보안 체크리스트 |
+| [`FEATURE-MAP.md`](FEATURE-MAP.md) | 명세서 기능 ID ↔ Linear 이슈 매핑, 미채택 기능 목록 |
+
 ## 1. 이슈 관리 — Linear
 
 - 워크스페이스 팀: `Sis-wedding-project` (식별자 `SIS`)
@@ -44,9 +51,12 @@ hotfix/sis-{번호}-{요약}    main에서 직접 분기, main과 develop 양쪽
 |---|---|---|
 | **M1 기반 세팅** | 8/3 (월) | 워크플로 문서, 브랜치, PR 템플릿, CI, 테스트 인프라 |
 | **M2 데이터·콘텐츠** | 8/4 (화) | mock 데이터·배포 게이트, 콘텐츠 섹션 5종 |
-| **M3 인터랙션·검수** | 8/5 (수) | 계좌·안내·RSVP·공유·공통 UX·품질 게이트·릴리스 |
+| **M3 인터랙션·검수** | 8/5 (수) | 계좌·안내·RSVP·공유·BGM·공통 UX·품질 게이트·릴리스 |
+| **M4 백엔드** | 8/7 (금) | RSVP 실제 전송, 방명록, 관리자 페이지 + 응답 집계 |
 
 8/6(목)은 고객 정보 반영·실사진 교체·실기기 수동 QA용 버퍼다.
+
+M4가 별도인 이유: 방명록은 **읽기**가 필요해 현재 확정 스택(`no-cors` POST)으로 불가능하고, 관리자 비밀번호는 정적 사이트에서 클라이언트에 노출되므로 Apps Script 쪽 검증이 필요하다. 정적 청첩장(M2·M3)을 먼저 배포해 초대장 공유를 막지 않는다.
 
 ### 마일스톤 완료 조건
 
@@ -55,6 +65,7 @@ hotfix/sis-{번호}-{요약}    main에서 직접 분기, main과 develop 양쪽
 | M1 | Linear↔GitHub 연동 동작 · `develop` 존재 · 이 문서 커밋됨 · CI가 PR에서 통과 · `npm run test:unit` 통과 |
 | M2 | `npm run verify`가 mock 상태에서 **실패** · mock 이미지 12장 생성 · 섹션 5종에 `.todo` 문구 0개 · 컴포넌트 테스트 통과 · 375/430px 화면이 c안과 일치 |
 | M3 | 범위 내 기능 전부 동작 · Playwright 3종 뷰포트 통과 · axe critical/serious 0건 · `develop`→`main` PR 생성 |
+| M4 | 방명록 작성→목록 반영 동작 · 비밀번호 기반 삭제 동작 · 관리자 페이지에서 RSVP 응답 조회·CSV 다운로드 · 관리자 인증이 서버(Apps Script)에서 검증됨 |
 
 ## 4. 마일스톤 진행 절차
 
@@ -67,7 +78,10 @@ hotfix/sis-{번호}-{요약}    main에서 직접 분기, main과 develop 양쪽
    3. 구현한다. 확정 디자인은 c안(`drafts/c.dc.html`)이며, `drafts/`는 읽기 전용이다.
    4. 테스트를 추가한다 (아래 [이슈 완료 조건](#5-이슈-완료-조건) 참조).
    5. `npm run check`를 통과시킨다.
-   6. 커밋하고 푸시한 뒤 `develop`을 대상으로 PR을 만든다.
+   6. `npm run review:branch`를 통과시키고 `/code-review`로 변경분을 검토한다 ([`REVIEW.md`](REVIEW.md)).
+   7. 커밋하고 푸시한 뒤 `develop`을 대상으로 PR을 만든다. **CI가 초록인지 확인한 뒤 병합한다.**
+
+**이슈는 하나씩 처리한다.** 한 이슈를 병합까지 끝낸 뒤 다음으로 넘어간다. 여러 이슈를 동시에 열지 않는다 — PR이 커지고 검토가 흐려진다.
 3. 마일스톤의 모든 이슈가 끝나면 완료 조건을 대조하고 결과를 보고한다.
 
 **중단 규칙**: 이슈가 고객 정보 부재나 외부 키 미발급으로 막히면, 해당 이슈를 `Blocked` 상태로 바꾸고 `고객정보대기` 라벨을 붙인 뒤 **다음 이슈로 넘어간다.** 마일스톤 전체를 멈추지 않는다.
@@ -76,12 +90,15 @@ hotfix/sis-{번호}-{요약}    main에서 직접 분기, main과 develop 양쪽
 
 이슈 하나가 완료이려면 다음을 모두 만족해야 한다.
 
-1. 명세서의 해당 기능 ID 상세 요구사항을 충족한다.
+1. 명세서에서 **채택(O)된** 기능 ID의 상세 요구사항을 충족한다. 미채택(X) 기능은 만들지 않는다 ([`FEATURE-MAP.md`](FEATURE-MAP.md)).
 2. 로직이 포함되면 유닛 테스트를, UI 상호작용이 있으면 컴포넌트 테스트를 추가한다.
 3. `npm run check`가 통과한다.
-4. `src/styles/tokens.css`의 기존 토큰만 사용한다. 새 색상·폰트를 추가하지 않는다.
-5. PR을 만들고 Vercel 프리뷰에서 육안 확인한다.
-6. PR 병합으로 Linear 이슈가 `Done`으로 전환된다.
+4. `npm run review:branch`가 통과한다 (시크릿·개인정보·금지 파일 없음).
+5. `/code-review`로 변경분을 검토하고 지적사항을 반영한다.
+6. `src/styles/tokens.css`의 기존 토큰만 사용한다. 새 색상·폰트를 추가하지 않는다.
+7. c안에 없는 기능이면 **구현 전에 디자인 시안을 확인받는다.**
+8. PR을 만들고 **CI 초록**을 확인한 뒤 Vercel 프리뷰에서 육안 확인한다.
+9. PR 병합으로 Linear 이슈가 `Done`으로 전환된다.
 
 ## 6. 커밋·PR 규약
 
@@ -145,6 +162,8 @@ hotfix/sis-{번호}-{요약}    main에서 직접 분기, main과 develop 양쪽
 | `npm run test:unit` | Vitest 1회 실행 (CI용) |
 | `npm run test:e2e` | Playwright |
 | `npm run check` | prettier + eslint + tsc + build + 유닛 테스트 — **커밋 전 게이트** |
+| `npm run review` | 스테이징된 변경의 시크릿·개인정보·금지 파일 검사 (pre-commit 훅이 호출) |
+| `npm run review:branch` | `develop...HEAD` + 커밋 메시지 검사 — **PR 전 게이트**, CI에서도 실행 |
 | `npm run optimize` | 원본 사진 → WebP 변환 |
 | `npm run mock:images` | picsum에서 mock 갤러리 이미지·og-image 생성 |
 | `npm run verify` | **배포 게이트** — mock 상태·placeholder 잔존·이미지 초과 시 실패 |
