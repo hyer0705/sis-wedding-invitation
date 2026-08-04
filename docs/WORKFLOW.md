@@ -39,11 +39,24 @@ main                      배포(Vercel Production). develop에서 PR로만 병�
 develop                   통합 브랜치. 모든 feature PR의 목적지
 feature/sis-{번호}-{요약}   기능 개발
 hotfix/sis-{번호}-{요약}    main에서 직접 분기, main과 develop 양쪽에 병합
+docs/{요약}                Linear 티켓 없는 문서 수정
 ```
 
 - release 브랜치는 사용하지 않는다. Vercel PR 프리뷰 URL이 고객 검수 역할을 대신한다.
 - `main`에 직접 커밋하지 않는다.
-- 브랜치명은 Linear의 "Copy git branch name"(`Cmd/Ctrl + Shift + .`)으로 복사한 값을 사용한다.
+- 브랜치명은 Linear의 "Copy git branch name"(`Cmd/Ctrl + Shift + .`)으로 복사한 값을 사용한다. `docs/` 브랜치만 예외로 직접 짓는다.
+
+### `docs/` 브랜치를 쓰는 경우
+
+오타 수정, 링크 갱신, 이미 내린 결정을 문서에 반영하는 것처럼 **티켓을 만들 만큼의 일이 아닌 문서 수정**에 쓴다. 문서 한 줄 고치자고 티켓을 만들면 관리 비용만 늘어난다.
+
+다음에 해당하면 `docs/`가 아니라 **티켓을 만든다.**
+
+- 코드 변경이 한 줄이라도 섞이는 경우
+- 기능 범위·마일스톤·고객 정보가 바뀌는 경우 (결정 이력이 Linear에 남아야 한다)
+- 고객에게 확인이 필요한 내용인 경우
+
+PR은 `develop`을 대상으로 하고 CI를 통과해야 하는 것은 동일하다. 연결할 이슈가 없으므로 PR 본문의 `Fixes SIS-` 줄은 지운다.
 
 ## 3. 마일스톤
 
