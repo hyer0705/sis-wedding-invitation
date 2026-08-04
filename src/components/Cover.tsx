@@ -60,8 +60,9 @@ export default function Cover() {
         <m.img
           src={COVER_IMAGE.large}
           srcSet={`${COVER_IMAGE.small} 480w, ${COVER_IMAGE.large} 960w`}
-          // 카드 최대 폭이 430px이라 그 아래에서는 뷰포트 폭이 곧 이미지 폭이다.
-          sizes="(max-width: 430px) 100vw, 430px"
+          // 카드 최대 폭 430px에서 헤더 좌우 여백 26px씩을 뺀 값이 실제 표시 폭이다.
+          // 여백을 빼지 않으면 브라우저가 필요보다 큰 후보(960w)를 고른다.
+          sizes="(max-width: 430px) calc(100vw - 52px), 378px"
           alt={`신랑 ${INVITE.groom.name}, 신부 ${INVITE.bride.name}의 웨딩 사진`}
           // LCP 요소다. 다른 리소스보다 먼저 받게 한다.
           fetchPriority="high"

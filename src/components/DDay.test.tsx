@@ -58,18 +58,19 @@ describe("DDay", () => {
   it("예식 전에는 1초마다 갱신되고 예식 이후에는 타이머를 걸지 않는다", () => {
     // 페이지는 예식 후 한 달간 열려 있다(CM-08). 그동안 바뀔 것이 없는 화면을
     // 초당 한 번씩 다시 그리지 않는지 확인한다.
-    // 스파이는 fake timer로 교체된 뒤에 걸어야 한다 — 순서가 바뀌면 진짜 타이머를 본다.
+    // globalThis.setInterval에 스파이를 걸지 않는다. fake timer가 심어 둔 가짜 구현을
+    // "원본"으로 기억해 두었다가 restoreMocks가 그것을 전역에 되돌려 놓기 때문이다.
+    // 등록된 타이머 수를 직접 세면 그 함정을 피한다.
     vi.useFakeTimers();
-    const setInterval = vi.spyOn(globalThis, "setInterval");
 
     vi.setSystemTime(new Date("2027-01-14T11:00:00+09:00"));
     const before = renderWithMotion(<DDay />);
-    expect(setInterval).toHaveBeenCalled();
+    expect(vi.getTimerCount()).toBeGreaterThan(0);
     before.unmount();
+    expect(vi.getTimerCount()).toBe(0); // 언마운트 때 정리된다
 
-    setInterval.mockClear();
     vi.setSystemTime(new Date("2027-02-24T11:00:00+09:00"));
     renderWithMotion(<DDay />);
-    expect(setInterval).not.toHaveBeenCalled();
+    expect(vi.getTimerCount()).toBe(0);
   });
 });

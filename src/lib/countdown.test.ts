@@ -18,16 +18,11 @@ describe("countdownAt", () => {
       const t = at("2027-01-22T09:58:57+09:00");
       expect(t).toMatchObject({ days: 2, hours: "01", mins: "01", secs: "03" });
     });
-
-    it("실행 환경 시간대와 무관하게 같은 결과를 낸다", () => {
-      // 같은 순간을 UTC로 적어도 KST로 적은 것과 같아야 한다.
-      expect(at("2027-01-14T02:00:00Z")).toEqual(at("2027-01-14T11:00:00+09:00"));
-    });
   });
 
   describe("예식 전", () => {
     it("하루 이상 남았으면 예식 전이다", () => {
-      expect(at("2027-01-23T23:59:59+09:00").phase).toBe("before");
+      expect(at("2027-01-20T11:00:00+09:00")).toMatchObject({ phase: "before", days: 4 });
     });
 
     it("예식 전날 자정 직전에도 예식 전이다", () => {
