@@ -44,7 +44,13 @@ describe("INVITE", () => {
 
     it("dayText의 요일과 시각이 dateISO와 일치한다", () => {
       expect(inKST({ weekday: "long" })).toBe("일요일");
-      expect(inKST({ hour: "numeric", minute: "2-digit", hour12: true })).toBe("오전 11:00");
+
+      // 오전/오후 표기는 실행 환경의 ICU 빌드에 따라 "오전"과 "AM"으로 갈린다
+      // (CI 러너가 그렇다). 로케일에 기대지 않도록 24시간제 숫자로 비교한다.
+      const hour = new Intl.DateTimeFormat("en-US", { timeZone: KST, hour: "numeric", hour12: false }).format(
+        new Date(INVITE.dateISO),
+      );
+      expect(hour).toBe("11");
       expect(INVITE.dayText).toBe("일요일 오전 11시");
     });
 
