@@ -1,0 +1,6 @@
+#!/bin/sh
+# 스테이징된 변경에 시크릿·개인정보·금지 파일이 없는지 검사한다.
+# 연결: npm install 시 package.json의 prepare가 core.hooksPath를 .githooks로 설정한다.
+#
+# 이 훅은 `git commit --no-verify`로 우회된다. 최종 방어선은 CI의 review 잡이다.
+npm run --silent review

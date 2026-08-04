@@ -156,3 +156,19 @@ photos-original/
 
 # Claude Code 개인 로컬 설정 (팀 공유 설정은 .claude/settings.json)
 .claude/settings.local.json
+
+# macOS
+.DS_Store
+
+# 에디터
+.idea/
+.vscode/
+
+# Vercel
+.vercel
+
+# 인증서·개인키 (검토 게이트도 이 패턴을 차단한다 — docs/REVIEW.md)
+*.pem
+*.key
+*.p12
+*.pfx
