@@ -56,6 +56,49 @@ test.describe("청첩장 기본 동작", () => {
     });
   });
 
+  // GL-01 — 갤러리 슬라이드. 손가락으로 넘겼을 때 카운터가 따라오는지, 화살표가
+  // 스크롤러를 실제로 움직이는지는 진짜 브라우저에서만 확인된다.
+  test.describe("갤러리 슬라이드", () => {
+    const track = (page: Page) => page.getByRole("group", { name: "웨딩 사진 갤러리" });
+    const counter = (page: Page) => page.locator("[aria-live]");
+
+    test("스크롤해서 넘기면 현재 위치 표시가 따라온다", async ({ page }) => {
+      await page.goto("/");
+      await track(page).scrollIntoViewIfNeeded();
+      await expect(counter(page)).toHaveText(`1 / ${INVITE.gallery.length}`);
+
+      // 스와이프와 같은 결과를 만든다 — 스크롤러를 세 칸 옮긴다.
+      await track(page).evaluate((el) => {
+        const step = (el.children[1] as HTMLElement).offsetLeft - (el.children[0] as HTMLElement).offsetLeft;
+        el.scrollTo({ left: step * 3, behavior: "auto" });
+      });
+
+      await expect(counter(page)).toHaveText(`4 / ${INVITE.gallery.length}`);
+    });
+
+    test("화살표를 누르면 스크롤러가 실제로 움직인다", async ({ page }) => {
+      await page.goto("/");
+      await track(page).scrollIntoViewIfNeeded();
+
+      await page.getByRole("button", { name: "다음 사진" }).click();
+
+      await expect.poll(() => track(page).evaluate((el) => el.scrollLeft)).toBeGreaterThan(0);
+      await expect(counter(page)).toHaveText(`2 / ${INVITE.gallery.length}`);
+    });
+
+    test("첫 장과 끝 장에서 갈 수 없는 쪽 화살표가 잠긴다", async ({ page }) => {
+      await page.goto("/");
+      await track(page).scrollIntoViewIfNeeded();
+      await expect(page.getByRole("button", { name: "이전 사진" })).toBeDisabled();
+
+      await track(page).evaluate((el) => el.scrollTo({ left: el.scrollWidth, behavior: "auto" }));
+
+      await expect(counter(page)).toHaveText(`${INVITE.gallery.length} / ${INVITE.gallery.length}`);
+      await expect(page.getByRole("button", { name: "다음 사진" })).toBeDisabled();
+      await expect(page.getByRole("button", { name: "이전 사진" })).toBeEnabled();
+    });
+  });
+
   // 페이드인이 진행 중이면 axe가 합성된 중간 색상을 읽어 색상 대비를 오탐한다.
   // reduced-motion으로 애니메이션을 건너뛰어 최종 상태를 검사하고,
   // 동시에 prefers-reduced-motion 대응(MotionConfig reducedMotion="user")도 함께 검증한다.
