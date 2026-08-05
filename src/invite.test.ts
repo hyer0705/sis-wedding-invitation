@@ -66,7 +66,7 @@ describe("INVITE", () => {
     });
 
     it("KST 기준으로 남은 일수를 센다", () => {
-      // D-Day 계산 자체는 SIS-26에서 src/lib으로 분리하며 경계 문구까지 검증한다.
+      // D-Day 계산과 경계 문구는 src/lib/countdown.ts가 담당하고 그쪽 테스트가 검증한다.
       // 여기서는 dateISO를 기준으로 잰 잔여 일수가 KST에서 맞는지만 고정한다.
       vi.useFakeTimers();
       vi.setSystemTime(new Date("2027-01-14T11:00:00+09:00"));
