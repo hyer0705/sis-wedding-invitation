@@ -21,6 +21,12 @@ const EXTS = new Set([".jpg", ".jpeg", ".png"]);
 const COVER = "1_main";
 const COVER_ASPECT = 5 / 4;
 
+// 카톡 공유 카드용 썸네일. 커버 사진에서 같이 뽑는다.
+// WebP 가 아니라 JPEG 인 이유는 소비자가 브라우저가 아니라 외부 스크래퍼(카카오·
+// 페이스북 등)이기 때문이다 — WebP 지원이 제각각이라 썸네일이 통째로 안 뜰 수 있다.
+// 1200x630 은 OG 표준 비율(1.91:1)이다.
+const OG = { name: "og-image.jpg", width: 1200, height: 630, quality: 82 };
+
 await mkdir(OUT, { recursive: true });
 
 let files;
@@ -54,4 +60,18 @@ for (const file of files) {
     console.log(`${out} (${(size / 1024).toFixed(0)}KB)`);
   }
 }
-console.log(`완료: ${files.length}장 → ${files.length * WIDTHS.length}개 파일, 총 ${(total / 1024).toFixed(0)}KB`);
+const coverSource = files.find((f) => path.parse(f).name === COVER);
+if (!coverSource) {
+  console.error(`커버 원본(${COVER})이 ${SRC}/ 에 없어 ${OG.name} 을 만들지 못했습니다.`);
+  process.exit(1);
+}
+const ogOut = path.join(OUT, OG.name);
+await sharp(path.join(SRC, coverSource))
+  .resize(OG.width, OG.height, { fit: "cover", position: "centre" })
+  .jpeg({ quality: OG.quality, mozjpeg: true })
+  .toFile(ogOut);
+const { size: ogSize } = await stat(ogOut);
+total += ogSize;
+console.log(`${ogOut} (${(ogSize / 1024).toFixed(0)}KB)`);
+
+console.log(`완료: ${files.length}장 → ${files.length * WIDTHS.length + 1}개 파일, 총 ${(total / 1024).toFixed(0)}KB`);

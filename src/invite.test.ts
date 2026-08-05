@@ -27,6 +27,19 @@ describe("INVITE", () => {
     expect(INVITE).not.toHaveProperty("reception");
   });
 
+  describe("배포 주소", () => {
+    it("카카오톡 스크래퍼가 읽을 수 있는 https 절대 URL 이다", () => {
+      // 상대 경로나 http 면 카톡 공유 카드에 썸네일이 뜨지 않는다 (CM-06).
+      expect(INVITE.siteUrl).toMatch(/^https:\/\/[^/]+$/);
+    });
+
+    it("끝에 슬래시를 붙이지 않는다", () => {
+      // og:image 를 `${siteUrl}/og-image.jpg` 로 만들기 때문에 슬래시가 겹치면
+      // 경로가 깨진다.
+      expect(INVITE.siteUrl).not.toMatch(/\/$/);
+    });
+  });
+
   describe("예식 일시", () => {
     afterEach(() => {
       vi.useRealTimers();

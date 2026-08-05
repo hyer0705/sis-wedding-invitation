@@ -3,13 +3,19 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>박희빈 ♥ 조혜정 결혼합니다</title>
-    <meta name="description" content="2026년 12월 6일 일요일 오전 11시 · 신도림 웨스턴베니스 7F" />
-    <!-- 카카오톡 공유 카드: og:image는 배포 도메인 확정 후 절대 URL로 교체해야 카톡 스크래퍼가 읽습니다 -->
+    <!--
+      아래 __대문자__ 자리는 vite.config.ts 의 inviteMeta 플러그인이 빌드 시점에
+      src/invite.ts 의 INVITE 값으로 채운다. 여기에 직접 적지 않는다 — 예전에
+      직접 적어 둔 날짜가 INVITE 와 어긋난 채 배포된 적이 있다(SIS-24).
+      카카오톡 스크래퍼는 절대 URL 만 읽으므로 og:image·og:url 이 절대 경로여야 한다.
+    -->
+    <title>__OG_TITLE__</title>
+    <meta name="description" content="__OG_DESCRIPTION__" />
     <meta property="og:type" content="website" />
-    <meta property="og:title" content="박희빈 ♥ 조혜정 결혼합니다" />
-    <meta property="og:description" content="2026년 12월 6일 일요일 오전 11시 · 신도림 웨스턴베니스 7F" />
-    <meta property="og:image" content="/og-image.jpg" />
+    <meta property="og:title" content="__OG_TITLE__" />
+    <meta property="og:description" content="__OG_DESCRIPTION__" />
+    <meta property="og:image" content="__OG_IMAGE__" />
+    <meta property="og:url" content="__SITE_URL__" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
