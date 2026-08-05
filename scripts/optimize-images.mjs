@@ -11,6 +11,16 @@ const WIDTHS = [480, 960];
 const QUALITY = 78;
 const EXTS = new Set([".jpg", ".jpeg", ".png"]);
 
+// 커버만 4:5로 잘라 낸다. 갤러리 사진은 원본 비율을 그대로 둔다 — 세로 3컷
+// 스트립처럼 잘리면 못 쓰게 되는 사진이 섞여 있고, 갤러리에서 어떻게 보여줄지는
+// SIS-11에서 정한다.
+//
+// 커버를 미리 자르는 이유는 화질이다. 자르지 않으면 960w 중 53%만 화면에 쓰여
+// 실효 해상도가 레티나 기준에 못 미친다. 중앙 크롭인 것은 고객이 고른 A안이고,
+// 좌표 대신 비율로 두면 사진을 교체해도 그대로 동작한다.
+const COVER = "1_main";
+const COVER_ASPECT = 5 / 4;
+
 await mkdir(OUT, { recursive: true });
 
 let files;
@@ -31,7 +41,14 @@ for (const file of files) {
   const base = path.parse(file).name;
   for (const width of WIDTHS) {
     const out = path.join(OUT, `${base}-${width}.webp`);
-    await sharp(path.join(SRC, file)).resize({ width, withoutEnlargement: true }).webp({ quality: QUALITY }).toFile(out);
+    const resize =
+      base === COVER
+        ? [width, Math.round(width * COVER_ASPECT), { fit: "cover", position: "centre" }]
+        : [{ width, withoutEnlargement: true }];
+    await sharp(path.join(SRC, file))
+      .resize(...resize)
+      .webp({ quality: QUALITY })
+      .toFile(out);
     const { size } = await stat(out);
     total += size;
     console.log(`${out} (${(size / 1024).toFixed(0)}KB)`);

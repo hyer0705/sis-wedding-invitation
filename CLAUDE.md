@@ -30,7 +30,7 @@
 - 지도: Kakao Maps JS SDK + 외부 링크 3종(네이버지도·카카오내비·티맵)
 - 공유: `index.html` 정적 OG 태그(`public/og-image.jpg`, JPEG) + Kakao JS SDK(`src/lib/share.ts`) + `navigator.share` 폴백
 - RSVP: Google Apps Script 웹앱 → Google Sheets (`src/lib/rsvp.ts`). DB 없음. `no-cors` POST + localStorage 중복 방지
-- 이미지: 원본은 `photos-original/`(git 제외) → `npm run optimize`(sharp)로 WebP 2벌(480w/960w) → `public/images/`
+- 이미지: 원본은 `photos-original/`(git 제외) → `npm run optimize`(sharp)로 WebP 2벌(480w/960w) → `public/images/`(git 제외) → `npm run upload:images`로 **Cloudflare R2**에 업로드. 사진은 리포에 커밋하지 않는다. 로딩 URL은 `VITE_IMAGE_BASE_URL` + `src/lib/imageUrl.ts`가 만들며, 값이 비면 로컬 `/images` 폴백
 - 호스팅: Vercel — `main` 푸시 시 배포, PR 프리뷰 URL은 고객 검수용
 - 비밀값(Kakao JS 키, Apps Script URL)은 `.env` (템플릿: `.env.example`)
 
@@ -45,7 +45,8 @@
 | `npm run review` | 스테이징 변경의 시크릿·개인정보·금지 파일 검사 (pre-commit 훅) |
 | `npm run review:branch` | `develop...HEAD` + 커밋 메시지 검사 (**PR 전 게이트**, CI에서도 실행) |
 | `npm run optimize` | 원본 사진 → WebP 변환 |
-| `npm run verify` | **배포 게이트** — mock 상태·placeholder 잔존·이미지 3MB 초과·og-image 부재 시 실패 |
+| `npm run upload:images` | `public/images/` → Cloudflare R2 업로드. 목록만 볼 때는 `npm run upload:images -- --dry-run` (`--` 없으면 npm이 플래그를 먹는다) |
+| `npm run verify` | **배포 게이트** — mock 상태·placeholder 잔존·이미지 베이스 URL 미설정/도달 불가·og-image 부재 시 실패 |
 
 ## 고객 정보 관리 원칙
 - 모든 고객 정보는 `src/invite.ts`의 `INVITE` 상수 **한 곳에서만** 관리한다. 하드코딩 중복 금지
@@ -97,7 +98,7 @@
 | 요청 | 대응 위치 | 주의 |
 |---|---|---|
 | 문구 수정 (초대글 등) | `INVITE` 상수 | 줄바꿈 위치까지 고객 확인 |
-| 사진 교체/추가 | 원본 → `npm run optimize` → WebP만 사용 | 4:5 크롭 결과를 고객에게 확인 |
+| 사진 교체/추가 | 원본 → `npm run optimize` → `npm run upload:images` | 4:5 크롭 결과를 고객에게 확인. 파일명을 유지하면 코드 변경이 필요 없다 |
 | 색감 변경 | 색상 토큰만 일괄 치환 | 개별 요소 색만 바꾸지 않는다 |
 | 계좌 등록/수정 | `INVITE` 상수 | 커밋 전 계좌번호·예금주 고객 재확인 필수 |
 | 섹션 추가/순서 변경 | 섹션 컴포넌트 단위로 | 카드 패턴(radius 24, 마진 20) 유지 |
@@ -106,7 +107,7 @@
 ## 절대 규칙
 1. **배포 게이트**: placeholder(`○○`, `000-000-000000`, `4:5`, `MAP PREVIEW`)가 남아 있으면 배포 금지
 2. **검토 게이트**: PR 전 `npm run review:branch` 통과 + `/code-review` 수행. 이 리포는 프라이빗 무료 플랜이라 브랜치 보호·시크릿 스캐닝을 쓸 수 없어 이 게이트가 유일한 방어선이다
-3. **이미지**: 원본(JPEG) 커밋 금지, 최적화 산출물(WebP, 총 3MB 이내)만 커밋
+3. **이미지**: 사진은 원본·최적화본 모두 커밋 금지. Cloudflare R2에만 둔다. R2 자격증명(`R2_*`)에는 `VITE_` 접두사를 붙이지 않는다 — 붙이면 시크릿 키가 클라이언트 번들에 박힌다
 4. **삭제 금지**: 파일 삭제는 사용자 승인 필수
 5. 응답·커밋 메시지·주석 모두 한국어, 존댓말
 
