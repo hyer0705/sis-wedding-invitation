@@ -86,15 +86,24 @@ if (!imageBase) {
   const coverMatch = /^const COVER_NAME = "([^"]+)";/m.exec(coverSource);
   if (!coverMatch) {
     errors.push("Cover.tsx 에서 COVER_NAME 을 찾지 못했습니다 — 게이트가 무력화됩니다");
-  } else {
-    const url = `${imageBase.replace(/\/+$/, "")}/${coverMatch[1]}-960.webp`;
+  }
+
+  const base = imageBase.replace(/\/+$/, "");
+  const targets = [
+    coverMatch && { label: "커버 사진", url: `${base}/${coverMatch[1]}-960.webp` },
+    // og-image 도 R2 에 둔다(SIS-24). 카톡 스크래퍼가 여기서 못 받아오면 공유
+    // 카드에 썸네일이 통째로 빠진다.
+    { label: "카톡 공유 썸네일(og-image.jpg)", url: `${base}/og-image.jpg` },
+  ].filter(Boolean);
+
+  for (const { label, url } of targets) {
     try {
       const res = await fetch(url, { method: "HEAD", signal: AbortSignal.timeout(8000) });
       if (!res.ok) {
-        errors.push(`커버 사진에 접근할 수 없습니다 (HTTP ${res.status}): ${url} — 버킷 공개 설정과 업로드 여부를 확인하세요`);
+        errors.push(`${label}에 접근할 수 없습니다 (HTTP ${res.status}): ${url} — 버킷 공개 설정과 업로드 여부를 확인하세요`);
       }
     } catch (e) {
-      errors.push(`커버 사진 확인 실패: ${url} — ${e.message}`);
+      errors.push(`${label} 확인 실패: ${url} — ${e.message}`);
     }
   }
 }
@@ -107,10 +116,13 @@ try {
   // 없는 것이 정상이다.
 }
 
+// og-image 는 위 R2 도달 확인이 대신한다. 리포에 남아 있으면 R2 쪽과 어긋난
+// 사진이 배포될 수 있으므로 오히려 없어야 한다.
 try {
   await stat("public/og-image.jpg");
+  errors.push("public/og-image.jpg 가 리포에 남아 있습니다 — 이미지는 R2 에서만 관리합니다(SIS-24)");
 } catch {
-  errors.push("public/og-image.jpg 없음 — 카톡 공유 썸네일 필요");
+  // 없는 것이 정상이다.
 }
 
 if (errors.length > 0) {

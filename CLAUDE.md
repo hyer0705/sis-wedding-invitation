@@ -28,7 +28,7 @@
 - **Vite + React 19 + TypeScript**, 정적 빌드. 스타일은 `src/styles/tokens.css`의 CSS 변수 + 일반 CSS (Tailwind·CSS-in-JS 금지)
 - 애니메이션: **Motion for React만 허용** (`LazyMotion` + `m` 컴포넌트, `MotionConfig reducedMotion="user"` 유지). 다른 애니메이션 라이브러리 추가 금지
 - 지도: Kakao Maps JS SDK + 외부 링크 3종(네이버지도·카카오내비·티맵)
-- 공유: `index.html` 정적 OG 태그(`public/og-image.jpg`, JPEG) + Kakao JS SDK(`src/lib/share.ts`) + `navigator.share` 폴백
+- 공유: `index.html` OG 태그는 **`vite.config.ts`의 `inviteMeta` 플러그인이 `INVITE`에서 빌드 시점에 주입**(직접 적지 않는다 — 값이 어긋난 채 배포된 적 있음). 썸네일은 R2의 `og-image.jpg`(JPEG — 외부 스크래퍼는 WebP 지원이 제각각) + Kakao JS SDK(`src/lib/share.ts`) + `navigator.share` 폴백
 - RSVP: Google Apps Script 웹앱 → Google Sheets (`src/lib/rsvp.ts`). DB 없음. `no-cors` POST + localStorage 중복 방지
 - 이미지: 원본은 `photos-original/`(git 제외) → `npm run optimize`(sharp)로 WebP 2벌(480w/960w) → `public/images/`(git 제외) → `npm run upload:images`로 **Cloudflare R2**에 업로드. 사진은 리포에 커밋하지 않는다. 로딩 URL은 `VITE_IMAGE_BASE_URL` + `src/lib/imageUrl.ts`가 만들며, 값이 비면 로컬 `/images` 폴백
 - 호스팅: Vercel — `main` 푸시 시 배포, PR 프리뷰 URL은 고객 검수용
@@ -46,7 +46,7 @@
 | `npm run review:branch` | `develop...HEAD` + 커밋 메시지 검사 (**PR 전 게이트**, CI에서도 실행) |
 | `npm run optimize` | 원본 사진 → WebP 변환 |
 | `npm run upload:images` | `public/images/` → Cloudflare R2 업로드. 목록만 볼 때는 `npm run upload:images -- --dry-run` (`--` 없으면 npm이 플래그를 먹는다) |
-| `npm run verify` | **배포 게이트** — mock 상태·placeholder 잔존·이미지 베이스 URL 미설정/도달 불가·og-image 부재 시 실패 |
+| `npm run verify` | **배포 게이트** — mock 상태·placeholder 잔존·이미지 베이스 URL 미설정·커버/og-image R2 도달 불가 시 실패 |
 
 ## 고객 정보 관리 원칙
 - 모든 고객 정보는 `src/invite.ts`의 `INVITE` 상수 **한 곳에서만** 관리한다. 하드코딩 중복 금지
@@ -107,7 +107,7 @@
 ## 절대 규칙
 1. **배포 게이트**: placeholder(`○○`, `000-000-000000`, `4:5`, `MAP PREVIEW`)가 남아 있으면 배포 금지
 2. **검토 게이트**: PR 전 `npm run review:branch` 통과 + `/code-review` 수행. 이 리포는 프라이빗 무료 플랜이라 브랜치 보호·시크릿 스캐닝을 쓸 수 없어 이 게이트가 유일한 방어선이다
-3. **이미지**: 사진은 원본·최적화본 모두 커밋 금지. Cloudflare R2에만 둔다. **예외는 `public/og-image.jpg` 하나** — 카톡 스크래퍼가 사이트 도메인의 안정적인 절대 URL을 읽어야 해서 리포에 둔다. R2 자격증명(`R2_*`)에는 `VITE_` 접두사를 붙이지 않는다 — 붙이면 시크릿 키가 클라이언트 번들에 박힌다
+3. **이미지**: 정적 이미지는 **예외 없이 전부 Cloudflare R2**에서 관리한다. 원본·WebP·`og-image.jpg` 모두 커밋 금지. R2 자격증명(`R2_*`)에는 `VITE_` 접두사를 붙이지 않는다 — 붙이면 시크릿 키가 클라이언트 번들에 박힌다
 4. **삭제 금지**: 파일 삭제는 사용자 승인 필수
 5. 응답·커밋 메시지·주석 모두 한국어, 존댓말
 

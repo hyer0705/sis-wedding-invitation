@@ -10,7 +10,7 @@ import { INVITE } from "./src/invite";
  * 따라오지 않아 카톡 공유 카드에 1년 넘게 어긋난 날짜가 실려 있었다(SIS-24).
  * 값이 한 곳에서만 나오게 해 그 어긋남 자체를 없앤다.
  */
-function inviteMeta(): Plugin {
+function inviteMeta(mode: string): Plugin {
   const title = `${INVITE.groom.name} ♥ ${INVITE.bride.name} 결혼합니다`;
   const description = `${INVITE.dateText} ${INVITE.dayText} · ${INVITE.venue} ${INVITE.hall}`;
   const siteUrl = INVITE.siteUrl.replace(/\/+$/, "");
@@ -18,9 +18,16 @@ function inviteMeta(): Plugin {
   return {
     name: "invite-meta",
     transformIndexHtml(html) {
+      // og:image 도 R2 에서 온다. 베이스 URL 이 비어 있으면(로컬 폴백) 상대 경로가
+      // 되는데, 카카오 스크래퍼는 상대 경로를 못 읽는다. 그래서 사이트 절대 주소로
+      // 메워 최소한 형태는 유지하고, 실제 도달 여부는 `npm run verify` 가 잡는다.
+      const imageBase = loadEnv(mode, process.cwd(), "VITE_").VITE_IMAGE_BASE_URL?.trim().replace(/\/+$/, "");
+      const ogImage = imageBase ? `${imageBase}/og-image.jpg` : `${siteUrl}/images/og-image.jpg`;
+
       const filled = html
         .replaceAll("__OG_TITLE__", title)
         .replaceAll("__OG_DESCRIPTION__", description)
+        .replaceAll("__OG_IMAGE__", ogImage)
         .replaceAll("__SITE_URL__", siteUrl);
 
       // 채우지 못한 자리가 남으면 빌드를 세운다. 조용히 넘어가면 카톡 공유
@@ -70,7 +77,7 @@ function imageOriginPreconnect(mode: string): Plugin {
 }
 
 export default defineConfig(({ mode }) => ({
-  plugins: [react(), inviteMeta(), imageOriginPreconnect(mode)],
+  plugins: [react(), inviteMeta(mode), imageOriginPreconnect(mode)],
   test: {
     environment: "jsdom",
     setupFiles: ["./src/test/setup.ts"],

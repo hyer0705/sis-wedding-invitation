@@ -14,7 +14,9 @@ import { readdir, readFile, stat } from "node:fs/promises";
 import path from "node:path";
 
 const SRC = "public/images";
-const CONTENT_TYPE = "image/webp";
+
+// WebP 는 사이트가 렌더하는 사진, JPEG 는 카톡 공유 카드용 og-image 다.
+const CONTENT_TYPES = { ".webp": "image/webp", ".jpg": "image/jpeg" };
 
 // 사진을 교체해도 파일명을 그대로 쓰기로 했다(SIS-28). immutable 로 걸면 교체분이
 // 하객 브라우저에 몇 달씩 안 내려가므로, 하루면 퍼지는 값으로 둔다.
@@ -51,14 +53,14 @@ for (const file of [".env", ".env.local"]) {
 
 let files;
 try {
-  files = (await readdir(SRC)).filter((f) => f.endsWith(".webp")).sort();
+  files = (await readdir(SRC)).filter((f) => path.extname(f).toLowerCase() in CONTENT_TYPES).sort();
 } catch {
   console.error(`${SRC}/ 가 없습니다 — npm run optimize 를 먼저 실행하세요.`);
   process.exit(1);
 }
 
 if (files.length === 0) {
-  console.error(`${SRC}/ 에 올릴 WebP 가 없습니다 — npm run optimize 를 먼저 실행하세요.`);
+  console.error(`${SRC}/ 에 올릴 이미지가 없습니다 — npm run optimize 를 먼저 실행하세요.`);
   process.exit(1);
 }
 
@@ -88,7 +90,7 @@ for (const file of files) {
       Bucket: bucket,
       Key: file,
       Body: body,
-      ContentType: CONTENT_TYPE,
+      ContentType: CONTENT_TYPES[path.extname(file).toLowerCase()],
       CacheControl: CACHE_CONTROL,
     }),
   );
