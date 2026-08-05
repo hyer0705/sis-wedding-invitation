@@ -5,7 +5,7 @@ import { imageSrcSet, imageUrl } from "../lib/imageUrl";
 
 // 커버 사진. 사진 교체 시 `npm run optimize` 산출물 이름만 여기서 바꾼다.
 // 실제 호스트는 VITE_IMAGE_BASE_URL(Cloudflare R2)이 정한다 — lib/imageUrl.ts 참고.
-const COVER_NAME = "wedding_1";
+const COVER_NAME = "1_main";
 
 // c안의 data-parallax와 같은 값 — 스크롤 0.14배로 따라 내려오되 90px에서 멈춘다.
 const PARALLAX_RATIO = 0.14;
