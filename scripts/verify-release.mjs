@@ -1,4 +1,4 @@
-// 배포 게이트 — placeholder가 남아 있거나 이미지 총용량이 초과하면 실패(exit 1)한다.
+// 배포 게이트 — placeholder가 남아 있거나 사진을 받아올 수 없으면 실패(exit 1)한다.
 // 배포 전 반드시 `npm run verify`가 통과해야 한다.
 //
 // mock 데이터는 형식이 진짜와 같아서 placeholder 정규식에 걸리지 않는다. 그래서
@@ -8,7 +8,6 @@ import { readdir, readFile, stat } from "node:fs/promises";
 import path from "node:path";
 
 const PLACEHOLDERS = ["○○", "000-000-000000", "MAP PREVIEW"];
-const IMAGE_BUDGET = 3 * 1024 * 1024; // 3MB
 const errors = [];
 
 async function* walk(dir) {
@@ -72,22 +71,40 @@ if (missingEnv.length > 0) {
   errors.push(`개인정보 환경변수 미설정: ${missingEnv.join(", ")} — mock 값이 그대로 배포됩니다`);
 }
 
-let imageTotal = 0;
-try {
-  for await (const f of walk("public/images")) imageTotal += (await stat(f)).size;
-} catch {
-  errors.push("public/images/ 가 없습니다 — npm run optimize를 먼저 실행하세요");
+// 사진은 Cloudflare R2 에서 온다(SIS-28). public/images/ 는 optimize 산출물을
+// 잠시 두는 로컬 작업 폴더일 뿐 배포물에 들어가지 않으므로, 여기서 볼 것은
+// 파일 용량이 아니라 "배포된 사이트가 사진을 실제로 받아올 수 있는가"다.
+const imageBase = (process.env.VITE_IMAGE_BASE_URL || envFile.VITE_IMAGE_BASE_URL || "").trim();
+if (!imageBase) {
+  errors.push("VITE_IMAGE_BASE_URL 미설정 — 사진이 로컬 폴백(/images)을 가리켜 배포본에서 전부 깨집니다");
+} else if (!/^https:\/\//.test(imageBase)) {
+  errors.push(`VITE_IMAGE_BASE_URL 이 https 절대 URL 이 아닙니다: ${imageBase}`);
+} else {
+  // 커버 사진 이름은 컴포넌트가 단일 기준이다. 게이트에 이름을 또 적으면
+  // 사진 교체 때 한쪽만 바뀌어 게이트가 엉뚱한 파일을 확인하게 된다.
+  const coverSource = await readFile("src/components/Cover.tsx", "utf8");
+  const coverMatch = /^const COVER_NAME = "([^"]+)";/m.exec(coverSource);
+  if (!coverMatch) {
+    errors.push("Cover.tsx 에서 COVER_NAME 을 찾지 못했습니다 — 게이트가 무력화됩니다");
+  } else {
+    const url = `${imageBase.replace(/\/+$/, "")}/${coverMatch[1]}-960.webp`;
+    try {
+      const res = await fetch(url, { method: "HEAD", signal: AbortSignal.timeout(8000) });
+      if (!res.ok) {
+        errors.push(`커버 사진에 접근할 수 없습니다 (HTTP ${res.status}): ${url} — 버킷 공개 설정과 업로드 여부를 확인하세요`);
+      }
+    } catch (e) {
+      errors.push(`커버 사진 확인 실패: ${url} — ${e.message}`);
+    }
+  }
 }
 
-// mock 이미지는 SIS-11에서 생기지만 검사는 미리 넣어둔다.
+// mock 이미지는 SIS-11에서 생긴다. R2 로 그대로 올라가면 가짜 사진이 배포된다.
 try {
   await stat("public/images/mock");
   errors.push("public/images/mock/ 이 남아 있습니다 — 실사진으로 교체 후 삭제하세요");
 } catch {
   // 없는 것이 정상이다.
-}
-if (imageTotal > IMAGE_BUDGET) {
-  errors.push(`public/images 총용량 ${(imageTotal / 1024 / 1024).toFixed(2)}MB — 예산 3MB 초과`);
 }
 
 try {
@@ -101,4 +118,4 @@ if (errors.length > 0) {
   for (const e of errors) console.error(`  - ${e}`);
   process.exit(1);
 }
-console.log(`배포 게이트 통과 (이미지 ${(imageTotal / 1024).toFixed(0)}KB / 3MB)`);
+console.log(`배포 게이트 통과 (이미지 출처 ${imageBase})`);
