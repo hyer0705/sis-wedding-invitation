@@ -45,7 +45,7 @@
 | `npm run review` | 스테이징 변경의 시크릿·개인정보·금지 파일 검사 (pre-commit 훅) |
 | `npm run review:branch` | `develop...HEAD` + 커밋 메시지 검사 (**PR 전 게이트**, CI에서도 실행) |
 | `npm run optimize` | 원본 사진 → WebP 변환 |
-| `npm run upload:images` | `public/images/` → Cloudflare R2 업로드 (`--dry-run` 지원) |
+| `npm run upload:images` | `public/images/` → Cloudflare R2 업로드. 목록만 볼 때는 `npm run upload:images -- --dry-run` (`--` 없으면 npm이 플래그를 먹는다) |
 | `npm run verify` | **배포 게이트** — mock 상태·placeholder 잔존·이미지 베이스 URL 미설정/도달 불가·og-image 부재 시 실패 |
 
 ## 고객 정보 관리 원칙
