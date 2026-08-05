@@ -1,6 +1,38 @@
 /// <reference types="vitest/config" />
 import { defineConfig, loadEnv, type Plugin } from "vite";
 import react from "@vitejs/plugin-react";
+import { INVITE } from "./src/invite";
+
+/**
+ * index.html 의 제목·설명·OG 태그를 INVITE 에서 채운다.
+ *
+ * 예전에는 index.html 에 날짜를 직접 적어 뒀는데, 예식 일시가 바뀔 때 그쪽이
+ * 따라오지 않아 카톡 공유 카드에 1년 넘게 어긋난 날짜가 실려 있었다(SIS-24).
+ * 값이 한 곳에서만 나오게 해 그 어긋남 자체를 없앤다.
+ */
+function inviteMeta(): Plugin {
+  const title = `${INVITE.groom.name} ♥ ${INVITE.bride.name} 결혼합니다`;
+  const description = `${INVITE.dateText} ${INVITE.dayText} · ${INVITE.venue} ${INVITE.hall}`;
+  const siteUrl = INVITE.siteUrl.replace(/\/+$/, "");
+
+  return {
+    name: "invite-meta",
+    transformIndexHtml(html) {
+      const filled = html
+        .replaceAll("__OG_TITLE__", title)
+        .replaceAll("__OG_DESCRIPTION__", description)
+        .replaceAll("__SITE_URL__", siteUrl);
+
+      // 채우지 못한 자리가 남으면 빌드를 세운다. 조용히 넘어가면 카톡 공유
+      // 카드에 __OG_TITLE__ 같은 문자열이 그대로 실린다.
+      const leftover = filled.match(/__[A-Z0-9_]+__/g);
+      if (leftover) {
+        throw new Error(`index.html 의 자리표시자를 채우지 못했습니다: ${[...new Set(leftover)].join(", ")}`);
+      }
+      return filled;
+    },
+  };
+}
 
 /**
  * 커버 사진(LCP 요소)이 R2 같은 다른 오리진에서 오면 DNS·TLS 핸드셰이크가
@@ -38,7 +70,7 @@ function imageOriginPreconnect(mode: string): Plugin {
 }
 
 export default defineConfig(({ mode }) => ({
-  plugins: [react(), imageOriginPreconnect(mode)],
+  plugins: [react(), inviteMeta(), imageOriginPreconnect(mode)],
   test: {
     environment: "jsdom",
     setupFiles: ["./src/test/setup.ts"],

@@ -65,6 +65,12 @@ export const INVITE = {
     motherDeceased: false,
   },
 
+  // CM-06 — 배포 주소. 명세서 확정값은 hb-hj 이며 도메인 대신 Vercel 기본 주소를
+  // 쓰기로 했다(2026-08-05). 카카오톡 스크래퍼가 절대 URL 만 읽으므로 OG 태그가
+  // 이 값을 쓴다. 환경변수가 아니라 여기 두는 이유는, 배포 환경에 넣는 것을
+  // 잊으면 공유 카드가 조용히 깨지기 때문이다. 끝에 슬래시를 붙이지 않는다.
+  siteUrl: "https://hb-hj.vercel.app",
+
   // 확정값. dateISO 를 바꾸면 D-Day·.ics·OG 태그·지도 링크가 모두 따라 움직인다.
   // 아래 넷은 같은 시각을 가리켜야 한다 — src/invite.test.ts 가 이를 검증한다.
   dateISO: "2027-01-24T11:00:00+09:00",
