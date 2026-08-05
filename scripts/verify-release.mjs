@@ -118,4 +118,7 @@ if (errors.length > 0) {
   for (const e of errors) console.error(`  - ${e}`);
   process.exit(1);
 }
-console.log(`배포 게이트 통과 (이미지 출처 ${imageBase})`);
+// 성공 로그에 베이스 URL 을 찍지 않는다. 통과했다는 사실만 있으면 충분한데,
+// 로그를 캡처해 공유하는 순간 버킷 주소가 같이 나가기 때문이다.
+// 실패 메시지에는 URL 을 남긴다 — 그때는 어디가 안 되는지 봐야 한다.
+console.log("배포 게이트 통과 (이미지 출처 도달 확인)");
