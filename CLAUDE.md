@@ -27,7 +27,7 @@
 ## 기술 스택 (확정)
 - **Vite + React 19 + TypeScript**, 정적 빌드. 스타일은 `src/styles/tokens.css`의 CSS 변수 + 일반 CSS (Tailwind·CSS-in-JS 금지)
 - 애니메이션: **Motion for React만 허용** (`LazyMotion` + `m` 컴포넌트, `MotionConfig reducedMotion="user"` 유지). 다른 애니메이션 라이브러리 추가 금지
-- 지도: Kakao Maps JS SDK + 외부 링크 3종(네이버지도·카카오내비·티맵)
+- 지도: Kakao Maps JS SDK + 외부 링크 3종(네이버지도·카카오맵·티맵). 카카오내비가 아닌 이유는 `src/lib/mapLinks.ts` 머리말
 - 공유: `index.html` OG 태그는 **`vite.config.ts`의 `inviteMeta` 플러그인이 `INVITE`에서 빌드 시점에 주입**(직접 적지 않는다 — 값이 어긋난 채 배포된 적 있음). 썸네일은 R2의 `og-image.jpg`(JPEG — 외부 스크래퍼는 WebP 지원이 제각각) + Kakao JS SDK(`src/lib/share.ts`) + `navigator.share` 폴백
 - RSVP: Google Apps Script 웹앱 → Google Sheets (`src/lib/rsvp.ts`). DB 없음. `no-cors` POST + localStorage 중복 방지
 - 이미지: 원본은 `photos-original/`(git 제외) → `npm run optimize`(sharp)로 WebP 2벌(480w/960w) → `public/images/`(git 제외) → `npm run upload:images`로 **Cloudflare R2**에 업로드. 사진은 리포에 커밋하지 않는다. 로딩 URL은 `VITE_IMAGE_BASE_URL` + `src/lib/imageUrl.ts`가 만들며, 값이 비면 로컬 `/images` 폴백
@@ -72,6 +72,7 @@
 | surface-2 | `#eef1e8`, `#f7f9f3` | 옅은 버튼, 아코디언 |
 | input-bg / border | `#fbfcf8` / `#e6e8dd` | 입력 필드 |
 | on-primary | `#f7f8f1` (보조 `#e2e8d8`, `#e7ecde`) | 그린 배경 위 텍스트 |
+| on-surface | `#5f7060` | 연녹색 박스(surface) 위 텍스트 — 지도 앱 버튼 |
 | overlay | `#282e26` @ 94% | 라이트박스 배경 |
 
 ### 타이포그래피
@@ -117,5 +118,6 @@
 - [ ] iOS Safari / Android Chrome 실기기 확인
 - [ ] D-Day 카운트다운 정상 동작 (KST 기준)
 - [ ] RSVP 제출 → 수신처(스프레드시트) 도착 확인
-- [ ] 지도 3종 링크(네이버·카카오내비·티맵) 실기기에서 앱 연결 확인
+- [ ] 지도 3종 링크(네이버·카카오맵·티맵) 실기기에서 앱 연결 확인 — 좌표가 예식장을 가리키는지 함께 확인
+- [ ] Kakao Developers 콘솔에 배포 도메인 등록 (미등록이면 지도만 정적 안내로 빠진다)
 - [ ] 계좌 복사 버튼 → 실제 클립보드 값 확인
