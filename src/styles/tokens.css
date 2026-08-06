@@ -13,6 +13,9 @@
   --surface-3: #f7f9f3;
   --input-bg: #fbfcf8;
   --input-border: #e6e8dd;
+  /* 연녹색 박스(--surface) 위에 얹는 글자. c안 지도 앱 버튼의 색을 토큰으로 옮겼다 —
+     --primary 를 그대로 쓰면 그 배경 위에서 대비가 크게 모자란다. */
+  --on-surface: #5f7060;
   --on-primary: #f7f8f1;
   --on-primary-sub: #e2e8d8;
   --on-primary-title: #e7ecde;

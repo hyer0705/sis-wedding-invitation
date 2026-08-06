@@ -47,6 +47,18 @@ body {
   display: none;
 }
 
+/* MP-01 지도 — 페이지 세로 스크롤을 브라우저에 돌려준다.
+   카카오 SDK 는 자기 요소에 touch-action:none 을 걸어 지도 위에서의 모든 제스처를 가져간다.
+   지도 드래그는 이미 꺼 두었는데(draggable:false) 이 설정 탓에 세로 스크롤까지 막혀,
+   하객이 지도 위에 손가락을 올리면 청첩장이 그 자리에서 멈춘다. 지도가 화면을 넓게 차지해
+   무심코 짚기 쉬운 자리다.
+   SDK 가 인라인 스타일로 넣는 값이라 !important 없이는 이기지 못하고, 자식 요소에 걸려 있어
+   인라인 style 로도 닿지 않는다. */
+.venue-map,
+.venue-map * {
+  touch-action: pan-y !important;
+}
+
 /* 화면에서는 감추고 스크린리더에만 읽히는 텍스트.
    display:none 이나 visibility:hidden 은 스크린리더에서도 사라지므로 쓸 수 없다. */
 .sr-only {

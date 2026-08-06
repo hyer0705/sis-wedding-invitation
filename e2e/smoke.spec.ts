@@ -101,6 +101,35 @@ test.describe("청첩장 기본 동작", () => {
     });
   });
 
+  // MP-02·MP-03 — 오시는 길. 링크 href와 클립보드는 진짜 브라우저에서만 확인된다.
+  test.describe("오시는 길", () => {
+    test("지도 앱 세 곳 링크가 예식장 좌표를 싣는다", async ({ page }) => {
+      await page.goto("/");
+
+      // 앱이 없는 하객에게도 갈 곳이 있어야 하므로 href는 웹 주소여야 한다.
+      // 앱 스킴은 클릭 시점에 JS가 시도한다.
+      for (const label of ["네이버지도", "카카오맵", "티맵"]) {
+        await expect(page.getByRole("link", { name: label })).toHaveAttribute("href", /^https:\/\//);
+      }
+
+      const kakao = await page.getByRole("link", { name: "카카오맵" }).getAttribute("href");
+      expect(decodeURIComponent(kakao ?? "")).toContain(`${INVITE.coords.lat},${INVITE.coords.lng}`);
+    });
+
+    test("주소 복사 버튼이 실제 클립보드에 주소를 넣는다", async ({ page, context, browserName }) => {
+      // 클립보드 읽기 권한은 chromium에서만 부여할 수 있다. webkit은 실기기 수동 QA로 확인한다.
+      test.skip(browserName !== "chromium", "clipboard-read 권한은 chromium 전용");
+      await context.grantPermissions(["clipboard-read", "clipboard-write"]);
+      await page.goto("/");
+
+      await page.getByRole("button", { name: "주소 복사하기" }).click();
+
+      await expect(page.getByRole("status")).toHaveText("주소가 복사되었습니다");
+      const copied = await page.evaluate(() => navigator.clipboard.readText());
+      expect(copied).toBe(INVITE.address);
+    });
+  });
+
   // 페이드인이 진행 중이면 axe가 합성된 중간 색상을 읽어 색상 대비를 오탐한다.
   // reduced-motion으로 애니메이션을 건너뛰어 최종 상태를 검사하고,
   // 동시에 prefers-reduced-motion 대응(MotionConfig reducedMotion="user")도 함께 검증한다.
