@@ -66,7 +66,7 @@ export default function Location() {
           setMapState("unavailable");
           return;
         }
-        drawVenueMap(maps, container, VENUE.lat, VENUE.lng);
+        drawVenueMap(maps, container, { lat: VENUE.lat, lng: VENUE.lng, label: `${INVITE.venue} 위치` });
         setMapState("ready");
       })
       // SDK 는 받았는데 지도 생성이 실패하는 경우(도메인 미등록, SDK 내부 예외)가 있다.
@@ -102,32 +102,48 @@ export default function Location() {
         </div>
 
         <div
-          ref={mapRef}
           data-testid="venue-map"
+          className="venue-map"
           style={{
+            position: "relative",
             width: "100%",
             aspectRatio: "16/10",
             borderRadius: 18,
             overflow: "hidden",
             // 지도가 뜨면 가려진다. 뜨기 전까지 자리를 지켜 아래 내용이 밀려 올라가지 않게 한다.
             background: "repeating-linear-gradient(45deg, #e6e7da, #e6e7da 12px, #dde0cf 12px, #dde0cf 24px)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
           }}
         >
+          <div ref={mapRef} style={{ position: "absolute", inset: 0 }} />
+
+          {/*
+            지도를 덮는 투명한 판. 하객이 지도 위에 손가락을 올려도 청첩장이 스크롤되게 한다.
+
+            카카오가 만드는 지도 안쪽 div 들은 타일을 컨테이너보다 넓게 깔아 두어 브라우저가
+            "스크롤되는 박스"로 인식한다. 그래서 세로 스와이프가 그 안에서 삼켜지고 페이지까지
+            오지 않는다 — draggable:false 로도, touch-action 으로도 막지 못하는 경로다.
+            제스처를 지도 바깥의 평범한 요소가 받게 하면 브라우저가 평소대로 페이지를 굴린다.
+
+            지도는 위치를 보여 주기만 하고 확대·이동은 아래 지도 앱 버튼이 맡으므로, 이 판이
+            가로막는 상호작용이 없다.
+          */}
+          {/* 카카오가 자기 요소에 쌓임 순서를 매기므로, 그 위로 올라가야 제스처를 받는다. */}
+          <div aria-hidden="true" style={{ position: "absolute", inset: 0, zIndex: 10 }} />
+
           {mapState === "unavailable" && (
-            <span
-              style={{
-                fontSize: 12.5,
-                color: "var(--text-sub)",
-                background: "var(--surface-3)",
-                padding: "8px 14px",
-                borderRadius: 14,
-              }}
-            >
-              아래 지도 앱에서 위치를 확인하실 수 있어요
-            </span>
+            <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <span
+                style={{
+                  fontSize: 12.5,
+                  color: "var(--text-sub)",
+                  background: "var(--surface-3)",
+                  padding: "8px 14px",
+                  borderRadius: 14,
+                }}
+              >
+                아래 지도 앱에서 위치를 확인하실 수 있어요
+              </span>
+            </div>
           )}
         </div>
 

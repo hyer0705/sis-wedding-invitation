@@ -74,16 +74,56 @@ export function loadKakaoMaps(): Promise<KakaoMapsNamespace | null> {
   return pending;
 }
 
+/** 마커 DOM 이 들어올 때까지 기다리는 총 시간(ms)과 확인 간격. */
+const LABEL_RETRY_INTERVAL = 100;
+const LABEL_MAX_ATTEMPTS = 10;
+
+/**
+ * 마커 이미지맵의 `area` 에 대체 텍스트를 채운다.
+ *
+ * 카카오는 마커에 `<area alt="" href="javascript:void(0)">` 를 붙인다. alt 가 빈 채로
+ * 링크 구실을 하는 요소라 접근성 검사(axe `area-alt`)가 critical 로 잡고, 이는 M3 완료
+ * 조건인 "critical/serious 0건"에 걸린다. SDK 가 만드는 DOM 이라 밖에서 채워 줄 수밖에 없다.
+ *
+ * 마커가 지도에 붙는 시점이 타일 로딩과 맞물려 있어 곧바로 찾지 못할 수 있다. 잠깐 동안만
+ * 다시 확인한다 — 못 찾고 끝나도 지도 자체는 멀쩡하다.
+ *
+ * CI 는 지도 키가 없어 이 경로를 타지 않는다. 검증은 실기기·수동 QA 몫이다.
+ */
+function labelMarkerAreas(container: HTMLElement, label: string, attempt = 0): void {
+  const areas = container.querySelectorAll("area");
+
+  if (areas.length === 0) {
+    if (attempt < LABEL_MAX_ATTEMPTS) {
+      window.setTimeout(() => labelMarkerAreas(container, label, attempt + 1), LABEL_RETRY_INTERVAL);
+    }
+    return;
+  }
+
+  for (const area of areas) {
+    if (!area.getAttribute("alt")) area.setAttribute("alt", label);
+  }
+}
+
 /** 목적지 한 곳에 마커를 찍은 지도를 그린다. 스크롤·드래그는 막는다 — 아래 설명 참고. */
-export function drawVenueMap(maps: KakaoMapsNamespace, container: HTMLElement, lat: number, lng: number): void {
-  const center = new maps.LatLng(lat, lng);
+export function drawVenueMap(
+  maps: KakaoMapsNamespace,
+  container: HTMLElement,
+  place: { lat: number; lng: number; label: string },
+): void {
+  const center = new maps.LatLng(place.lat, place.lng);
   const map = new maps.Map(container, {
     center,
     level: 4,
     // 손가락으로 지도를 끌면 페이지가 아니라 지도가 움직여, 하객이 청첩장을 더 내려보지
     // 못하고 갇힌다. 지도는 위치만 보여 주고, 확대·이동은 아래 지도 앱 버튼이 맡는다.
+    //
+    // 이것만으로는 부족하다 — 카카오가 자기 요소에 touch-action:none 을 걸어 페이지
+    // 세로 스크롤까지 함께 막는다. 그쪽은 global.css 의 .venue-map 규칙이 되돌린다.
     draggable: false,
     scrollwheel: false,
   });
   new maps.Marker({ map, position: center });
+
+  labelMarkerAreas(container, place.label);
 }
