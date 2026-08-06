@@ -74,43 +74,44 @@ export function loadKakaoMaps(): Promise<KakaoMapsNamespace | null> {
   return pending;
 }
 
-/** 마커 DOM 이 들어올 때까지 기다리는 총 시간(ms)과 확인 간격. */
-const LABEL_RETRY_INTERVAL = 100;
-const LABEL_MAX_ATTEMPTS = 10;
-
 /**
- * 마커 이미지맵의 `area` 에 대체 텍스트를 채운다.
+ * 마커 이미지맵의 `area` 에 대체 텍스트를 채우고, 이후에 생기는 것도 계속 채운다.
  *
  * 카카오는 마커에 `<area alt="" href="javascript:void(0)">` 를 붙인다. alt 가 빈 채로
  * 링크 구실을 하는 요소라 접근성 검사(axe `area-alt`)가 critical 로 잡고, 이는 M3 완료
  * 조건인 "critical/serious 0건"에 걸린다. SDK 가 만드는 DOM 이라 밖에서 채워 줄 수밖에 없다.
  *
- * 마커가 지도에 붙는 시점이 타일 로딩과 맞물려 있어 곧바로 찾지 못할 수 있다. 잠깐 동안만
- * 다시 확인한다 — 못 찾고 끝나도 지도 자체는 멀쩡하다.
+ * 정해진 횟수만 확인하고 마는 대신 계속 지켜보는 이유는, 마커가 붙는 시점이 타일 로딩에
+ * 매여 있어 느린 회선에서는 한참 뒤에 올 수 있어서다. 시간을 정해 두면 그 뒤에 온 마커를
+ * 놓치고, 하필 CI 는 지도 키가 없어 이 경로를 아예 타지 않으므로 놓친 것이 드러나지도 않는다.
  *
- * CI 는 지도 키가 없어 이 경로를 타지 않는다. 검증은 실기기·수동 QA 몫이다.
+ * 되돌려주는 함수로 감시를 멈춘다.
  */
-function labelMarkerAreas(container: HTMLElement, label: string, attempt = 0): void {
-  const areas = container.querySelectorAll("area");
-
-  if (areas.length === 0) {
-    if (attempt < LABEL_MAX_ATTEMPTS) {
-      window.setTimeout(() => labelMarkerAreas(container, label, attempt + 1), LABEL_RETRY_INTERVAL);
+function labelMarkerAreas(container: HTMLElement, label: string): () => void {
+  const fill = () => {
+    for (const area of container.querySelectorAll("area")) {
+      if (!area.getAttribute("alt")) area.setAttribute("alt", label);
     }
-    return;
-  }
+  };
 
-  for (const area of areas) {
-    if (!area.getAttribute("alt")) area.setAttribute("alt", label);
-  }
+  fill();
+
+  const observer = new MutationObserver(fill);
+  observer.observe(container, { childList: true, subtree: true });
+
+  return () => observer.disconnect();
 }
 
-/** 목적지 한 곳에 마커를 찍은 지도를 그린다. 스크롤·드래그는 막는다 — 아래 설명 참고. */
+/**
+ * 목적지 한 곳에 마커를 찍은 지도를 그린다. 스크롤·드래그는 막는다 — 아래 설명 참고.
+ *
+ * 되돌려주는 함수를 부르면 마커 감시를 멈춘다. 섹션을 벗어날 때 정리용이다.
+ */
 export function drawVenueMap(
   maps: KakaoMapsNamespace,
   container: HTMLElement,
   place: { lat: number; lng: number; label: string },
-): void {
+): () => void {
   const center = new maps.LatLng(place.lat, place.lng);
   const map = new maps.Map(container, {
     center,
@@ -125,5 +126,5 @@ export function drawVenueMap(
   });
   new maps.Marker({ map, position: center });
 
-  labelMarkerAreas(container, place.label);
+  return labelMarkerAreas(container, place.label);
 }

@@ -1,19 +1,25 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { AnimatePresence, m } from "motion/react";
 
 // c안의 토스트(§TOAST). 복사처럼 화면이 바뀌지 않는 동작의 결과를 알린다.
-// 계좌 복사(AC-02)도 같은 것을 쓸 예정이라 컴포넌트로 떼어 뒀다.
+//
+// 화면에 하나만 둔다. 섹션마다 각자 띄우게 두면 주소 복사(MP-02)와 계좌 복사(AC-02)가
+// 같은 자리(화면 하단 고정)에 겹쳐 뜨고, 알림 영역(role="status")도 여럿이 되어 어느 것이
+// 읽힐지 정해지지 않는다. 테스트에서도 status 선택자가 여러 요소로 풀려, 오시는 길과 무관한
+// 변경이 이 섹션의 테스트를 깨뜨린다.
 
 const VISIBLE_MS = 1800;
 
+const ToastContext = createContext<((text: string) => void) | null>(null);
+
 /**
- * 토스트 문구와 그것을 띄우는 함수를 돌려준다.
+ * 화면 전체가 함께 쓰는 토스트 하나를 얹는다. main.tsx 에서 App 을 감싼다.
  *
  * 이미 떠 있는 동안 다시 부르면 시간을 새로 센다 — 버튼을 연달아 누르면 마지막 것이
  * 기준이 된다.
  */
-export function useToast(duration = VISIBLE_MS) {
+export function ToastProvider({ children, duration = VISIBLE_MS }: { children: ReactNode; duration?: number }) {
   const [message, setMessage] = useState<string | null>(null);
   const timerRef = useRef<number | null>(null);
 
@@ -31,13 +37,25 @@ export function useToast(duration = VISIBLE_MS) {
     [duration],
   );
 
-  // 섹션을 벗어난 뒤에 타이머가 깨어 setState 를 부르지 않도록 정리한다.
+  // 화면을 벗어난 뒤에 타이머가 깨어 setState 를 부르지 않도록 정리한다.
   useEffect(() => clear, []);
 
-  return { message, show };
+  return (
+    <ToastContext.Provider value={show}>
+      {children}
+      <Toast message={message} />
+    </ToastContext.Provider>
+  );
 }
 
-export default function Toast({ message }: { message: string | null }) {
+/** 토스트를 띄우는 함수를 돌려준다. */
+export function useToast(): (text: string) => void {
+  const show = useContext(ToastContext);
+  if (!show) throw new Error("useToast 는 ToastProvider 안에서만 쓸 수 있습니다");
+  return show;
+}
+
+function Toast({ message }: { message: string | null }) {
   // body 에 직접 그린다. 섹션 안에 두면 스크롤 리빌이 조상에 transform 을 거는 동안
   // 그것이 position:fixed 의 기준이 되어, 토스트가 화면 아래가 아니라 섹션 어딘가에 뜬다.
   // 애니메이션이 끝나면 Motion 이 transform 을 지우므로 평소에는 드러나지 않지만,

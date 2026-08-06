@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { waitFor } from "@testing-library/react";
 import { drawVenueMap } from "./kakaoMap";
 
 // 지도 SDK 는 CI 에 키가 없어 실물로 검증할 수 없다. 대신 네임스페이스를 흉내 내
@@ -75,18 +76,16 @@ describe("drawVenueMap", () => {
     expect(area.getAttribute("alt")).toBe(PLACE.label);
   });
 
-  it("마커가 늦게 붙어도 다시 확인해 채운다", () => {
-    vi.useFakeTimers();
+  it("마커가 한참 뒤에 붙어도 채운다", async () => {
+    // 느린 회선에서는 타일 로딩이 끝난 뒤에야 마커 DOM 이 들어온다. 시간을 정해 두고
+    // 포기하면 그 뒤에 온 마커를 놓치는데, CI 는 지도 키가 없어 그 사실도 드러나지 않는다.
     drawVenueMap(fakeMaps(), container, PLACE);
 
-    // 타일 로딩이 끝난 뒤에야 마커 DOM 이 들어오는 경우
     const area = document.createElement("area");
     area.setAttribute("href", "javascript:void(0)");
     area.setAttribute("alt", "");
     container.appendChild(area);
-    vi.advanceTimersByTime(500);
-
-    expect(area.getAttribute("alt")).toBe(PLACE.label);
+    await waitFor(() => expect(area.getAttribute("alt")).toBe(PLACE.label));
   });
 
   it("이미 대체 텍스트가 있으면 건드리지 않는다", () => {
@@ -100,12 +99,17 @@ describe("drawVenueMap", () => {
     expect(area.getAttribute("alt")).toBe("카카오가 넣어 준 설명");
   });
 
-  it("마커가 끝내 나타나지 않아도 타이머를 무한정 돌리지 않는다", () => {
-    vi.useFakeTimers();
-    drawVenueMap(fakeMaps(), container, PLACE);
+  it("정리하면 더 이상 마커를 지켜보지 않는다", async () => {
+    // 섹션을 벗어난 뒤에도 감시가 남으면 떠난 화면의 DOM 을 계속 들여다본다.
+    const dispose = drawVenueMap(fakeMaps(), container, PLACE);
+    dispose();
 
-    vi.advanceTimersByTime(10_000);
+    const area = document.createElement("area");
+    area.setAttribute("href", "javascript:void(0)");
+    area.setAttribute("alt", "");
+    container.appendChild(area);
+    await new Promise((resolve) => setTimeout(resolve, 50));
 
-    expect(vi.getTimerCount()).toBe(0);
+    expect(area.getAttribute("alt")).toBe("");
   });
 });

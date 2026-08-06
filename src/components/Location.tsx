@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type MouseEvent } from "react";
 import Reveal from "./Reveal";
-import Toast, { useToast } from "./Toast";
+import { useToast } from "./Toast";
 import { INVITE } from "../invite";
 import { copyText } from "../lib/clipboard";
 import { drawVenueMap, loadKakaoMaps } from "../lib/kakaoMap";
@@ -27,7 +27,7 @@ export default function Location() {
   const mapRef = useRef<HTMLDivElement>(null);
   const [mapState, setMapState] = useState<MapState>("loading");
   const [nearViewport, setNearViewport] = useState(false);
-  const { message, show } = useToast();
+  const showToast = useToast();
 
   // 앱이 없을 때 갈 곳. 티맵만 기기별로 갈라진다.
   const naverWeb = naverWebUrl(VENUE);
@@ -55,6 +55,7 @@ export default function Location() {
   useEffect(() => {
     if (!nearViewport) return;
     let cancelled = false;
+    let disposeMap: (() => void) | undefined;
 
     void loadKakaoMaps()
       .then((maps) => {
@@ -66,7 +67,7 @@ export default function Location() {
           setMapState("unavailable");
           return;
         }
-        drawVenueMap(maps, container, { lat: VENUE.lat, lng: VENUE.lng, label: `${INVITE.venue} 위치` });
+        disposeMap = drawVenueMap(maps, container, { lat: VENUE.lat, lng: VENUE.lng, label: `${INVITE.venue} 위치` });
         setMapState("ready");
       })
       // SDK 는 받았는데 지도 생성이 실패하는 경우(도메인 미등록, SDK 내부 예외)가 있다.
@@ -78,6 +79,7 @@ export default function Location() {
 
     return () => {
       cancelled = true;
+      disposeMap?.();
     };
   }, [nearViewport]);
 
@@ -85,7 +87,7 @@ export default function Location() {
     const copied = await copyText(INVITE.address);
     // 실패 문구는 토스트가 떠 있는 1.8초 안에 읽을 수 있어야 한다. 줄 나눔을 직접 잡는
     // 것은 320px 에서 브라우저가 끊는 자리가 어색해서다.
-    show(copied ? "주소가 복사되었습니다" : "복사에 실패했어요\n주소를 길게 눌러 주세요");
+    showToast(copied ? "주소가 복사되었습니다" : "복사에 실패했어요\n주소를 길게 눌러 주세요");
   };
 
   return (
@@ -187,8 +189,6 @@ export default function Location() {
           />
         </dl>
       </div>
-
-      <Toast message={message} />
     </Reveal>
   );
 }
