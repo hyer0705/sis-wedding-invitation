@@ -56,18 +56,25 @@ export default function Location() {
     if (!nearViewport) return;
     let cancelled = false;
 
-    void loadKakaoMaps().then((maps) => {
-      if (cancelled) return;
-      const container = mapRef.current;
-      // 키가 없는 환경(로컬·CI·키를 넣지 않은 프리뷰)에서는 여기로 온다. 지도 자리만
-      // 안내로 바뀌고 아래 지도 앱 버튼은 그대로 동작한다.
-      if (!maps || !container) {
-        setMapState("unavailable");
-        return;
-      }
-      drawVenueMap(maps, container, VENUE.lat, VENUE.lng);
-      setMapState("ready");
-    });
+    void loadKakaoMaps()
+      .then((maps) => {
+        if (cancelled) return;
+        const container = mapRef.current;
+        // 키가 없는 환경(로컬·CI·키를 넣지 않은 프리뷰)에서는 여기로 온다. 지도 자리만
+        // 안내로 바뀌고 아래 지도 앱 버튼은 그대로 동작한다.
+        if (!maps || !container) {
+          setMapState("unavailable");
+          return;
+        }
+        drawVenueMap(maps, container, VENUE.lat, VENUE.lng);
+        setMapState("ready");
+      })
+      // SDK 는 받았는데 지도 생성이 실패하는 경우(도메인 미등록, SDK 내부 예외)가 있다.
+      // 여기서 받지 않으면 상태가 "loading" 에 굳어, 하객은 줄무늬 자리만 보고 지도가
+      // 로딩 중인지 고장 난 것인지 알 수 없다. 키가 없을 때와 같은 안내로 떨어뜨린다.
+      .catch(() => {
+        if (!cancelled) setMapState("unavailable");
+      });
 
     return () => {
       cancelled = true;
@@ -76,7 +83,9 @@ export default function Location() {
 
   const handleCopy = async () => {
     const copied = await copyText(INVITE.address);
-    show(copied ? "주소가 복사되었습니다" : "복사하지 못했어요. 주소를 길게 눌러 복사해 주세요");
+    // 실패 문구는 토스트가 떠 있는 1.8초 안에 읽을 수 있어야 한다. 줄 나눔을 직접 잡는
+    // 것은 320px 에서 브라우저가 끊는 자리가 어색해서다.
+    show(copied ? "주소가 복사되었습니다" : "복사에 실패했어요\n주소를 길게 눌러 주세요");
   };
 
   return (

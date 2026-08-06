@@ -114,7 +114,9 @@ describe("Location", () => {
     await user.click(screen.getByRole("button", { name: "주소 복사하기" }));
 
     expect(writeText).toHaveBeenCalledWith(INVITE.address);
-    expect(await screen.findByRole("status")).toHaveTextContent("주소가 복사되었습니다");
+    // 라이브 영역은 늘 떠 있고 안의 문구만 바뀐다. findBy 로는 빈 영역을 곧바로 잡으므로
+    // 문구가 들어올 때까지 기다린다.
+    await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("주소가 복사되었습니다"));
   });
 
   it("복사에 실패하면 성공했다고 알리지 않는다", async () => {
@@ -125,7 +127,7 @@ describe("Location", () => {
 
     await user.click(screen.getByRole("button", { name: "주소 복사하기" }));
 
-    await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent(/복사하지 못했어요/));
+    await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent(/복사에 실패했어요/));
     Reflect.deleteProperty(document as unknown as Record<string, unknown>, "execCommand");
   });
 });

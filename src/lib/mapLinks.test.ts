@@ -21,8 +21,14 @@ describe("naverAppUrl", () => {
     expect(url.searchParams.get("appname")).toBe("hb-hj-wedding.com");
   });
 
-  it("공백이 들어간 예식장 이름을 인코딩한다", () => {
-    expect(naverAppUrl(PLACE, "example.com")).not.toContain(" ");
+  it("공백을 + 가 아니라 %20 으로 인코딩한다", () => {
+    // URLSearchParams 는 폼 인코딩이라 공백을 + 로 바꾼다. 지도 앱이 퍼센트 디코딩만 하면
+    // 목적지 이름이 "신도림+웨스턴베니비스"로 보인다. not.toContain(" ") 만으로는 이 상태도
+    // 통과하므로 인코딩 방식을 직접 못 박는다.
+    const url = naverAppUrl(PLACE, "example.com");
+
+    expect(url).toContain("%20");
+    expect(url).not.toContain("+");
   });
 });
 
@@ -57,6 +63,10 @@ describe("tmapAppUrl", () => {
     expect(url.searchParams.get("rGoX")).toBe(url.searchParams.get("goalx"));
     expect(url.searchParams.get("rGoY")).toBe(url.searchParams.get("goaly"));
     expect(url.searchParams.get("rGoName")).toBe(PLACE.name);
+  });
+
+  it("목적지 이름의 공백을 + 로 바꾸지 않는다", () => {
+    expect(tmapAppUrl(PLACE)).not.toContain("+");
   });
 });
 
@@ -118,5 +128,63 @@ describe("openWithFallback", () => {
     vi.advanceTimersByTime(1200);
 
     expect(navigate).toHaveBeenCalledExactlyOnceWith("tmap://route");
+  });
+
+  it("앱이 떠서 페이지가 숨겨지면 그 자리에서 폴백을 버린다", () => {
+    vi.useFakeTimers();
+    const navigate = vi.fn();
+    let hide = () => {};
+
+    openWithFallback("tmap://route", "https://example.com", {
+      delayMs: 1200,
+      navigate,
+      // 숨겨진 뒤 다시 돌아온 상태를 흉내 낸다 — 타이머가 깰 때는 이미 보이는 중이다.
+      isVisible: () => true,
+      onHidden: (handler) => {
+        hide = handler;
+        return () => {};
+      },
+    });
+    hide();
+    vi.advanceTimersByTime(1200);
+
+    expect(navigate).toHaveBeenCalledExactlyOnceWith("tmap://route");
+  });
+
+  it("정지됐다 뒤늦게 깨어난 타이머는 폴백하지 않는다", () => {
+    vi.useFakeTimers();
+    const navigate = vi.fn();
+    // iOS 는 앱 전환 중 JS 를 정지시킨다. 하객이 30초 뒤 청첩장으로 돌아오면 그때
+    // 타이머가 깨어나고 페이지는 다시 "보이는" 상태다. 여기서 폴백이 나가면 티맵이
+    // 이미 설치된 하객 앞에 App Store 가 열린다.
+    const clock = [0, 30_000];
+
+    openWithFallback("tmap://route", "https://example.com", {
+      delayMs: 1200,
+      navigate,
+      isVisible: () => true,
+      now: () => clock.shift() ?? 30_000,
+      onHidden: () => () => {},
+    });
+    vi.advanceTimersByTime(1200);
+
+    expect(navigate).toHaveBeenCalledExactlyOnceWith("tmap://route");
+  });
+
+  it("정상 범위 안에서 깨어났으면 폴백한다", () => {
+    vi.useFakeTimers();
+    const navigate = vi.fn();
+    const clock = [0, 1300]; // 예정보다 100ms 늦은 정도는 흔하다
+
+    openWithFallback("tmap://route", "https://example.com", {
+      delayMs: 1200,
+      navigate,
+      isVisible: () => true,
+      now: () => clock.shift() ?? 1300,
+      onHidden: () => () => {},
+    });
+    vi.advanceTimersByTime(1200);
+
+    expect(navigate).toHaveBeenLastCalledWith("https://example.com");
   });
 });
