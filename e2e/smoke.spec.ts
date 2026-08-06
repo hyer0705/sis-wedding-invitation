@@ -60,7 +60,9 @@ test.describe("청첩장 기본 동작", () => {
   // 스크롤러를 실제로 움직이는지는 진짜 브라우저에서만 확인된다.
   test.describe("갤러리 슬라이드", () => {
     const track = (page: Page) => page.getByRole("group", { name: "웨딩 사진 갤러리" });
-    const counter = (page: Page) => page.locator("[aria-live]");
+    // [aria-live] 로 잡지 않는다. 토스트(SIS-17)처럼 알림 영역이 하나 더 생기는 순간
+    // 선택자가 두 요소로 풀려, 갤러리와 무관한 변경에 이 테스트들이 함께 깨진다.
+    const counter = (page: Page) => page.getByTestId("gallery-counter");
 
     test("스크롤해서 넘기면 현재 위치 표시가 따라온다", async ({ page }) => {
       await page.goto("/");

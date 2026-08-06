@@ -25,6 +25,10 @@ const GAP = 10;
 // 아래 섹션이 밀려 올라가지 않는다.
 const FRAME_ASPECT = "4/5";
 
+// 스크린리더 알림을 미루는 시간(ms). 스와이프가 이어지는 동안에는 계속 미뤄지고,
+// 멎은 뒤 한 번만 알린다.
+const ANNOUNCE_DELAY = 400;
+
 /** 슬라이드 하나가 차지하는 가로 폭. 여백·간격이 바뀌어도 실제 DOM 에서 잰다. */
 function stepOf(track: HTMLElement): number {
   const [first, second] = track.children;
@@ -37,28 +41,68 @@ function stepOf(track: HTMLElement): number {
 export default function Gallery() {
   const trackRef = useRef<HTMLDivElement>(null);
   const [index, setIndex] = useState(0);
+  // 스크린리더에 알린 번호. index 와 따로 두는 이유는 아래 알림 지연 참고.
+  const [spoken, setSpoken] = useState(0);
   // Cover 와 같은 기준으로 판단한다 — main.tsx 의 MotionConfig reducedMotion="user".
   const reduced = useReducedMotionConfig();
+
+  // 화살표로 지시한 목적지. 여기 닿기 전까지는 스크롤 도중의 중간 위치를 현재 장으로
+  // 치지 않는다. 이 잠금이 없으면 부드러운 스크롤 중간에 오는 scroll 이벤트가 번호를
+  // 되돌려 놓고, 곧바로 이어진 탭이 이미 지나온 자리를 다시 목적지로 잡는다 — 두 번
+  // 눌렀는데 한 장만 넘어간다.
+  const goalRef = useRef<number | null>(null);
 
   // 손가락으로 넘겼을 때도 카운터와 화살표 상태가 따라오게 한다.
   useEffect(() => {
     const track = trackRef.current;
     if (!track) return;
-    const sync = () => setIndex(slideIndexAt(track.scrollLeft, stepOf(track), PHOTOS.length));
+
+    const sync = () => {
+      const at = slideIndexAt(track.scrollLeft, stepOf(track), PHOTOS.length);
+      if (goalRef.current !== null) {
+        if (at !== goalRef.current) return; // 아직 가는 중
+        goalRef.current = null; // 도착했으니 다시 스크롤을 따른다
+      }
+      setIndex(at);
+    };
+
+    // 손을 대면 화살표로 가던 것을 그 자리에서 놓는다. 목적지에 닿기 전에 손으로
+    // 붙잡는 경우가 있어, 이게 없으면 잠금이 풀리지 않아 이후 스와이프가 번호에
+    // 반영되지 않는다.
+    const release = () => {
+      goalRef.current = null;
+    };
+
     track.addEventListener("scroll", sync, { passive: true });
-    return () => track.removeEventListener("scroll", sync);
+    track.addEventListener("pointerdown", release, { passive: true });
+    track.addEventListener("wheel", release, { passive: true });
+    return () => {
+      track.removeEventListener("scroll", sync);
+      track.removeEventListener("pointerdown", release);
+      track.removeEventListener("wheel", release);
+    };
   }, []);
 
   const go = (delta: number) => {
     const track = trackRef.current;
     if (!track) return;
+    // index 를 그대로 기준으로 삼아도 되는 것은 위 잠금 덕분이다. 목적지가 정해져 있는
+    // 동안에는 sync 가 index 를 건드리지 않으므로, 여기 index 는 늘 마지막 목적지다.
     const next = clampIndex(index + delta, PHOTOS.length);
+    goalRef.current = next;
     setIndex(next);
     track.scrollTo({
       left: scrollLeftAt(next, stepOf(track), PHOTOS.length),
       behavior: reduced ? "auto" : "smooth",
     });
   };
+
+  // 스크린리더 알림은 스크롤이 멎은 뒤 한 번만 한다. 번호가 바뀔 때마다 알리면 한 번
+  // 훑는 동안 지나간 번호가 polite 큐에 쌓여, 손을 뗀 뒤에도 한참을 계속 읽는다.
+  useEffect(() => {
+    const id = window.setTimeout(() => setSpoken(index), ANNOUNCE_DELAY);
+    return () => window.clearTimeout(id);
+  }, [index]);
 
   const isFirst = index === 0;
   const isLast = index === PHOTOS.length - 1;
@@ -139,14 +183,24 @@ export default function Gallery() {
         <ArrowButton label="이전 사진" disabled={isFirst} onClick={() => go(-1)}>
           ‹
         </ArrowButton>
-        {/* 넘길 때마다 화면을 못 보는 사용자에게도 위치를 알린다. */}
-        <span aria-live="polite" style={{ fontFamily: "var(--font-script)", fontSize: 18, color: "var(--muted-2)" }}>
+        {/* 눈으로 보는 카운터. 읽어 주는 일은 아래 알림 영역이 맡으므로 여기서는 뺀다 —
+            둘 다 읽히면 같은 내용을 두 번 듣는다. */}
+        <span
+          data-testid="gallery-counter"
+          aria-hidden="true"
+          style={{ fontFamily: "var(--font-script)", fontSize: 18, color: "var(--muted-2)" }}
+        >
           {index + 1} / {PHOTOS.length}
         </span>
         <ArrowButton label="다음 사진" disabled={isLast} onClick={() => go(1)}>
           ›
         </ArrowButton>
       </div>
+
+      {/* 화면을 못 보는 사용자에게 위치를 알린다. 스크롤이 멎은 뒤에만 갱신된다. */}
+      <span className="sr-only" data-testid="gallery-live" aria-live="polite">
+        {PHOTOS.length}장 중 {spoken + 1}번째
+      </span>
     </Reveal>
   );
 }

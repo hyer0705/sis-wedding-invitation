@@ -47,6 +47,20 @@ body {
   display: none;
 }
 
+/* 화면에서는 감추고 스크린리더에만 읽히는 텍스트.
+   display:none 이나 visibility:hidden 은 스크린리더에서도 사라지므로 쓸 수 없다. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
 /* 시안 이식 전 임시 표시용 */
 .todo {
   margin: 18px 0 0;
