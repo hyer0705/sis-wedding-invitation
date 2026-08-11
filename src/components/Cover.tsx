@@ -5,7 +5,15 @@ import { imageSrcSet, imageUrl } from "../lib/imageUrl";
 
 // 커버 사진. 사진 교체 시 `npm run optimize` 산출물 이름만 여기서 바꾼다.
 // 실제 호스트는 VITE_IMAGE_BASE_URL(Cloudflare R2)이 정한다 — lib/imageUrl.ts 참고.
-const COVER_NAME = "1_main";
+//
+// 로딩 화면(CM-04)이 이 사진을 기다렸다 걷히므로 App 도 아래 두 값을 읽는다.
+// 여기 한 곳에서만 정해야 프리로드와 화면이 같은 파일을 받는다 — 어긋나면 브라우저가
+// 서로 다른 너비를 골라 사진을 두 장 내려받는다.
+export const COVER_NAME = "1_main";
+
+// 카드 최대 폭 430px에서 헤더 좌우 여백 26px씩을 뺀 값이 실제 표시 폭이다.
+// 여백을 빼지 않으면 브라우저가 필요보다 큰 후보(960w)를 고른다.
+export const COVER_SIZES = "(max-width: 430px) calc(100vw - 52px), 378px";
 
 // c안의 data-parallax와 같은 값 — 스크롤 0.14배로 따라 내려오되 90px에서 멈춘다.
 const PARALLAX_RATIO = 0.14;
@@ -36,12 +44,17 @@ export default function Cover() {
   }, [reduced, parallaxY]);
 
   return (
-    <m.header
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      transition={{ duration: 1.4 }}
-      style={{ padding: "54px 26px 60px", textAlign: "center", position: "relative", overflow: "hidden" }}
-    >
+    // CV-02 인트로 — 예전에는 여기서 opacity 0→1 을 1.4초에 걸쳐 페이드인했다.
+    // 로딩 화면(CM-04)이 생기면서 그 연출은 **로딩이 걷히는 순간으로 옮겨졌다.**
+    //
+    // 둘을 함께 두면 페이드인이 로딩 화면에 가려진 채 흘러가 버린다. 실측하면 로딩이
+    // 걷히는 순간 커버가 opacity 0.85~0.89 였다 — 로딩의 또렷한 「The wedding of」가
+    // 같은 자리의 흐린 글씨로 넘어가 한 번 옅어졌다 진해졌다. 게다가 사진이 상한(4초)
+    // 까지 늦으면 페이드가 이미 끝나 있어, 걷히는 모습이 회선마다 달라졌다.
+    //
+    // 지금은 커버가 처음부터 불투명하게 준비돼 있고 로딩 오버레이만 걷힌다. 글씨는
+    // 자리에 그대로 있고 그 아래로 날짜·사진이 드러난다.
+    <m.header style={{ padding: "54px 26px 60px", textAlign: "center", position: "relative", overflow: "hidden" }}>
       <div style={{ fontFamily: "var(--font-script)", fontSize: 30, color: "var(--primary)", lineHeight: 1 }}>The wedding of</div>
       <div
         style={{ marginTop: 10, fontFamily: "var(--font-caption)", fontSize: 11, letterSpacing: "0.4em", color: "var(--muted)" }}
@@ -54,14 +67,16 @@ export default function Cover() {
           borderRadius: "200px 200px 18px 18px",
           overflow: "hidden",
           boxShadow: "0 24px 50px rgba(80, 95, 75, 0.2)",
+          // 사진이 오기 전 아치 안을 채워 둔다. 로딩 화면은 상한(4초)에 걷히는데 3G 에서는
+          // 사진이 그보다 늦게 오는 일이 흔하고, 그때 아치가 빈 채로 드러난다. 사진은
+          // objectFit: cover 로 이 상자를 꽉 채우므로 도착하면 완전히 덮인다.
+          background: "var(--surface)",
         }}
       >
         <m.img
           src={imageUrl(COVER_NAME, 960)}
           srcSet={imageSrcSet(COVER_NAME)}
-          // 카드 최대 폭 430px에서 헤더 좌우 여백 26px씩을 뺀 값이 실제 표시 폭이다.
-          // 여백을 빼지 않으면 브라우저가 필요보다 큰 후보(960w)를 고른다.
-          sizes="(max-width: 430px) calc(100vw - 52px), 378px"
+          sizes={COVER_SIZES}
           alt={`신랑 ${INVITE.groom.name}, 신부 ${INVITE.bride.name}의 웨딩 사진`}
           // LCP 요소다. 다른 리소스보다 먼저 받게 한다.
           fetchPriority="high"

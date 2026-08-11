@@ -180,7 +180,7 @@ test.describe("청첩장 기본 동작", () => {
 
       await page.getByRole("button", { name: "주소 복사하기" }).click();
 
-      await expect(page.getByRole("status")).toHaveText("주소가 복사되었습니다");
+      await expect(page.getByTestId("toast")).toHaveText("주소가 복사되었습니다");
       const copied = await page.evaluate(() => navigator.clipboard.readText());
       expect(copied).toBe(INVITE.address);
     });
@@ -206,7 +206,7 @@ test.describe("청첩장 기본 동작", () => {
         .first()
         .click();
 
-      await expect(page.getByRole("status")).toHaveText("계좌번호가 복사되었습니다");
+      await expect(page.getByTestId("toast")).toHaveText("계좌번호가 복사되었습니다");
       // 하이픈째 복사한다. 화면에 보이는 값과 같아야 하객이 붙여넣고 대조할 수 있다.
       expect(await page.evaluate(() => navigator.clipboard.readText())).toBe("111-111-111111");
     });
@@ -241,7 +241,7 @@ test.describe("청첩장 기본 동작", () => {
 
       await page.getByRole("button", { name: "링크 복사" }).click();
 
-      await expect(page.getByRole("status")).toHaveText("청첩장 주소가 복사되었습니다");
+      await expect(page.getByTestId("toast")).toHaveText("청첩장 주소가 복사되었습니다");
       // location.href 가 아니라 INVITE.siteUrl 이어야 한다. 프리뷰에서 공유했을 때
       // 임시 주소가 하객에게 나가는 것을 막는 자리다 — 여기서는 localhost 가 아닌지가
       // 곧 그 증거다.
@@ -261,6 +261,43 @@ test.describe("청첩장 기본 동작", () => {
     });
   });
 
+  // CM-04 로딩 화면. 사진이 캐시에서 오면 눈 깜짝할 새에 걷혀 화면에 잡히지 않으므로,
+  // 커버 사진 요청만 붙잡아 두고 본다.
+  //
+  // 로딩 화면 자체의 axe 감사는 따로 두지 않았다. 안에 있는 것이 aria-hidden 글씨와 선
+  // 둘뿐이고, 감사 대상이 되는 것은 role·이름을 가진 바깥 컨테이너 하나다.
+  test.describe("로딩 화면", () => {
+    const COVER_REQUEST = /1_main-\d+\.webp/;
+    // role 로 집지 않는다. index.html 의 부트 화면이 같은 role·같은 이름을 쓰고, React
+    // 로딩이 그것을 지우기 전까지 잠깐 공존해 두 요소로 풀린다 — CI 에서 실제로 걸렸다.
+    const loadingOf = (page: Page) => page.getByTestId("loading");
+
+    test("커버 사진이 도착하면 걷히고 청첩장이 드러난다", async ({ page }) => {
+      await page.route(COVER_REQUEST, async (route) => {
+        await new Promise((resolve) => setTimeout(resolve, 1200));
+        await route.continue();
+      });
+
+      await page.goto("/", { waitUntil: "commit" });
+
+      await expect(loadingOf(page)).toBeVisible();
+      await expect(loadingOf(page)).toBeHidden({ timeout: 6000 });
+      await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+    });
+
+    // R2 가 죽었거나 회선이 끊긴 경우다. 상한이 없으면 사진 한 장 때문에 청첩장을
+    // 통째로 못 본다 — 응답을 영영 주지 않는 요청으로 그 경로를 만든다.
+    test("커버 사진이 오지 않아도 상한에서 걷힌다", async ({ page }) => {
+      await page.route(COVER_REQUEST, () => new Promise(() => {}));
+
+      await page.goto("/", { waitUntil: "commit" });
+
+      await expect(loadingOf(page)).toBeVisible();
+      await expect(loadingOf(page)).toBeHidden({ timeout: 8000 });
+      await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+    });
+  });
+
   // 페이드인이 진행 중이면 axe가 합성된 중간 색상을 읽어 색상 대비를 오탐한다.
   // reduced-motion으로 애니메이션을 건너뛰어 최종 상태를 검사하고,
   // 동시에 prefers-reduced-motion 대응(MotionConfig reducedMotion="user")도 함께 검증한다.
@@ -269,11 +306,13 @@ test.describe("청첩장 기본 동작", () => {
 
     test("critical/serious 위반이 없다", async ({ page }) => {
       await page.goto("/");
-      // 색상 대비 판정은 스타일·폰트가 적용되고 페이드인이 끝난 뒤라야 의미가 있다.
-      // reducedMotion은 transform만 줄이고 opacity 애니메이션은 그대로 두므로(Motion 사양)
-      // 커버의 opacity가 1이 될 때까지 기다리지 않으면 합성된 중간 색상을 읽는다.
+      // 색상 대비 판정은 스타일·폰트가 적용되고 화면이 자리를 잡은 뒤라야 의미가 있다.
+      // 커버 자체의 페이드인은 로딩 화면이 걷히는 연출로 옮겨져 사라졌지만(Cover.tsx),
+      // 로딩 오버레이가 남아 있는 동안 감사하면 그 아래가 통째로 가려진다. opacity 가
+      // 1인 것을 확인하는 것으로 오버레이가 걷혔음까지 함께 본다.
       await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
       await page.evaluate(() => document.fonts.ready);
+      await expect(page.getByTestId("loading")).toBeHidden();
       await expect(page.locator("header")).toHaveCSS("opacity", "1");
 
       // 아코디언은 기본이 접힘이고 닫힌 패널은 DOM 에서 빠진다. 열어 두지 않으면 계좌 행과

@@ -73,6 +73,10 @@ function Toast({ message }: { message: string | null }) {
       // 줄에 거는 것은, 라이브 영역이 미리 자리 잡고 있어야 안에 들어온 문구가 읽히기
       // 때문이다 — 영역째로 나타나면 놓치는 스크린리더가 있다.
       role="status"
+      // 로딩 화면(CM-04)도 status 라 화면에 둘이 있는 때가 있다. 이 줄은 문구가 없어도
+      // 늘 붙어 있으므로(위 참고) 겹치는 구간이 짧지 않다 — 테스트는 role 이 아니라
+      // 이것으로 집는다.
+      data-testid="toast"
       style={{
         position: "fixed",
         left: 0,
