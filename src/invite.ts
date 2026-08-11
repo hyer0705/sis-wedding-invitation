@@ -1,4 +1,5 @@
 import { orMock, parseAccounts, type Account } from "./lib/private-data";
+import type { Parent } from "./lib/parents";
 
 // 고객 정보 단일 소스 — 모든 화면 문구·D-Day·지도 링크·계좌 복사가 이 상수만 참조한다.
 // 다른 파일에 값을 하드코딩하지 않는다.
@@ -44,25 +45,27 @@ function accountsOf(side: "groom" | "bride"): Account[] {
 export const INVITE = {
   isMock: true,
 
-  // IN-04 고인(故) 표기: deceased 가 true 면 성함 앞에 "故 "를 붙인다.
-  // 혼주 성함은 .env 로만 주입한다 — 아래 문자열은 폴백용 mock 이다.
+  // IN-03 혼주 표기 · IN-04 고인(故) 표기.
+  // parents 에 적은 순서가 그대로 화면 순서이며, deceased 가 true 면 성함 앞에
+  // "故 "가 붙는다. 혼주 성함은 .env 로만 주입한다 — 아래 문자열은 폴백용 mock 이다.
   groom: {
     name: "박희빈",
     first: "희빈",
     relation: "장남",
-    father: orMock(env.VITE_GROOM_FATHER, "박정후"),
-    mother: orMock(env.VITE_GROOM_MOTHER, "김서윤"),
-    fatherDeceased: false,
-    motherDeceased: false,
+    // 신랑 어머니는 표기하지 않기로 고객이 확정했다(2026-08-11). 빈 값을 두는 대신
+    // 항목 자체를 넣지 않는다 — mock 을 폴백으로 남겨 두면 환경변수가 비었을 때
+    // 가짜 성함이 하객 화면에 그대로 나가기 때문이다. 다시 넣기로 하면 이 배열에
+    // 한 줄을 더하고 .env 에 VITE_GROOM_MOTHER 를 살리면 된다.
+    parents: [{ name: orMock(env.VITE_GROOM_FATHER, "박정후"), deceased: false }] as readonly Parent[],
   },
   bride: {
     name: "조혜정",
     first: "혜정",
     relation: "차녀",
-    father: orMock(env.VITE_BRIDE_FATHER, "조민준"),
-    mother: orMock(env.VITE_BRIDE_MOTHER, "이수아"),
-    fatherDeceased: true,
-    motherDeceased: false,
+    parents: [
+      { name: orMock(env.VITE_BRIDE_FATHER, "조민준"), deceased: true },
+      { name: orMock(env.VITE_BRIDE_MOTHER, "이수아"), deceased: false },
+    ] as readonly Parent[],
   },
 
   // CM-06 — 배포 주소. 명세서 확정값 hb-hj.com 은 2016년부터 등록돼 있어 쓸 수
@@ -129,11 +132,30 @@ export const INVITE = {
     "주차 등록은 안내데스크에서 도와드립니다.", // mock
   ],
 
-  // IN-01·IN-02 — 본문·인용구 모두 미수령. 줄바꿈 위치까지 고객 확인이 필요하다.
+  // IN-01 인사말 · IN-02 인용 문구 — 고객 확정값(2026-08-11 수령).
+  //
+  // 배열의 한 항목이 한 문단이고, 문단 안의 \n 은 고객이 지정한 줄바꿈이라 그대로
+  // 지킨다 — 임의로 끊거나 붙이지 말 것. 이제 네 문단 모두 줄바꿈이 지정돼 있다
+  // (두 번째 문단은 처음에 한 줄로 왔고, 2026-08-11 고객이 끊을 자리를 알려 왔다).
+  //
+  // 화면에서 이 줄바꿈이 실제로 지켜지는지는 e2e/smoke.spec.ts 가 본다. 문구를
+  // 고치면 375px 에 들어가는지 함께 확인해야 한다 — Invitation 의 본문 크기가
+  // 그 폭에 맞춰 실측으로 정해진 값이다.
   greeting: {
-    quote: "사랑은 서로를 바라보는 것이 아니라\n함께 같은 방향을 바라보는 것이다", // mock (IN-02)
-    quoteAuthor: "생텍쥐페리", // mock (IN-02)
-    body: "서로가 마주 보며 다져온 사랑을\n이제 함께 한 곳을 바라보며\n걸어갈 수 있도록 하려 합니다.\n\n저희 두 사람이 새로운 시작을 하는 날\n귀한 걸음 하시어 축복해 주시면\n더없는 기쁨으로 간직하겠습니다.", // mock (IN-01)
+    body: [
+      "서로의 하루를 가장 먼저 떠올리고,\n평범한 일상이 특별해지는 사람을 만났습니다.",
+      "이제 두 사람이 하나의 가정을 이루어\n같은 계절을 함께 걸어가려 합니다.",
+      "소중한 분들과\n이 행복한 순간을 함께 나누고 싶습니다.",
+      "귀한 걸음으로 축복해 주시면\n평생 감사한 마음으로 간직하겠습니다.",
+    ],
+    quote: [
+      "그대를 보았다.\n그대가 웃었다.",
+      "아름다운 그대 두 눈에\n내가 담겼다.",
+      "그 모습이 좋아\n그렇게 한참을 가만히 앉아\n그대를 담았다.",
+    ],
+    // 시트 원문은 `- 이경선 [웃음] 중-` 이다. 작품명 대괄호를 한국어 조판 관례대로
+    // 낫표로 옮겼고, 앞뒤 대시는 화면에서 붙인다.
+    quoteAuthor: "이경선 「웃음」 중",
   },
 
   // AC-01 — 실값은 .env 의 VITE_ACCOUNTS_GROOM·VITE_ACCOUNTS_BRIDE 에서 온다.
@@ -146,8 +168,9 @@ export const INVITE = {
   // RS-01~03 — 폼 구성과 전송은 SIS-15·SIS-20이 다룬다. 여기서는 문구·설정만 둔다.
   // 연락처는 수집하지 않는다(CT 미채택). 식사 여부는 명세서에서 추가된 항목이다.
   rsvp: {
-    deadline: "2027-01-10", // mock
-    deadlineText: "2027년 1월 10일까지", // mock
+    // 시트 확정값(2026-08-11). 리포에는 mock 인 1월 10일이 남아 있었다.
+    deadline: "2027-01-23",
+    deadlineText: "2027년 1월 23일까지",
     collectMeal: true,
     popup: {
       title: "참석 여부 회신", // mock

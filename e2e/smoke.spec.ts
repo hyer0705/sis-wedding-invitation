@@ -43,6 +43,44 @@ test.describe("청첩장 기본 동작", () => {
     }
   });
 
+  // IN-01·IN-02 — 인사말과 인용 시의 줄바꿈은 고객이 정한 것이라 화면에서도 그대로
+  // 앉아야 한다. c안 본문 크기(16.5)로는 375px 에서 두 문단이 한 줄씩 더 접혀
+  // 마지막 낱말만 홀로 떨어졌고, 그래서 이 카드만 14.5 로 낮춰 맞춰 두었다.
+  // 크기·패딩·문구 어느 하나만 건드려도 되살아나므로 여기서 고정한다.
+  //
+  // 320px 은 제외한다. 그 폭에서 지키려면 11.5px 이하여야 해 읽을 수 없어진다.
+  test("인사말과 인용 시가 고객이 지정한 줄바꿈대로 앉는다", async ({ page }) => {
+    test.skip((page.viewportSize()?.width ?? 0) < 375, "320px 은 읽을 수 있는 크기로 지킬 수 없다");
+    await page.goto("/");
+
+    // 본문 폰트는 Google Fonts 에서 display=swap 으로 온다. 도착 전에는 폴백 serif 로
+    // 그려지는데 그 폭이 달라 줄 수가 어긋난다 — 기다리지 않으면 무작위로 실패한다.
+    // 아예 받지 못한 환경에서는 잴 대상 자체가 없으므로 건너뛴다.
+    await page.evaluate(() => document.fonts.ready);
+    const fontReady = await page.evaluate(() => document.fonts.check("14.5px 'Nanum Myeongjo'"));
+    test.skip(!fontReady, "본문 웹폰트를 받지 못했다 — 폴백 폰트로는 줄 수를 잴 수 없다");
+
+    // 문단은 순서가 아니라 글로 찾는다. nth 인덱스로 짚으면 문단이 하나만 늘거나
+    // 자리를 바꿔도 조용히 엉뚱한 문단을 재면서 통과해 버린다.
+    // Playwright 의 텍스트 매칭은 공백을 하나로 눌러 비교하므로, 고객이 넣은 \n 도
+    // 같은 모양으로 눌러서 건넨다.
+    const blocks = [...INVITE.greeting.body, ...INVITE.greeting.quote];
+
+    for (const block of blocks) {
+      const authored = block.split("\n").length;
+      // 원문에 줄바꿈이 없는 문단은 폭에 맞춰 저절로 접히는 것이 정상이다.
+      if (authored === 1) continue;
+
+      const paragraph = page.getByText(block.replace(/\s+/g, " ").trim(), { exact: true });
+      const rendered = await paragraph.evaluate((el) =>
+        Math.round(el.getBoundingClientRect().height / parseFloat(getComputedStyle(el).lineHeight)),
+      );
+
+      const label = block.split("\n")[0];
+      expect(rendered, `"${label}…" 문단이 ${authored}줄 대신 ${rendered}줄로 접혔다`).toBe(authored);
+    }
+  });
+
   test("가로 스크롤이 발생하지 않는다", async ({ page }) => {
     await page.goto("/");
     // CM-01: 320~430px 어디서도 페이지가 가로로 넘치면 안 된다
