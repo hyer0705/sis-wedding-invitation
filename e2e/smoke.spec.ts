@@ -304,11 +304,13 @@ test.describe("청첩장 기본 동작", () => {
 
     test("critical/serious 위반이 없다", async ({ page }) => {
       await page.goto("/");
-      // 색상 대비 판정은 스타일·폰트가 적용되고 페이드인이 끝난 뒤라야 의미가 있다.
-      // reducedMotion은 transform만 줄이고 opacity 애니메이션은 그대로 두므로(Motion 사양)
-      // 커버의 opacity가 1이 될 때까지 기다리지 않으면 합성된 중간 색상을 읽는다.
+      // 색상 대비 판정은 스타일·폰트가 적용되고 화면이 자리를 잡은 뒤라야 의미가 있다.
+      // 커버 자체의 페이드인은 로딩 화면이 걷히는 연출로 옮겨져 사라졌지만(Cover.tsx),
+      // 로딩 오버레이가 남아 있는 동안 감사하면 그 아래가 통째로 가려진다. opacity 가
+      // 1인 것을 확인하는 것으로 오버레이가 걷혔음까지 함께 본다.
       await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
       await page.evaluate(() => document.fonts.ready);
+      await expect(page.getByRole("status", { name: "청첩장을 불러오는 중" })).toBeHidden();
       await expect(page.locator("header")).toHaveCSS("opacity", "1");
 
       // 아코디언은 기본이 접힘이고 닫힌 패널은 DOM 에서 빠진다. 열어 두지 않으면 계좌 행과

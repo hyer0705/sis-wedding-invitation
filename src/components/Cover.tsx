@@ -44,12 +44,17 @@ export default function Cover() {
   }, [reduced, parallaxY]);
 
   return (
-    <m.header
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      transition={{ duration: 1.4 }}
-      style={{ padding: "54px 26px 60px", textAlign: "center", position: "relative", overflow: "hidden" }}
-    >
+    // CV-02 인트로 — 예전에는 여기서 opacity 0→1 을 1.4초에 걸쳐 페이드인했다.
+    // 로딩 화면(CM-04)이 생기면서 그 연출은 **로딩이 걷히는 순간으로 옮겨졌다.**
+    //
+    // 둘을 함께 두면 페이드인이 로딩 화면에 가려진 채 흘러가 버린다. 실측하면 로딩이
+    // 걷히는 순간 커버가 opacity 0.85~0.89 였다 — 로딩의 또렷한 「The wedding of」가
+    // 같은 자리의 흐린 글씨로 넘어가 한 번 옅어졌다 진해졌다. 게다가 사진이 상한(4초)
+    // 까지 늦으면 페이드가 이미 끝나 있어, 걷히는 모습이 회선마다 달라졌다.
+    //
+    // 지금은 커버가 처음부터 불투명하게 준비돼 있고 로딩 오버레이만 걷힌다. 글씨는
+    // 자리에 그대로 있고 그 아래로 날짜·사진이 드러난다.
+    <m.header style={{ padding: "54px 26px 60px", textAlign: "center", position: "relative", overflow: "hidden" }}>
       <div style={{ fontFamily: "var(--font-script)", fontSize: 30, color: "var(--primary)", lineHeight: 1 }}>The wedding of</div>
       <div
         style={{ marginTop: 10, fontFamily: "var(--font-caption)", fontSize: 11, letterSpacing: "0.4em", color: "var(--muted)" }}

@@ -6,13 +6,17 @@ import { COVER_NAME, COVER_SIZES } from "./Cover";
 
 // CM-04 로딩 화면 — c안에 없는 신규 UI. D안 확정(2026-08-11).
 //
-// `--bg` 전면에 커버 최상단과 **같은** 「The wedding of」를 띄우고, 그 아래 가는 선이
-// 왼쪽부터 차오른다. 로딩이 걷히면 같은 글씨가 제자리로 이어져 화면이 튀지 않는다.
+// `--bg` 전면에 커버 최상단과 **같은** 「The wedding of」를 띄우고, 그 아래 가는 세로선이
+// 위에서부터 차오른다. 로딩이 걷히면 같은 글씨가 제자리로 이어져 화면이 튀지 않는다.
 //
 // 글씨는 처음부터 떠 있고 선만 움직인다. 앞서 낸 두 안이 반려된 이유가 여기 있다 —
-// 글씨가 떠올랐다 사라지는 A안은 "기다리는 맛이 없다", 가는 세로선만 두는 B안은
+// 글씨가 떠올랐다 사라지는 A안은 "기다리는 맛이 없다", 세로선만 덩그러니 두는 B안은
 // "화면에 너무 안 보인다"였다. **진행되고 있다는 신호**가 핵심이고, 정지한 화면은
 // 로딩으로 읽히지 않는다.
+//
+// 선의 방향은 가로 → 세로로 바뀌었다(2026-08-11 요청). B안이 반려된 이유가 세로라서가
+// 아니라 **선 하나뿐이어서**였으므로, 글씨가 함께 있는 지금 구성에서는 같은 문제가
+// 되풀이되지 않는다.
 
 /**
  * 사진이 캐시에서 즉시 와도 이만큼은 보여 준다.
@@ -30,6 +34,9 @@ export const MIN_VISIBLE_MS = 500;
  * 통째로 못 보게 되는 것을 막는 상한이다. 사진 없는 커버가 로딩 화면보다 낫다.
  */
 export const MAX_VISIBLE_MS = 4000;
+
+/** 화면에 하나만 뜨는 오버레이라 고정 id 로 충분하다. */
+const LABEL_ID = "loading-label";
 
 /** 로딩 화면을 걷어도 되는지. 커버 사진 도착 또는 상한 도달 중 먼저 오는 쪽이다. */
 export function useCoverReady(): boolean {
@@ -64,11 +71,21 @@ export function useCoverReady(): boolean {
 export default function Loading() {
   return (
     <m.div
-      // 진행 상황을 알리는 영역이라 status 다. 안쪽 글씨는 aria-hidden 으로 감춘다 —
-      // 읽어 주면 커버의 같은 문구와 겹쳐 두 번 들린다.
+      // 진행 상황을 알리는 영역이라 status 다. 화면에 보이는 글씨는 aria-hidden 으로
+      // 감춘다 — 읽어 주면 커버의 같은 문구와 겹쳐 두 번 들린다. 대신 아래 .sr-only
+      // 텍스트를 두고 그것을 이름으로도 삼는다.
+      //
+      // aria-label 만으로는 부족했다. live 영역은 「내용의 변화」를 읽는 것이라 영역의
+      // 이름을 알림으로 읽어 주지 않는데, 안의 것이 전부 aria-hidden 이면 읽을 내용이
+      // 하나도 없어 로딩 중이라는 사실이 전혀 전달되지 않는다. 그렇다고 텍스트만 두면
+      // 이번엔 이름이 사라진다 — status 는 내용으로 이름이 만들어지는 role 이 아니다.
+      // labelledby 로 묶어 이름과 내용을 같은 노드 하나로 만든다.
       role="status"
-      aria-label="청첩장을 불러오는 중"
-      exit={{ opacity: 0 }}
+      aria-labelledby={LABEL_ID}
+      // 페이드아웃 0.4초 동안에도 이 오버레이는 DOM 에 남는다. 그때 pointer-events 를
+      // 끄지 않으면, 거의 투명해져 보이지도 않는 판이 화면 전체의 탭을 삼킨다 —
+      // 커버의 「scroll ↓」를 보고 바로 스와이프하는 것이 정확히 이 구간이다.
+      exit={{ opacity: 0, pointerEvents: "none" }}
       transition={{ duration: 0.4, ease: "easeOut" }}
       style={{
         position: "fixed",
@@ -85,6 +102,9 @@ export default function Loading() {
         paddingTop: 54,
       }}
     >
+      <span id={LABEL_ID} className="sr-only">
+        청첩장을 불러오는 중
+      </span>
       <m.span
         aria-hidden="true"
         initial={{ opacity: 0 }}
@@ -94,15 +114,16 @@ export default function Loading() {
       >
         The wedding of
       </m.span>
-      {/* 커버에서 이 자리에 오는 것은 날짜 캡션(글씨에서 10px 아래, 높이 11px)이다.
-          선을 그 띠 한가운데에 두어 걷힐 때 위아래로 흔들리지 않게 한다. */}
+      {/* 진행선은 세로다. 글씨 아래로 곧게 떨어지며 위에서부터 차오른다.
+          커버에서 이 자리에 오는 것은 날짜 캡션이므로, 걷힐 때 선이 사라진 자리를
+          날짜가 채운다. */}
       <span
         aria-hidden="true"
-        style={{ display: "block", marginTop: 18, width: 84, height: 1, background: "var(--input-border)" }}
+        style={{ display: "block", marginTop: 20, width: 1, height: 44, background: "var(--input-border)" }}
       >
         <m.span
-          initial={{ scaleX: 0 }}
-          animate={{ scaleX: 1 }}
+          initial={{ scaleY: 0 }}
+          animate={{ scaleY: 1 }}
           // 감속 곡선이라 앞부분이 빠르다. 사진이 일찍 오면 중간에 걷히는데, 그때까지
           // 이미 눈에 띄게 차 있어 "멈춰 있다"로 보이지 않는다.
           transition={{ duration: 1.1, ease: [0.25, 0.6, 0.3, 1] }}
@@ -112,7 +133,7 @@ export default function Loading() {
             height: "100%",
             background: "var(--primary)",
             opacity: 0.75,
-            originX: 0,
+            originY: 0,
           }}
         />
       </span>
