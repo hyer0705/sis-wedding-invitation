@@ -24,11 +24,14 @@ import type { Parent } from "./lib/parents";
 const env = (import.meta.env ?? {}) as Record<string, string | undefined>;
 
 // 형식만 진짜와 같은 가짜다. 실값은 .env 에 있다.
+//
+// 측당 2건씩 4건이 고객 확정 구성이다(2026-08-11). 신랑 어머니는 계좌를 두지 않기로 했고
+// (성함도 표기하지 않는다 — 위 groom.parents 참고), 신부 아버지는 고인이라 두지 않는다.
+// mock 건수가 실제와 어긋나면 레이아웃을 미리 드러내는 mock 의 역할을 못 한다.
 const MOCK_ACCOUNTS: Record<"groom" | "bride", Account[]> = {
   groom: [
     { role: "신랑", bank: "국민은행", number: "123456-01-234567", holder: "박희빈" },
     { role: "신랑 아버지", bank: "신한은행", number: "110-234-567890", holder: "박정후" },
-    { role: "신랑 어머니", bank: "농협은행", number: "302-1234-5678-91", holder: "김서윤" },
   ],
   bride: [
     { role: "신부", bank: "카카오뱅크", number: "3333-01-2345678", holder: "조혜정" },
