@@ -42,9 +42,12 @@ if (!isMockMatch) {
 // 계좌·혼주 성함은 리포에 없다. 주입되지 않으면 mock 이 그대로 배포되므로,
 // 화면에 나갈 값이 실제로 들어왔는지 여기서 확인한다.
 // 로컬은 .env 파일, Vercel 은 process.env 로 들어온다.
+//
+// VITE_GROOM_MOTHER 는 목록에 없다. 신랑 어머니를 표기하지 않기로 고객이 확정해
+// (2026-08-11) INVITE.groom.parents 에서 항목 자체를 뺐고, 들어올 일이 없는 값을
+// 필수로 두면 배포 게이트가 영원히 열리지 않는다.
 const REQUIRED_ENV = [
   "VITE_GROOM_FATHER",
-  "VITE_GROOM_MOTHER",
   "VITE_BRIDE_FATHER",
   "VITE_BRIDE_MOTHER",
   "VITE_ACCOUNTS_GROOM",

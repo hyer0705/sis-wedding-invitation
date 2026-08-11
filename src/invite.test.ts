@@ -88,6 +88,49 @@ describe("INVITE", () => {
     });
   });
 
+  describe("혼주 표기", () => {
+    it("신랑측 혼주는 아버지 한 분이다", () => {
+      // 어머니를 표기하지 않기로 고객이 확정했다(2026-08-11). 항목을 되살리면
+      // 환경변수가 비었을 때 폴백 mock 이 하객 화면에 그대로 나간다 —
+      // scripts/verify-release.mjs 의 필수 환경변수 목록도 함께 봐야 한다.
+      expect(INVITE.groom.parents).toHaveLength(1);
+    });
+
+    it("신부측 아버지가 고인으로 표시돼 있다", () => {
+      // IN-04. 계좌 목록에 신부 아버지가 없는 것과 같은 이유다.
+      expect(INVITE.bride.parents[0].deceased).toBe(true);
+    });
+
+    it("모든 혼주에 성함이 채워져 있다", () => {
+      for (const parent of [...INVITE.groom.parents, ...INVITE.bride.parents]) {
+        expect(parent.name.trim()).not.toBe("");
+      }
+    });
+  });
+
+  describe("인사말", () => {
+    it("본문과 인용구가 비어 있지 않다", () => {
+      // IN-01·IN-02. 빈 배열이면 카드에 제목과 구분선만 남는다.
+      expect(INVITE.greeting.body.length).toBeGreaterThan(0);
+      expect(INVITE.greeting.quote.length).toBeGreaterThan(0);
+      for (const paragraph of [...INVITE.greeting.body, ...INVITE.greeting.quote]) {
+        expect(paragraph.trim()).not.toBe("");
+      }
+    });
+  });
+
+  describe("RSVP 마감일", () => {
+    it("deadlineText 가 deadline 과 같은 날을 가리킨다", () => {
+      const [y, m, d] = INVITE.rsvp.deadline.split("-").map(Number);
+      expect(INVITE.rsvp.deadlineText).toBe(`${y}년 ${m}월 ${d}일까지`);
+    });
+
+    it("예식일보다 앞선다", () => {
+      // 마감이 예식 뒤면 회신을 받을 이유가 없다. 예식 일시를 옮길 때 함께 보라는 뜻이다.
+      expect(new Date(`${INVITE.rsvp.deadline}T23:59:59+09:00`).getTime()).toBeLessThan(new Date(INVITE.dateISO).getTime());
+    });
+  });
+
   describe("계좌", () => {
     it("양가 모두 하나 이상의 계좌를 가진다", () => {
       expect(INVITE.accounts.groom.length).toBeGreaterThan(0);
