@@ -142,12 +142,19 @@ describe("INVITE", () => {
   });
 
   describe("계좌", () => {
-    it("양가 모두 하나 이상의 계좌를 가진다", () => {
-      expect(INVITE.accounts.groom.length).toBeGreaterThan(0);
-      expect(INVITE.accounts.bride.length).toBeGreaterThan(0);
+    // 건수는 여기서 세지 않는다. 계좌는 환경변수로만 들어오므로 건수를 단언하면 .env 가
+    // 있는 로컬에서만 통과하는 테스트가 된다. 측당 2건인지는 배포 게이트가 확인한다
+    // (scripts/verify-release.mjs 의 EXPECTED_ACCOUNTS).
+    it("환경변수가 없으면 비어 있다 — mock 으로 메우지 않는다", () => {
+      // 폴백이 되살아나면 이 단언이 깨진다. 형식이 조금 어긋난 환경변수를 가짜 계좌로
+      // 메우면 하객이 엉뚱한 곳으로 축의금을 보내게 된다(SIS-13 검토).
+      expect(INVITE.accounts.groom).toEqual([]);
+      expect(INVITE.accounts.bride).toEqual([]);
     });
 
-    it("모든 계좌에 은행·번호·예금주가 채워져 있다", () => {
+    it("읽어 낸 계좌에는 은행·번호·예금주가 채워져 있다", () => {
+      // 위 테스트대로 지금은 비어 있어 이 반복문은 돌지 않는다. 형식 검증의 본체는
+      // parseAccounts 쪽에 있다(src/lib/private-data.test.ts).
       for (const account of [...INVITE.accounts.groom, ...INVITE.accounts.bride]) {
         expect(account.bank).not.toBe("");
         expect(account.number).not.toBe("");

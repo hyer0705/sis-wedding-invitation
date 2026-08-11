@@ -27,7 +27,7 @@ describe("parseAccounts", () => {
     expect(account).toEqual({ role: "신랑", bank: "국민은행", number: "111-222", holder: "홍길동" });
   });
 
-  it("값이 없으면 빈 배열이다 — 호출부가 mock으로 폴백한다", () => {
+  it("값이 없으면 빈 배열이다 — 호출부는 mock으로 메우지 않는다", () => {
     expect(parseAccounts(undefined)).toEqual([]);
     expect(parseAccounts("")).toEqual([]);
     expect(parseAccounts("   ")).toEqual([]);

@@ -74,6 +74,37 @@ if (missingEnv.length > 0) {
   errors.push(`개인정보 환경변수 미설정: ${missingEnv.join(", ")} — mock 값이 그대로 배포됩니다`);
 }
 
+// 계좌는 "값이 있는가"만으로는 부족하다. parseAccounts 는 `역할|은행|계좌번호|예금주`
+// 네 마디가 아닌 항목을 조용히 버리므로, 구분자 하나만 틀려도 그 계좌가 화면에서
+// 사라진 채 배포된다 — 실제로 신부 어머니 계좌 하나가 이렇게 빠진 적이 있다(2026-08-11).
+// 값이 아니라 건수만 센다. 계좌번호를 이 스크립트가 들여다보지 않게 하기 위해서다.
+//
+// 고객 확정 구성은 신랑측 2건(신랑·아버지) · 신부측 2건(신부·어머니)이다. 구성이
+// 바뀌면 이 숫자를 함께 고친다 — 고치지 않으면 배포가 막혀 곧바로 드러난다.
+const EXPECTED_ACCOUNTS = { VITE_ACCOUNTS_GROOM: 2, VITE_ACCOUNTS_BRIDE: 2 };
+
+for (const [key, expected] of Object.entries(EXPECTED_ACCOUNTS)) {
+  const raw = (process.env[key] || envFile[key] || "").trim();
+  if (!raw) continue; // 미설정은 위에서 이미 보고했다
+
+  const entries = raw.split(";").filter((entry) => entry.trim());
+  const wellFormed = entries.filter(
+    (entry) =>
+      entry
+        .split("|")
+        .map((f) => f.trim())
+        .filter(Boolean).length === 4,
+  );
+
+  if (wellFormed.length !== expected) {
+    const dropped = entries.length - wellFormed.length;
+    errors.push(
+      `${key}: 계좌 ${expected}건이 필요한데 ${wellFormed.length}건만 읽힙니다` +
+        (dropped > 0 ? ` (형식이 어긋난 항목 ${dropped}건은 화면에 나오지 않습니다 — 구분자는 항목 ";" · 필드 "|")` : ""),
+    );
+  }
+}
+
 // 사진은 Cloudflare R2 에서 온다(SIS-28). public/images/ 는 optimize 산출물을
 // 잠시 두는 로컬 작업 폴더일 뿐 배포물에 들어가지 않으므로, 여기서 볼 것은
 // 파일 용량이 아니라 "배포된 사이트가 사진을 실제로 받아올 수 있는가"다.

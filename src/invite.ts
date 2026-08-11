@@ -21,25 +21,21 @@ import type { Parent } from "./lib/parents";
 
 // Playwright(E2E)는 Vite를 거치지 않고 이 파일을 직접 읽으므로 import.meta.env 가 없다.
 // 그때는 빈 객체로 떨어져 아래 mock 이 쓰인다 — E2E가 보는 값이 개발 화면과 같아진다.
+// 계좌만은 예외다. mock 이 없어 이 경로에서는 빈 배열이 되므로, E2E 스펙에서 INVITE를
+// 직접 읽어 계좌를 기대값으로 삼지 말 것(빌드된 화면에는 값이 박혀 있어 어긋난다).
 const env = (import.meta.env ?? {}) as Record<string, string | undefined>;
 
-// 형식만 진짜와 같은 가짜다. 실값은 .env 에 있다.
-const MOCK_ACCOUNTS: Record<"groom" | "bride", Account[]> = {
-  groom: [
-    { role: "신랑", bank: "국민은행", number: "123456-01-234567", holder: "박희빈" },
-    { role: "신랑 아버지", bank: "신한은행", number: "110-234-567890", holder: "박정후" },
-    { role: "신랑 어머니", bank: "농협은행", number: "302-1234-5678-91", holder: "김서윤" },
-  ],
-  bride: [
-    { role: "신부", bank: "카카오뱅크", number: "3333-01-2345678", holder: "조혜정" },
-    { role: "신부 어머니", bank: "하나은행", number: "123-456789-01234", holder: "이수아" },
-  ],
-};
-
+// 계좌에는 mock 을 두지 않는다. 환경변수에서 읽어 낸 것이 전부이고, 하나도 못 읽으면
+// 빈 배열이 되어 그 측 아코디언이 통째로 사라진다.
+//
+// 폴백을 없앤 이유는 신랑 어머니 성함 때와 같다(SIS-8). 형식이 조금 어긋난 환경변수는
+// parseAccounts 가 조용히 버리는데, 그때 mock 으로 메우면 가짜 계좌번호가 하객 화면에
+// 그대로 나가고 축의금이 엉뚱한 곳으로 간다. 화면에서 사라지는 편이 훨씬 안전하다 —
+// 사라진 것은 눈에 띄지만 바꿔치기된 숫자는 아무도 알아채지 못한다.
+//
+// 건수(신랑측 2 · 신부측 2)는 scripts/verify-release.mjs 가 배포 전에 확인한다.
 function accountsOf(side: "groom" | "bride"): Account[] {
-  const raw = side === "groom" ? env.VITE_ACCOUNTS_GROOM : env.VITE_ACCOUNTS_BRIDE;
-  const parsed = parseAccounts(raw);
-  return parsed.length > 0 ? parsed : MOCK_ACCOUNTS[side];
+  return parseAccounts(side === "groom" ? env.VITE_ACCOUNTS_GROOM : env.VITE_ACCOUNTS_BRIDE);
 }
 
 export const INVITE = {
