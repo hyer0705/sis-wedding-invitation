@@ -44,7 +44,7 @@ docs/{요약}                Linear 티켓 없는 문서 수정
 
 - release 브랜치는 사용하지 않는다. Vercel PR 프리뷰 URL이 고객 검수 역할을 대신한다.
 - `main`에 직접 커밋하지 않는다.
-- 브랜치명은 Linear의 "Copy git branch name"(`Cmd/Ctrl + Shift + .`)으로 복사한 값을 사용한다. `docs/` 브랜치만 예외로 직접 짓는다.
+- 브랜치명의 `{요약}`은 이슈 제목을 그대로 옮기지 않고 **한두 낱말로 줄여 직접 짓는다** (예: `SIS-13 마음 전하실 곳 — 아코디언·계좌 복사` → `feature/sis-13-계좌`). Linear의 "Copy git branch name"은 제목 전체를 붙여 길어지므로 쓰지 않는다. 이슈 번호가 들어 있어 추적에는 지장이 없다.
 
 ### `docs/` 브랜치를 쓰는 경우
 
