@@ -212,6 +212,55 @@ test.describe("청첩장 기본 동작", () => {
     });
   });
 
+  // SH-01·SH-02 — 공유. 카카오 SDK 는 외부 CDN 에서 오고 도메인 화이트리스트에 걸려
+  // localhost 프리뷰에서는 어차피 카드가 뜨지 않는다. 카카오 경로는 유닛 테스트가 덮고
+  // (src/lib/share.test.ts), 여기서는 눌러도 안전한 링크 복사만 실제로 확인한다.
+  test.describe("공유", () => {
+    test("공유 버튼 두 개가 푸터 위에 있다", async ({ page }) => {
+      await page.goto("/");
+
+      const share = page.getByRole("region", { name: "청첩장 공유" });
+      await expect(share.getByRole("button", { name: "카카오톡으로 공유" })).toBeVisible();
+      await expect(share.getByRole("button", { name: "링크 복사" })).toBeVisible();
+
+      // 자리가 푸터 위라는 것이 이 섹션의 설계다 — 청첩장을 다 읽은 뒤에 "전해 주세요"가
+      // 나온다. 순서가 뒤집히면 인사말이 마지막이 아니게 된다.
+      const order = await page.evaluate(() => {
+        const section = document.querySelector('[aria-label="청첩장 공유"]');
+        const footer = document.querySelector("footer");
+        if (!section || !footer) return null;
+        return section.compareDocumentPosition(footer) & Node.DOCUMENT_POSITION_FOLLOWING ? "before" : "after";
+      });
+      expect(order).toBe("before");
+    });
+
+    test("링크 복사가 배포 주소를 클립보드에 넣는다", async ({ page, context, browserName }) => {
+      test.skip(browserName !== "chromium", "clipboard-read 권한은 chromium 전용");
+      await context.grantPermissions(["clipboard-read", "clipboard-write"]);
+      await page.goto("/");
+
+      await page.getByRole("button", { name: "링크 복사" }).click();
+
+      await expect(page.getByRole("status")).toHaveText("청첩장 주소가 복사되었습니다");
+      // location.href 가 아니라 INVITE.siteUrl 이어야 한다. 프리뷰에서 공유했을 때
+      // 임시 주소가 하객에게 나가는 것을 막는 자리다 — 여기서는 localhost 가 아닌지가
+      // 곧 그 증거다.
+      expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(INVITE.siteUrl);
+    });
+
+    test("OG 태그가 INVITE.share 문구를 그대로 싣는다", async ({ page }) => {
+      // SH-03 은 명세서에서 유일한 「필수」다. 카톡에 링크를 붙여넣는 순간 보이는 화면이라
+      // 깨진 채 배포되면 스크래퍼가 그 상태로 캐싱한다.
+      await page.goto("/");
+
+      await expect(page.locator('meta[property="og:title"]')).toHaveAttribute("content", INVITE.share.title);
+      await expect(page.locator('meta[property="og:description"]')).toHaveAttribute("content", INVITE.share.description);
+      await expect(page.locator('meta[property="og:url"]')).toHaveAttribute("content", INVITE.siteUrl);
+      // 썸네일은 R2 절대 URL 이다. 상대 경로면 카카오 스크래퍼가 읽지 못한다.
+      await expect(page.locator('meta[property="og:image"]')).toHaveAttribute("content", /^https:\/\/.+\/og-image\.jpg$/);
+    });
+  });
+
   // 페이드인이 진행 중이면 axe가 합성된 중간 색상을 읽어 색상 대비를 오탐한다.
   // reduced-motion으로 애니메이션을 건너뛰어 최종 상태를 검사하고,
   // 동시에 prefers-reduced-motion 대응(MotionConfig reducedMotion="user")도 함께 검증한다.
@@ -233,6 +282,10 @@ test.describe("청첩장 기본 동작", () => {
         await page.getByRole("button", { name: label }).click();
       }
       await expect(page.getByRole("button", { name: /계좌번호 복사$/ }).first()).toBeVisible();
+
+      // 공유 버튼은 접히지 않아 늘 감사 대상이지만, 리빌이 끝나기 전에 감사가 돌면
+      // 반투명 상태의 색을 읽는다. 보이는 것을 확인하고 넘어간다.
+      await expect(page.getByRole("button", { name: "카카오톡으로 공유" })).toBeVisible();
 
       const results = await new AxeBuilder({ page })
         .withTags(["wcag2a", "wcag2aa"])

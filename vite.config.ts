@@ -2,6 +2,7 @@
 import { defineConfig, loadEnv, type Plugin } from "vite";
 import react from "@vitejs/plugin-react";
 import { INVITE } from "./src/invite";
+import { ogImageUrl } from "./src/lib/imageUrl";
 
 /**
  * index.html 의 제목·설명·OG 태그를 INVITE 에서 채운다.
@@ -9,20 +10,22 @@ import { INVITE } from "./src/invite";
  * 예전에는 index.html 에 날짜를 직접 적어 뒀는데, 예식 일시가 바뀔 때 그쪽이
  * 따라오지 않아 카톡 공유 카드에 1년 넘게 어긋난 날짜가 실려 있었다(SIS-24).
  * 값이 한 곳에서만 나오게 해 그 어긋남 자체를 없앤다.
+ *
+ * 문구를 여기서 조합하지 않고 INVITE.share 를 그대로 읽는다. 카톡 공유 카드를 만드는
+ * src/lib/share.ts 도 같은 값을 읽으므로, 둘의 문구가 갈릴 자리가 없다(SIS-16).
  */
 function inviteMeta(mode: string): Plugin {
-  const title = `${INVITE.groom.name} ♥ ${INVITE.bride.name} 결혼합니다`;
-  const description = `${INVITE.dateText} ${INVITE.dayText} · ${INVITE.venue} ${INVITE.hall}`;
+  const { title, description } = INVITE.share;
   const siteUrl = INVITE.siteUrl.replace(/\/+$/, "");
 
   return {
     name: "invite-meta",
     transformIndexHtml(html) {
-      // og:image 도 R2 에서 온다. 베이스 URL 이 비어 있으면(로컬 폴백) 상대 경로가
-      // 되는데, 카카오 스크래퍼는 상대 경로를 못 읽는다. 그래서 사이트 절대 주소로
-      // 메워 최소한 형태는 유지하고, 실제 도달 여부는 `npm run verify` 가 잡는다.
-      const imageBase = loadEnv(mode, process.cwd(), "VITE_").VITE_IMAGE_BASE_URL?.trim().replace(/\/+$/, "");
-      const ogImage = imageBase ? `${imageBase}/og-image.jpg` : `${siteUrl}/images/og-image.jpg`;
+      // og:image 도 R2 에서 온다. 베이스 URL 이 비어 있을 때 사이트 절대 주소로 메우는
+      // 규칙은 ogImageUrl 안에 있다 — 런타임(share.ts)과 빌드 시점이 같은 주소를 만들어야
+      // 카톡 카드와 OG 태그의 썸네일이 어긋나지 않는다.
+      const imageBase = loadEnv(mode, process.cwd(), "VITE_").VITE_IMAGE_BASE_URL ?? "";
+      const ogImage = ogImageUrl(siteUrl, imageBase);
 
       const filled = html
         .replaceAll("__OG_TITLE__", title)
@@ -81,11 +84,19 @@ export default defineConfig(({ mode }) => ({
   test: {
     environment: "jsdom",
     setupFiles: ["./src/test/setup.ts"],
-    // 계좌 환경변수를 비운 채 돌린다. Vitest 도 Vite 라 .env 를 읽는데, 계좌에는 mock
-    // 폴백이 없어(SIS-13) .env 가 있는 로컬과 없는 CI 의 INVITE.accounts 가 달라진다.
-    // 비워 고정하지 않으면 로컬에서만 통과하는 테스트가 생긴다 — 실제로 겪었다.
-    // 계좌가 필요한 테스트는 픽스처를 주입한다(src/components/Accounts.test.tsx).
-    env: { VITE_ACCOUNTS_GROOM: "", VITE_ACCOUNTS_BRIDE: "" },
+    // 환경변수를 비운 채 돌린다. Vitest 도 Vite 라 .env 를 읽는데, 그대로 두면 .env 가
+    // 있는 로컬과 없는 CI 의 결과가 달라져 로컬에서만 통과하는 테스트가 생긴다 —
+    // 계좌에서 실제로 겪었다(SIS-13). 값이 필요한 테스트는 픽스처를 주입한다
+    // (vi.stubEnv 또는 인자 주입 — src/lib/share.test.ts 참고).
+    //
+    // 계좌에는 mock 폴백이 없어 빈 값이면 INVITE.accounts 가 빈 배열이 된다.
+    // 이미지 베이스와 카카오 키는 공유 카드의 썸네일·경로를 좌우한다(SIS-16).
+    env: {
+      VITE_ACCOUNTS_GROOM: "",
+      VITE_ACCOUNTS_BRIDE: "",
+      VITE_IMAGE_BASE_URL: "",
+      VITE_KAKAO_JS_KEY: "",
+    },
     // scripts/의 검토 게이트는 .mjs다. tsconfig·eslint 대상(src)이 아니므로
     // 확장자를 그대로 두고 테스트만 여기서 잡는다.
     include: ["src/**/*.test.{ts,tsx}", "scripts/**/*.test.mjs"],
