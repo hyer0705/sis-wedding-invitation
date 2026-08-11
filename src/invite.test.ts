@@ -141,6 +141,38 @@ describe("INVITE", () => {
     });
   });
 
+  describe("공유 카드 문구", () => {
+    // SH-01·SH-03. 이 값이 카톡 공유 카드(src/lib/share.ts)와 OG 태그(vite.config.ts 의
+    // inviteMeta)에 동시에 나간다. 둘이 각자 문구를 조합하던 시절에는 한쪽만 고치면
+    // 카드와 메타 태그가 서로 다른 말을 했다(SIS-16).
+    it("제목에 신랑·신부 이름이 들어 있다", () => {
+      expect(INVITE.share.title).toContain(INVITE.groom.name);
+      expect(INVITE.share.title).toContain(INVITE.bride.name);
+    });
+
+    it("설명이 예식 일시·장소 표기와 어긋나지 않는다", () => {
+      // 예식 일시나 예식장이 바뀌면 여기서 먼저 깨진다. 공유 카드만 옛 값을 실은 채
+      // 배포되는 것을 막는 자리다.
+      expect(INVITE.share.description).toContain(INVITE.dateText);
+      expect(INVITE.share.description).toContain(INVITE.dayText);
+      expect(INVITE.share.description).toContain(INVITE.venue);
+      expect(INVITE.share.description).toContain(INVITE.hall);
+    });
+
+    it("한 줄이다", () => {
+      // meta 태그 속성에 개행이 들어가면 스크래퍼마다 다르게 읽는다. 카카오 카드는
+      // 폭에 맞춰 알아서 접으므로 줄 나눔을 여기서 정하지 않는다.
+      expect(INVITE.share.description).not.toContain("\n");
+      expect(INVITE.share.title).not.toContain("\n");
+    });
+
+    it("제목·설명·버튼 문구가 비어 있지 않다", () => {
+      for (const text of Object.values(INVITE.share)) {
+        expect(text.trim()).not.toBe("");
+      }
+    });
+  });
+
   describe("계좌", () => {
     // 건수는 여기서 세지 않는다. 계좌는 환경변수로만 들어오므로 건수를 단언하면 .env 가
     // 있는 로컬에서만 통과하는 테스트가 된다. 측당 2건인지는 배포 게이트가 확인한다
