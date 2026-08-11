@@ -19,6 +19,11 @@ import type { Account } from "../lib/private-data";
 const LEAD = "참석이 어려우신 분들을 위해\n마음 전하실 곳을 안내드립니다.";
 
 export default function Accounts() {
+  // 양측 다 비었으면 섹션째 내린다. 계좌에는 mock 폴백이 없어(src/invite.ts) 환경변수를
+  // 넣지 않은 개발·CI 화면이 이 경우인데, 안내 문구만 있고 계좌는 없는 카드가 남으면
+  // 하객에게는 고장으로 보인다.
+  if (INVITE.accounts.groom.length === 0 && INVITE.accounts.bride.length === 0) return null;
+
   return (
     <Reveal>
       <div className="card" style={{ padding: "38px 26px", textAlign: "center" }}>
@@ -49,8 +54,8 @@ function AccountGroup({ side, label, accounts }: { side: "groom" | "bride"; labe
   const [open, setOpen] = useState(false);
   const panelId = useId();
 
-  // 계좌가 없는 쪽은 빈 아코디언만 남으므로 통째로 감춘다. 환경변수가 비어 mock 도
-  // 비었을 때(형식이 깨져 parseAccounts 가 전부 버렸을 때)가 여기에 해당한다.
+  // 한쪽만 비는 경우 — 그 측 환경변수가 비었거나 형식이 깨져 parseAccounts 가 전부
+  // 버린 때다. 열어 봐야 아무것도 없는 아코디언은 두지 않는다.
   if (accounts.length === 0) return null;
 
   return (
@@ -59,7 +64,9 @@ function AccountGroup({ side, label, accounts }: { side: "groom" | "bride"; labe
         type="button"
         onClick={() => setOpen((prev) => !prev)}
         aria-expanded={open}
-        aria-controls={panelId}
+        // 닫혀 있는 동안에는 붙이지 않는다. 패널을 DOM 에서 빼기 때문에, 그대로 두면
+        // 없는 id 를 가리켜 스크린리더의 "제어 대상으로 이동"이 아무 일도 하지 않는다.
+        aria-controls={open ? panelId : undefined}
         style={{
           width: "100%",
           display: "flex",

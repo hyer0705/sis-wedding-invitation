@@ -186,6 +186,32 @@ test.describe("청첩장 기본 동작", () => {
     });
   });
 
+  // AC-01·AC-02 — 마음 전하실 곳. 계좌는 환경변수로만 들어오고 mock 이 없어, 여기서 보는
+  // 값은 playwright.config.ts 의 webServer.env 가 넣은 가짜다. INVITE 를 기대값으로 쓰지
+  // 않는 이유는 그 파일이 Vite 를 거치지 않고 읽혀 계좌가 늘 비기 때문이다.
+  test.describe("마음 전하실 곳", () => {
+    test("아코디언을 열면 계좌가 나오고 복사가 실제 클립보드에 들어간다", async ({ page, context, browserName }) => {
+      test.skip(browserName !== "chromium", "clipboard-read 권한은 chromium 전용");
+      await context.grantPermissions(["clipboard-read", "clipboard-write"]);
+      await page.goto("/");
+
+      const groom = page.getByRole("button", { name: /^신랑측/ });
+      await groom.click();
+
+      // 측당 2건이 모두 보여야 한다 — 형식이 어긋난 항목은 조용히 버려지므로 건수를 센다.
+      await expect(page.getByRole("button", { name: /계좌번호 복사$/ })).toHaveCount(2);
+
+      await page
+        .getByRole("button", { name: /계좌번호 복사$/ })
+        .first()
+        .click();
+
+      await expect(page.getByRole("status")).toHaveText("계좌번호가 복사되었습니다");
+      // 하이픈째 복사한다. 화면에 보이는 값과 같아야 하객이 붙여넣고 대조할 수 있다.
+      expect(await page.evaluate(() => navigator.clipboard.readText())).toBe("111-111-111111");
+    });
+  });
+
   // 페이드인이 진행 중이면 axe가 합성된 중간 색상을 읽어 색상 대비를 오탐한다.
   // reduced-motion으로 애니메이션을 건너뛰어 최종 상태를 검사하고,
   // 동시에 prefers-reduced-motion 대응(MotionConfig reducedMotion="user")도 함께 검증한다.
@@ -200,6 +226,13 @@ test.describe("청첩장 기본 동작", () => {
       await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
       await page.evaluate(() => document.fonts.ready);
       await expect(page.locator("header")).toHaveCSS("opacity", "1");
+
+      // 아코디언은 기본이 접힘이고 닫힌 패널은 DOM 에서 빠진다. 열어 두지 않으면 계좌 행과
+      // 복사 버튼이 감사 대상에 아예 없어, 그 안의 위반은 CI 가 영영 보지 못한다.
+      for (const label of [/^신랑측/, /^신부측/]) {
+        await page.getByRole("button", { name: label }).click();
+      }
+      await expect(page.getByRole("button", { name: /계좌번호 복사$/ }).first()).toBeVisible();
 
       const results = await new AxeBuilder({ page })
         .withTags(["wcag2a", "wcag2aa"])
