@@ -16,10 +16,25 @@ const WRAP = { whiteSpace: "pre-line", wordBreak: "keep-all" } as const;
 
 const RULE_COLOR = "var(--input-border)";
 
+// 이 카드만 본문을 c안 기준(16.5)보다 작게 쓴다. 받은 인사말에는 한 줄이 23자인
+// 문단이 있어 16.5 로는 375px 에서 두 문단이 한 줄씩 더 접혔고, 마지막 낱말만
+// 홀로 떨어져 고객이 지정한 줄바꿈이 무너졌다.
+//
+// 좌우 패딩을 30 에서 26 으로 4px 만 좁히고 실측했을 때, 375px 에서 모든 문단이
+// 원문대로 앉는 최대 크기가 14.5 였다(패딩을 22 까지 줄여도 한계는 같아 더 깎지
+// 않았다). 문구가 바뀌면 이 값도 다시 재야 한다.
+//
+// 줄 수를 세려면 실제 레이아웃이 있어야 해서 jsdom 으로는 볼 수 없다. 이 값들을
+// 지키는 것은 e2e/smoke.spec.ts 이며, 320px 은 11.5px 이하라야 지켜져 제외했다.
+const CARD_PADDING_X = 26;
+const BODY_SIZE = 14.5;
+const QUOTE_SIZE = 13.5;
+const PARENTS_SIZE = 14;
+
 export default function Invitation() {
   return (
     <Reveal>
-      <div className="card" style={{ padding: "46px 30px" }}>
+      <div className="card" style={{ padding: `46px ${CARD_PADDING_X}px` }}>
         <div className="script-title" style={{ fontSize: 26 }}>
           Invitation
         </div>
@@ -30,7 +45,7 @@ export default function Invitation() {
             key={paragraph}
             style={{
               margin: index === 0 ? 0 : "22px 0 0",
-              fontSize: 16.5,
+              fontSize: BODY_SIZE,
               lineHeight: 2.2,
               color: "var(--text-body)",
               ...WRAP,
@@ -48,7 +63,7 @@ export default function Invitation() {
               key={stanza}
               style={{
                 margin: index === 0 ? 0 : "18px 0 0",
-                fontSize: 15,
+                fontSize: QUOTE_SIZE,
                 lineHeight: 2.1,
                 color: "var(--text-sub)",
                 ...WRAP,
@@ -57,8 +72,10 @@ export default function Invitation() {
               {stanza}
             </p>
           ))}
-          {/* cite 의 기본 이탤릭은 명조 본문과 어울리지 않아 되돌린다. */}
-          <cite style={{ display: "block", marginTop: 20, fontSize: 13, fontStyle: "normal", color: "var(--muted)" }}>
+          {/* cite 의 기본 이탤릭은 명조 본문과 어울리지 않아 되돌린다.
+              캡션에 흔히 쓰는 --muted 는 카드 배경 위에서 2.5:1 이라, 이 크기에는
+              같은 토큰표 안에서 4.52:1 인 --text-sub 를 쓰고 크기로만 위계를 준다. */}
+          <cite style={{ display: "block", marginTop: 20, fontSize: 12.5, fontStyle: "normal", color: "var(--text-sub)" }}>
             — {INVITE.greeting.quoteAuthor} —
           </cite>
         </blockquote>
@@ -71,7 +88,7 @@ export default function Invitation() {
             display: "flex",
             flexDirection: "column",
             gap: 11,
-            fontSize: 15,
+            fontSize: PARENTS_SIZE,
             color: "var(--text-body)",
             wordBreak: "keep-all",
           }}
