@@ -53,8 +53,14 @@ describe("ogImageUrl", () => {
     expect(ogImageUrl(SITE, "")).toBe("https://example.com/images/og-image.jpg");
   });
 
+  it("경로형 베이스도 사이트 주소를 붙여 절대 URL 로 만든다", () => {
+    // imageUrl 이 지원 사양으로 두고 있는 설정이다(같은 도메인 하위 경로로 옮기는 경우).
+    // 여기서 상대 경로를 그대로 내보내면 카카오 스크래퍼가 읽지 못해 썸네일이 빠진다.
+    expect(ogImageUrl(SITE, "/assets")).toBe("https://example.com/assets/og-image.jpg");
+  });
+
   it("어느 쪽으로 가든 https 절대 URL 이다", () => {
-    for (const url of [ogImageUrl(SITE, R2), ogImageUrl(SITE, "")]) {
+    for (const url of [ogImageUrl(SITE, R2), ogImageUrl(SITE, ""), ogImageUrl(SITE, "/assets")]) {
       expect(url).toMatch(/^https:\/\//);
     }
   });

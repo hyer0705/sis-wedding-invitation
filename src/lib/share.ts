@@ -40,13 +40,18 @@ export function initKakao(): boolean {
 /**
  * 카카오톡 공유 카드를 띄운다. 쓸 수 없는 환경이면 폴백으로 내려간다.
  *
- * SDK 가 실려 있어도 카카오 개발자 콘솔에 그 도메인이 등록돼 있지 않으면
- * `sendDefault` 가 예외를 던진다. 프리뷰 주소마다 등록이 필요해 실제로 자주 겪는
- * 경우라, 던져진 뒤에도 하객이 링크를 얻을 수 있도록 폴백까지 이어 준다.
+ * SDK 가 던지는 자리가 둘이라 초기화까지 통째로 try 안에 둔다.
+ *   - `Kakao.init` — 키 형식이 어긋날 때. JavaScript 키 대신 REST API 키를 넣는
+ *     실수가 흔하다.
+ *   - `sendDefault` — 카카오 개발자 콘솔에 그 도메인이 등록돼 있지 않을 때.
+ *     프리뷰 주소마다 등록이 필요해 자주 겪는다.
+ *
+ * 어느 쪽이든 하객은 링크를 얻을 수 있어야 한다. init 을 밖에 두었더니 키가 잘못된
+ * 순간 예외가 이 함수 밖으로 새어나가, 폴백은커녕 버튼이 아무 반응 없이 죽었다.
  */
 export async function shareKakao(): Promise<ShareResult> {
-  if (initKakao()) {
-    try {
+  try {
+    if (initKakao()) {
       window.Kakao!.Share.sendDefault({
         objectType: "feed",
         content: {
@@ -63,9 +68,9 @@ export async function shareKakao(): Promise<ShareResult> {
         ],
       });
       return "kakao";
-    } catch {
-      // 폴백으로 내려간다
     }
+  } catch {
+    // 폴백으로 내려간다
   }
   return shareFallback();
 }
@@ -75,6 +80,10 @@ export async function shareKakao(): Promise<ShareResult> {
  *
  * 공유 시트를 하객이 그냥 닫으면 `AbortError` 가 온다. 이때 클립보드로 다시 내려가면
  * 취소했는데도 "복사되었습니다" 가 뜨므로, 그 경우만 아무 일도 없었던 것으로 둔다.
+ *
+ * 거부값이 `Error` 인지는 보지 않고 이름만 본다. 실제로 오는 것은 DOMException 이고,
+ * 그것이 Error 를 상속하는지는 브라우저마다 다르다 — instanceof 로 좁히면 상속하지
+ * 않는 구형 WebKit 에서 이 분기를 통째로 놓친다.
  */
 export async function shareFallback(): Promise<ShareResult> {
   if (navigator.share) {
@@ -86,7 +95,7 @@ export async function shareFallback(): Promise<ShareResult> {
       });
       return "shared";
     } catch (error) {
-      if (error instanceof Error && error.name === "AbortError") return "shared";
+      if ((error as { name?: string } | null)?.name === "AbortError") return "shared";
       // 그 밖의 실패(권한 거부 등)는 복사로 내려간다
     }
   }

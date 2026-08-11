@@ -60,7 +60,17 @@ describe("Share", () => {
     renderWithMotion(<Share />);
     await userEvent.click(screen.getByRole("button", { name: "링크 복사" }));
 
-    await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("길게 눌러 주세요"));
+    await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("길게 눌러 복사해 주세요"));
+  });
+
+  it("공유가 예외로 터져도 버튼이 조용히 죽지 않는다", async () => {
+    // 공유 사슬은 제 안에서 폴백을 다 처리하지만, 그 바깥으로 예외가 새면 여기서
+    // 받아야 한다. 아무 반응이 없으면 하객에게는 고장과 구분되지 않는다.
+    shareKakao.mockRejectedValue(new Error("예상 못한 실패"));
+    renderWithMotion(<Share />);
+    await userEvent.click(screen.getByRole("button", { name: "카카오톡으로 공유" }));
+
+    await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("공유에 실패했어요"));
   });
 
   it("공유 시트로 넘어간 경우에도 토스트를 띄우지 않는다", async () => {

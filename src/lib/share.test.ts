@@ -27,12 +27,14 @@ type KakaoFeed = {
 };
 
 /** window.Kakao 를 흉내낸다. sendDefault 에 실제로 넘어간 인자를 볼 수 있게 돌려준다. */
-function stubKakao(options: { throws?: boolean } = {}) {
+function stubKakao(options: { throws?: boolean; initThrows?: boolean } = {}) {
   const sendDefault = vi.fn<(settings: KakaoFeed) => void>(() => {
     if (options.throws) throw new Error("도메인이 등록되지 않았습니다");
   });
   const Kakao = {
-    init: vi.fn(),
+    init: vi.fn(() => {
+      if (options.initThrows) throw new Error("Invalid app key");
+    }),
     isInitialized: vi.fn(() => false),
     Share: { sendDefault },
   };
@@ -126,6 +128,19 @@ describe("shareKakao", () => {
     expect(share).toHaveBeenCalledTimes(1);
   });
 
+  it("키 형식이 어긋나 init 이 던져도 폴백까지 이어 준다", async () => {
+    // JavaScript 키 대신 REST API 키를 넣는 실수가 흔하다. init 을 try 밖에 두었을
+    // 때는 예외가 shareKakao 밖으로 새어나가 버튼이 아무 반응 없이 죽었다 — 카톡 창도
+    // 공유 시트도 복사도 없이, 하객에게는 고장과 구분되지 않았다.
+    stubKakao({ initThrows: true });
+    const share = vi.fn(() => Promise.resolve());
+    vi.stubGlobal("navigator", { share, clipboard: undefined });
+    const { shareKakao } = await loadShare("잘못된-키");
+
+    await expect(shareKakao()).resolves.toBe("shared");
+    expect(share).toHaveBeenCalledTimes(1);
+  });
+
   it("이미 초기화돼 있으면 init 을 다시 부르지 않는다", async () => {
     const { Kakao } = stubKakao();
     Kakao.isInitialized.mockReturnValue(true);
@@ -152,7 +167,19 @@ describe("shareFallback", () => {
 
   it("공유 시트를 닫으면(AbortError) 복사로 내려가지 않는다", async () => {
     // 취소했는데 "복사되었습니다" 가 뜨면 하객은 자기가 뭘 한 건지 알 수 없다.
-    const abort = Object.assign(new Error("취소"), { name: "AbortError" });
+    const abort = new DOMException("취소", "AbortError");
+    const writeText = vi.fn(() => Promise.resolve());
+    vi.stubGlobal("navigator", { share: vi.fn(() => Promise.reject(abort)), clipboard: { writeText } });
+    const { shareFallback } = await loadShare();
+
+    await expect(shareFallback()).resolves.toBe("shared");
+    expect(writeText).not.toHaveBeenCalled();
+  });
+
+  it("DOMException 이 Error 를 상속하지 않아도 취소를 알아본다", async () => {
+    // 구형 WebKit 이 그렇다. instanceof Error 로 좁히면 이 분기를 통째로 놓쳐,
+    // 취소했는데도 클립보드가 덮어써지고 "복사되었습니다" 가 뜬다.
+    const abort = { name: "AbortError", message: "취소" };
     const writeText = vi.fn(() => Promise.resolve());
     vi.stubGlobal("navigator", { share: vi.fn(() => Promise.reject(abort)), clipboard: { writeText } });
     const { shareFallback } = await loadShare();

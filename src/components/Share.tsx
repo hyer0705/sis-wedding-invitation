@@ -18,10 +18,18 @@ export default function Share() {
 
   // 카톡 창이나 공유 시트가 뜨면 화면이 눈에 띄게 바뀌므로 토스트를 얹지 않는다.
   // 복사는 화면이 그대로라 알려 주지 않으면 눌렸는지조차 알 수 없다.
+  //
+  // 거부까지 여기서 받는다. 공유 사슬은 제 안에서 폴백을 다 처리하지만, 그 바깥으로
+  // 예외가 새면 버튼이 아무 반응 없이 죽는다 — 하객에게는 고장과 구분되지 않는다.
   const handle = async (run: () => Promise<ShareResult>) => {
-    const result = await run();
+    let result: ShareResult;
+    try {
+      result = await run();
+    } catch {
+      result = "failed";
+    }
     if (result === "copied") showToast("청첩장 주소가 복사되었습니다");
-    else if (result === "failed") showToast("복사에 실패했어요\n주소창을 길게 눌러 주세요");
+    else if (result === "failed") showToast("공유에 실패했어요\n주소창을 길게 눌러 복사해 주세요");
   };
 
   return (
