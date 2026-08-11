@@ -22,6 +22,23 @@
       href="https://fonts.googleapis.com/css2?family=Parisienne&family=Nanum+Myeongjo:wght@400;700;800&family=Gowun+Dodum&display=swap"
       rel="stylesheet"
     />
+    <!--
+      카카오톡 공유(SH-01)용 SDK. 이 스크립트가 window.Kakao 를 만든다.
+
+      integrity 를 붙여 버전을 고정한다 — CDN 의 파일이 바뀌면 로드 자체가 막히고,
+      src/lib/share.ts 가 navigator.share → 클립보드 순으로 degrade 한다. 버전을
+      올릴 때는 해시도 함께 다시 계산해야 한다:
+        curl -s <src> | openssl dgst -sha384 -binary | openssl base64 -A
+
+      JS 키는 번들에 그대로 노출되므로 숨길 수단이 없다. 카카오 개발자 콘솔의
+      플랫폼 도메인 화이트리스트가 유일한 방어선이다 — 배포·프리뷰 도메인을 등록한다.
+    -->
+    <script
+      src="https://t1.kakaocdn.net/kakao_js_sdk/2.7.6/kakao.min.js"
+      integrity="sha384-WAtVcQYcmTO/N+C1N+1m6Gp8qxh+3NlnP7X1U7qP6P5dQY/MsRBNTh+e1ahJrkEm"
+      crossorigin="anonymous"
+      defer
+    ></script>
   </head>
   <body>
     <div id="root"></div>
