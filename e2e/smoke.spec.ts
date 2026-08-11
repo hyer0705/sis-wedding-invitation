@@ -25,6 +25,24 @@ test.describe("청첩장 기본 동작", () => {
     expect(errors).toEqual([]);
   });
 
+  // DT-01 — 320px 에서 "…오전 11" / "시" 로 끊겨 마지막 한 글자만 다음 줄에 남던 적이
+  // 있다. 날짜와 시각을 각각 덩어리로 묶어 막았고, 폰트나 문구가 바뀌면 되살아나기 쉽다.
+  // 320px 에서는 두 줄이 되는 것이 정상이며, 각 덩어리가 쪼개지지 않는 것이 조건이다.
+  test("예식 일시가 날짜·시각 덩어리째로만 줄바꿈된다", async ({ page }) => {
+    await page.goto("/");
+
+    for (const part of [INVITE.dateText, INVITE.dayText]) {
+      const chunk = page.getByText(part, { exact: true });
+      const { height, fontSize } = await chunk.evaluate((el) => ({
+        height: el.getBoundingClientRect().height,
+        fontSize: parseFloat(getComputedStyle(el).fontSize),
+      }));
+
+      // 한 줄이면 글자 크기의 1.4배쯤, 두 줄이면 2.7배쯤 된다.
+      expect(height, `"${part}" 이 두 줄로 쪼개졌다`).toBeLessThan(fontSize * 2);
+    }
+  });
+
   test("가로 스크롤이 발생하지 않는다", async ({ page }) => {
     await page.goto("/");
     // CM-01: 320~430px 어디서도 페이지가 가로로 넘치면 안 된다

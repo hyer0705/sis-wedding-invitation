@@ -5,6 +5,7 @@ import { renderWithMotion } from "../test/renderWithMotion";
 import Calendar from "./Calendar";
 import { INVITE } from "../invite";
 import { monthGridOf } from "../lib/monthGrid";
+import { AFTER_MESSAGE } from "../lib/countdown";
 
 // 격자 계산 자체는 lib/monthGrid.test.ts 가 본다. 여기서는 화면이 INVITE 를 기준으로
 // 그려지는지, 저장 버튼이 실제로 .ics 를 내보내는지를 확인한다.
@@ -30,7 +31,9 @@ beforeEach(() => {
 
 afterEach(() => {
   Reflect.deleteProperty(URL as unknown as Record<string, unknown>, "createObjectURL");
-  Reflect.deleteProperty(URL as unknown as Record<string, unknown>, "revokeObjectURL");
+  // revokeObjectURL 은 지우지 않는다. downloadIcs 가 남긴 1초 지연 타이머가 테스트가
+  // 끝난 뒤에 깨어나는데, 그때 없으면 TypeError 가 엉뚱한 테스트에 붙는다.
+  Object.defineProperty(URL, "revokeObjectURL", { value: () => {}, configurable: true });
   vi.restoreAllMocks();
 });
 
@@ -38,7 +41,10 @@ describe("Calendar", () => {
   it("DT-01 예식 일시와 장소를 보여 준다", () => {
     renderWithMotion(<Calendar />);
 
-    expect(screen.getByText(`${INVITE.dateText} ${INVITE.dayText}`)).toBeInTheDocument();
+    // 날짜와 시각은 각각 span 으로 묶여 있다 — 320px 에서 덩어리째로만 줄바꿈되게 하려는
+    // 것이며, 이유는 컴포넌트 주석 참고.
+    expect(screen.getByText(INVITE.dateText)).toBeInTheDocument();
+    expect(screen.getByText(INVITE.dayText)).toBeInTheDocument();
     expect(screen.getByText(INVITE.venue)).toBeInTheDocument();
     expect(screen.getByText(INVITE.hall)).toBeInTheDocument();
   });
@@ -96,6 +102,20 @@ describe("Calendar", () => {
 
     // 파일 저장은 화면이 그대로라, 알림이 없으면 눌렸는지조차 알 수 없다.
     expect(screen.getByRole("status")).toHaveTextContent("캘린더 앱에서 일정을 확인해 주세요");
+  });
+
+  it("DT-03 예식이 지난 뒤에는 저장 버튼을 감춘다", () => {
+    // 페이지는 예식 후 한 달간 열려 있다(CM-08). 지난 일정을 캘린더에 넣으라고
+    // 권하면 안 된다.
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2027-01-25T00:00:00+09:00"));
+    try {
+      renderWithMotion(<Calendar />);
+      expect(screen.queryByRole("button", { name: "캘린더에 저장" })).not.toBeInTheDocument();
+      expect(screen.getByText(AFTER_MESSAGE)).toBeInTheDocument();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("DT-03 저장에 실패하면 직접 등록하라고 알린다", async () => {

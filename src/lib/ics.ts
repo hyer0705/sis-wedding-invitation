@@ -90,7 +90,10 @@ export function buildIcs(event: CalendarEvent, now: number): string {
     // PRODID 는 만든 곳을 알리는 값이다. 규격상 필수라 비워 둘 수 없다.
     "PRODID:-//hb-hj-wedding//invitation//KO",
     "CALSCALE:GREGORIAN",
-    "METHOD:PUBLISH",
+    // METHOD 는 넣지 않는다. METHOD:PUBLISH 를 적으면 RFC 5546 상 ORGANIZER 가 필수가
+    // 되는데 우리에게는 보낼 주최자 주소가 없고, METHOD 가 붙은 파일을 iTIP 메시지로
+    // 해석해 조용히 거부하는 클라이언트(Outlook 계열)가 있다. 내려받아 가져오는
+    // 용도에는 METHOD 자체가 필요 없다.
     "BEGIN:VEVENT",
     `UID:${escapeText(event.uid)}`,
     `DTSTAMP:${toUtcStamp(now)}`,
@@ -98,7 +101,9 @@ export function buildIcs(event: CalendarEvent, now: number): string {
     `DTEND:${toUtcStamp(end)}`,
     `SUMMARY:${escapeText(event.title)}`,
     `LOCATION:${escapeText(event.location)}`,
-    `URL:${escapeText(event.url)}`,
+    // URL 은 TEXT 가 아니라 URI 타입이라 이스케이프하지 않는다. escapeText 를 태우면
+    // 주소에 쉼표가 든 순간(`?utm_source=a,b`) `\,` 로 바뀌어 깨진 링크가 들어간다.
+    `URL:${event.url}`,
     "END:VEVENT",
     "END:VCALENDAR",
   ];

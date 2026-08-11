@@ -1,5 +1,5 @@
 import Reveal from "./Reveal";
-import DDay from "./DDay";
+import DDay, { useCountdown } from "./DDay";
 import { useToast } from "./Toast";
 import { INVITE } from "../invite";
 import { WEEKDAY_LABELS, monthGridOf } from "../lib/monthGrid";
@@ -15,8 +15,7 @@ const grid = monthGridOf(INVITE.dateISO);
 
 const WEDDING_EVENT: CalendarEvent = {
   startISO: INVITE.dateISO,
-  // 예식 소요 시간은 고객 확정값이 아니다. 캘린더에 끝 시각이 없으면 종일 일정으로
-  // 들어가는 앱이 있어 통상적인 2시간을 넣어 둔다. 확정값을 받으면 바꾼다.
+  // 예식 소요 시간 2시간 — 고객 확정값(2026-08-11).
   durationMin: 120,
   title: `${INVITE.groom.name} ♥ ${INVITE.bride.name} 결혼식`,
   location: `${INVITE.venue} ${INVITE.hall} (${INVITE.address})`,
@@ -29,6 +28,10 @@ const ICS_FILENAME = "wedding.ics";
 
 export default function Calendar() {
   const showToast = useToast();
+  const countdown = useCountdown();
+  // 페이지는 예식 후 한 달간 열려 있다(CM-08). 그동안 지난 일정을 캘린더에 넣으라고
+  // 권할 이유가 없으므로 저장 버튼과 그 아래 구분선을 함께 거둔다.
+  const isOver = countdown.phase === "after";
 
   const handleSave = () => {
     const ok = downloadIcs(ICS_FILENAME, buildIcs(WEDDING_EVENT, Date.now()));
@@ -80,8 +83,12 @@ export default function Calendar() {
           </tbody>
         </table>
 
-        <div style={{ marginTop: 18, fontSize: 16, color: "var(--text-body)" }}>
-          {INVITE.dateText} {INVITE.dayText}
+        {/* 375px 이상에서는 한 줄이지만 320px 에서는 들어가지 않는다. 그냥 두면
+            "…오전 11" / "시" 로 끊겨 마지막 한 글자만 다음 줄에 남는다.
+            날짜와 시각을 각각 inline-block 으로 묶어, 넘칠 때 그 사이에서만 갈라지게 한다. */}
+        <div style={{ marginTop: 18, fontSize: 16, color: "var(--text-body)", wordBreak: "keep-all" }}>
+          <span style={{ display: "inline-block" }}>{INVITE.dateText}</span>{" "}
+          <span style={{ display: "inline-block" }}>{INVITE.dayText}</span>
         </div>
 
         <div style={{ width: 30, height: 1, background: "var(--input-border)", margin: "24px auto 18px" }} />
@@ -89,32 +96,34 @@ export default function Calendar() {
         <div style={{ fontSize: 18, fontWeight: 700 }}>{INVITE.venue}</div>
         <div style={{ fontSize: 14, color: "var(--text-sub)", marginTop: 6 }}>{INVITE.hall}</div>
 
-        <button
-          type="button"
-          onClick={handleSave}
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            gap: 8,
-            width: "100%",
-            height: 48,
-            marginTop: 24,
-            border: "1px solid var(--input-border)",
-            borderRadius: "var(--radius-control)",
-            background: "transparent",
-            color: "var(--on-surface)",
-            fontFamily: "var(--font-serif)",
-            fontSize: 15,
-            cursor: "pointer",
-          }}
-        >
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-            <rect x="1.6" y="2.9" width="12.8" height="11.5" rx="2.2" stroke="currentColor" strokeWidth="1.2" />
-            <path d="M1.6 6.4h12.8M5.2 1.6v2.6M10.8 1.6v2.6" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
-          </svg>
-          캘린더에 저장
-        </button>
+        {!isOver && (
+          <button
+            type="button"
+            onClick={handleSave}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 8,
+              width: "100%",
+              height: 48,
+              marginTop: 24,
+              border: "1px solid var(--input-border)",
+              borderRadius: "var(--radius-control)",
+              background: "transparent",
+              color: "var(--on-surface)",
+              fontFamily: "var(--font-serif)",
+              fontSize: 15,
+              cursor: "pointer",
+            }}
+          >
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+              <rect x="1.6" y="2.9" width="12.8" height="11.5" rx="2.2" stroke="currentColor" strokeWidth="1.2" />
+              <path d="M1.6 6.4h12.8M5.2 1.6v2.6M10.8 1.6v2.6" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
+            </svg>
+            캘린더에 저장
+          </button>
+        )}
 
         <div className="heart-rule" aria-hidden="true">
           <svg width="13" height="12" viewBox="0 0 14 13" fill="currentColor">
@@ -122,7 +131,7 @@ export default function Calendar() {
           </svg>
         </div>
 
-        <DDay />
+        <DDay countdown={countdown} />
       </div>
     </Reveal>
   );
