@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { INVITE } from "./invite";
+import type { Parent } from "./lib/parents";
 
 // 예식 일시는 화면 문구·D-Day·.ics·OG 태그·지도 링크가 모두 물려 있는 값이다.
 // 표기(dateDots·dateText·dayText)와 기계값(dateISO)이 어긋나면 어디서도 에러가
@@ -99,6 +100,15 @@ describe("INVITE", () => {
     it("신부측 아버지가 고인으로 표시돼 있다", () => {
       // IN-04. 계좌 목록에 신부 아버지가 없는 것과 같은 이유다.
       expect(INVITE.bride.parents[0].deceased).toBe(true);
+    });
+
+    it("혼주 목록을 readonly 로 잠가 둔다", () => {
+      // INVITE 는 모듈 싱글턴이라 한 번 변형되면 페이지가 살아 있는 동안 유지된다.
+      // as const 가 나머지 필드를 지켜 주므로 이 배열만 mutable 로 새 나가면 안 된다.
+      // 캐스트가 `as Parent[]` 로 되돌아가면 아래 억제가 쓸모없어져 tsc 가 실패한다.
+      // @ts-expect-error readonly Parent[] 는 Parent[] 에 할당할 수 없다
+      const mutable: Parent[] = INVITE.groom.parents;
+      expect(mutable).toBe(INVITE.groom.parents);
     });
 
     it("모든 혼주에 성함이 채워져 있다", () => {

@@ -56,7 +56,7 @@ export const INVITE = {
     // 항목 자체를 넣지 않는다 — mock 을 폴백으로 남겨 두면 환경변수가 비었을 때
     // 가짜 성함이 하객 화면에 그대로 나가기 때문이다. 다시 넣기로 하면 이 배열에
     // 한 줄을 더하고 .env 에 VITE_GROOM_MOTHER 를 살리면 된다.
-    parents: [{ name: orMock(env.VITE_GROOM_FATHER, "박정후"), deceased: false }] as Parent[],
+    parents: [{ name: orMock(env.VITE_GROOM_FATHER, "박정후"), deceased: false }] as readonly Parent[],
   },
   bride: {
     name: "조혜정",
@@ -65,7 +65,7 @@ export const INVITE = {
     parents: [
       { name: orMock(env.VITE_BRIDE_FATHER, "조민준"), deceased: true },
       { name: orMock(env.VITE_BRIDE_MOTHER, "이수아"), deceased: false },
-    ] as Parent[],
+    ] as readonly Parent[],
   },
 
   // CM-06 — 배포 주소. 명세서 확정값 hb-hj.com 은 2016년부터 등록돼 있어 쓸 수

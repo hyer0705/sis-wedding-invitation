@@ -60,19 +60,24 @@ test.describe("청첩장 기본 동작", () => {
     const fontReady = await page.evaluate(() => document.fonts.check("14.5px 'Nanum Myeongjo'"));
     test.skip(!fontReady, "본문 웹폰트를 받지 못했다 — 폴백 폰트로는 줄 수를 잴 수 없다");
 
-    const paragraphs = page.locator("section").first().locator("p");
+    // 문단은 순서가 아니라 글로 찾는다. nth 인덱스로 짚으면 문단이 하나만 늘거나
+    // 자리를 바꿔도 조용히 엉뚱한 문단을 재면서 통과해 버린다.
+    // Playwright 의 텍스트 매칭은 공백을 하나로 눌러 비교하므로, 고객이 넣은 \n 도
+    // 같은 모양으로 눌러서 건넨다.
     const blocks = [...INVITE.greeting.body, ...INVITE.greeting.quote];
 
-    for (const [index, block] of blocks.entries()) {
+    for (const block of blocks) {
       const authored = block.split("\n").length;
       // 원문에 줄바꿈이 없는 문단은 폭에 맞춰 저절로 접히는 것이 정상이다.
       if (authored === 1) continue;
 
-      const rendered = await paragraphs
-        .nth(index)
-        .evaluate((el) => Math.round(el.getBoundingClientRect().height / parseFloat(getComputedStyle(el).lineHeight)));
+      const paragraph = page.getByText(block.replace(/\s+/g, " ").trim(), { exact: true });
+      const rendered = await paragraph.evaluate((el) =>
+        Math.round(el.getBoundingClientRect().height / parseFloat(getComputedStyle(el).lineHeight)),
+      );
 
-      expect(rendered, `${index + 1}번째 문단이 ${authored}줄 대신 ${rendered}줄로 접혔다`).toBe(authored);
+      const label = block.split("\n")[0];
+      expect(rendered, `"${label}…" 문단이 ${authored}줄 대신 ${rendered}줄로 접혔다`).toBe(authored);
     }
   });
 
