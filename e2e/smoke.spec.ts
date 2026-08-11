@@ -261,6 +261,41 @@ test.describe("청첩장 기본 동작", () => {
     });
   });
 
+  // CM-04 로딩 화면. 사진이 캐시에서 오면 눈 깜짝할 새에 걷혀 화면에 잡히지 않으므로,
+  // 커버 사진 요청만 붙잡아 두고 본다.
+  //
+  // 로딩 화면 자체의 axe 감사는 따로 두지 않았다. 안에 있는 것이 aria-hidden 글씨와 선
+  // 둘뿐이고, 감사 대상이 되는 것은 role·이름을 가진 바깥 컨테이너 하나다.
+  test.describe("로딩 화면", () => {
+    const COVER_REQUEST = /1_main-\d+\.webp/;
+    const loadingOf = (page: Page) => page.getByRole("status", { name: "청첩장을 불러오는 중" });
+
+    test("커버 사진이 도착하면 걷히고 청첩장이 드러난다", async ({ page }) => {
+      await page.route(COVER_REQUEST, async (route) => {
+        await new Promise((resolve) => setTimeout(resolve, 1200));
+        await route.continue();
+      });
+
+      await page.goto("/", { waitUntil: "commit" });
+
+      await expect(loadingOf(page)).toBeVisible();
+      await expect(loadingOf(page)).toBeHidden({ timeout: 6000 });
+      await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+    });
+
+    // R2 가 죽었거나 회선이 끊긴 경우다. 상한이 없으면 사진 한 장 때문에 청첩장을
+    // 통째로 못 본다 — 응답을 영영 주지 않는 요청으로 그 경로를 만든다.
+    test("커버 사진이 오지 않아도 상한에서 걷힌다", async ({ page }) => {
+      await page.route(COVER_REQUEST, () => new Promise(() => {}));
+
+      await page.goto("/", { waitUntil: "commit" });
+
+      await expect(loadingOf(page)).toBeVisible();
+      await expect(loadingOf(page)).toBeHidden({ timeout: 8000 });
+      await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+    });
+  });
+
   // 페이드인이 진행 중이면 axe가 합성된 중간 색상을 읽어 색상 대비를 오탐한다.
   // reduced-motion으로 애니메이션을 건너뛰어 최종 상태를 검사하고,
   // 동시에 prefers-reduced-motion 대응(MotionConfig reducedMotion="user")도 함께 검증한다.

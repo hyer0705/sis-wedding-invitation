@@ -5,7 +5,15 @@ import { imageSrcSet, imageUrl } from "../lib/imageUrl";
 
 // 커버 사진. 사진 교체 시 `npm run optimize` 산출물 이름만 여기서 바꾼다.
 // 실제 호스트는 VITE_IMAGE_BASE_URL(Cloudflare R2)이 정한다 — lib/imageUrl.ts 참고.
-const COVER_NAME = "1_main";
+//
+// 로딩 화면(CM-04)이 이 사진을 기다렸다 걷히므로 App 도 아래 두 값을 읽는다.
+// 여기 한 곳에서만 정해야 프리로드와 화면이 같은 파일을 받는다 — 어긋나면 브라우저가
+// 서로 다른 너비를 골라 사진을 두 장 내려받는다.
+export const COVER_NAME = "1_main";
+
+// 카드 최대 폭 430px에서 헤더 좌우 여백 26px씩을 뺀 값이 실제 표시 폭이다.
+// 여백을 빼지 않으면 브라우저가 필요보다 큰 후보(960w)를 고른다.
+export const COVER_SIZES = "(max-width: 430px) calc(100vw - 52px), 378px";
 
 // c안의 data-parallax와 같은 값 — 스크롤 0.14배로 따라 내려오되 90px에서 멈춘다.
 const PARALLAX_RATIO = 0.14;
@@ -59,9 +67,7 @@ export default function Cover() {
         <m.img
           src={imageUrl(COVER_NAME, 960)}
           srcSet={imageSrcSet(COVER_NAME)}
-          // 카드 최대 폭 430px에서 헤더 좌우 여백 26px씩을 뺀 값이 실제 표시 폭이다.
-          // 여백을 빼지 않으면 브라우저가 필요보다 큰 후보(960w)를 고른다.
-          sizes="(max-width: 430px) calc(100vw - 52px), 378px"
+          sizes={COVER_SIZES}
           alt={`신랑 ${INVITE.groom.name}, 신부 ${INVITE.bride.name}의 웨딩 사진`}
           // LCP 요소다. 다른 리소스보다 먼저 받게 한다.
           fetchPriority="high"

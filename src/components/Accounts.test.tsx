@@ -63,6 +63,14 @@ const panelOf = (label: string) => screen.getByRole("button", { name: new RegExp
 const copyButtons = () => screen.getAllByRole("button", { name: /계좌번호 복사$/ });
 
 describe("Accounts", () => {
+  // CM-03 점검 — 다른 섹션은 Reveal.test.tsx 가 한꺼번에 본다. 이 섹션만 계좌가 없으면
+  // 통째로 사라지는 설계라 INVITE 픽스처가 있는 여기서 확인한다.
+  it("Reveal 래퍼를 거친다", () => {
+    const { container } = renderWithMotion(<Accounts />);
+
+    expect(container.firstElementChild?.tagName).toBe("SECTION");
+  });
+
   it("AC-01 양측 아코디언은 닫힌 채로 시작한다", () => {
     renderWithMotion(<Accounts />);
 

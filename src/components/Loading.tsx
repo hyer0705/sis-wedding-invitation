@@ -1,0 +1,121 @@
+import { useEffect, useState } from "react";
+import { m } from "motion/react";
+import { imageSrcSet, imageUrl } from "../lib/imageUrl";
+import { preloadImage } from "../lib/preloadImage";
+import { COVER_NAME, COVER_SIZES } from "./Cover";
+
+// CM-04 로딩 화면 — c안에 없는 신규 UI. D안 확정(2026-08-11).
+//
+// `--bg` 전면에 커버 최상단과 **같은** 「The wedding of」를 띄우고, 그 아래 가는 선이
+// 왼쪽부터 차오른다. 로딩이 걷히면 같은 글씨가 제자리로 이어져 화면이 튀지 않는다.
+//
+// 글씨는 처음부터 떠 있고 선만 움직인다. 앞서 낸 두 안이 반려된 이유가 여기 있다 —
+// 글씨가 떠올랐다 사라지는 A안은 "기다리는 맛이 없다", 가는 세로선만 두는 B안은
+// "화면에 너무 안 보인다"였다. **진행되고 있다는 신호**가 핵심이고, 정지한 화면은
+// 로딩으로 읽히지 않는다.
+
+/**
+ * 사진이 캐시에서 즉시 와도 이만큼은 보여 준다.
+ *
+ * 없으면 진행선이 차오르기도 전에 걷혀 화면이 한 번 깜빡인 것처럼 보인다. 재방문
+ * (계좌·지도를 다시 열어 보는 하객)마다 치르는 비용이라 이보다 길게 잡지 않았다 —
+ * 아래 감속 곡선에서 0.5초면 선이 이미 3분의 2쯤 차 있어 진행 신호로는 충분하다.
+ */
+export const MIN_VISIBLE_MS = 500;
+
+/**
+ * 사진이 오지 않아도 이 시점에는 걷는다.
+ *
+ * R2 가 죽었거나 회선이 끊긴 경우 `preloadImage` 의 resolve 를 기다리다 청첩장을
+ * 통째로 못 보게 되는 것을 막는 상한이다. 사진 없는 커버가 로딩 화면보다 낫다.
+ */
+export const MAX_VISIBLE_MS = 4000;
+
+/** 로딩 화면을 걷어도 되는지. 커버 사진 도착 또는 상한 도달 중 먼저 오는 쪽이다. */
+export function useCoverReady(): boolean {
+  const [ready, setReady] = useState(false);
+
+  useEffect(() => {
+    const startedAt = Date.now();
+    const timers: ReturnType<typeof setTimeout>[] = [];
+    let cancelled = false;
+
+    const finish = () => {
+      if (!cancelled) setReady(true);
+    };
+
+    timers.push(setTimeout(finish, MAX_VISIBLE_MS));
+
+    void preloadImage(imageUrl(COVER_NAME, 960), imageSrcSet(COVER_NAME), COVER_SIZES).then(() => {
+      timers.push(setTimeout(finish, Math.max(MIN_VISIBLE_MS - (Date.now() - startedAt), 0)));
+    });
+
+    // StrictMode 의 이중 마운트에서 타이머가 겹치지 않게 정리한다. 두 번째 마운트의
+    // preload 는 캐시에 걸려 즉시 끝난다.
+    return () => {
+      cancelled = true;
+      timers.forEach(clearTimeout);
+    };
+  }, []);
+
+  return ready;
+}
+
+export default function Loading() {
+  return (
+    <m.div
+      // 진행 상황을 알리는 영역이라 status 다. 안쪽 글씨는 aria-hidden 으로 감춘다 —
+      // 읽어 주면 커버의 같은 문구와 겹쳐 두 번 들린다.
+      role="status"
+      aria-label="청첩장을 불러오는 중"
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.4, ease: "easeOut" }}
+      style={{
+        position: "fixed",
+        inset: 0,
+        // 토스트(95)보다 위다. 로딩 중에는 아무것도 이 위로 올라오지 않는다.
+        zIndex: 100,
+        background: "var(--bg)",
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        // 화면 한가운데가 아니라 커버의 「The wedding of」와 **같은 자리**다. 아래 54px 은
+        // Cover 의 header padding-top 과 같은 값이라, 로딩이 걷힐 때 글씨가 움직이지 않고
+        // 그 아래로 날짜·사진이 채워진다. Cover 의 값을 바꾸면 여기도 함께 바꾼다.
+        paddingTop: 54,
+      }}
+    >
+      <m.span
+        aria-hidden="true"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.15 }}
+        style={{ fontFamily: "var(--font-script)", fontSize: 30, color: "var(--primary)", lineHeight: 1 }}
+      >
+        The wedding of
+      </m.span>
+      {/* 커버에서 이 자리에 오는 것은 날짜 캡션(글씨에서 10px 아래, 높이 11px)이다.
+          선을 그 띠 한가운데에 두어 걷힐 때 위아래로 흔들리지 않게 한다. */}
+      <span
+        aria-hidden="true"
+        style={{ display: "block", marginTop: 18, width: 84, height: 1, background: "var(--input-border)" }}
+      >
+        <m.span
+          initial={{ scaleX: 0 }}
+          animate={{ scaleX: 1 }}
+          // 감속 곡선이라 앞부분이 빠르다. 사진이 일찍 오면 중간에 걷히는데, 그때까지
+          // 이미 눈에 띄게 차 있어 "멈춰 있다"로 보이지 않는다.
+          transition={{ duration: 1.1, ease: [0.25, 0.6, 0.3, 1] }}
+          style={{
+            display: "block",
+            width: "100%",
+            height: "100%",
+            background: "var(--primary)",
+            opacity: 0.75,
+            originX: 0,
+          }}
+        />
+      </span>
+    </m.div>
+  );
+}
