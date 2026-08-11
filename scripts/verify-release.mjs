@@ -117,7 +117,9 @@ if (!imageBase) {
   // 커버 사진 이름은 컴포넌트가 단일 기준이다. 게이트에 이름을 또 적으면
   // 사진 교체 때 한쪽만 바뀌어 게이트가 엉뚱한 파일을 확인하게 된다.
   const coverSource = await readFile("src/components/Cover.tsx", "utf8");
-  const coverMatch = /^const COVER_NAME = "([^"]+)";/m.exec(coverSource);
+  // export 는 있어도 없어도 받는다. 로딩 화면(SIS-17)이 이 상수를 읽어야 해서 export 가
+  // 붙었을 때 이 정규식이 못 잡았고, 커버 사진의 R2 도달 확인이 통째로 건너뛰어졌다.
+  const coverMatch = /^(?:export\s+)?const COVER_NAME = "([^"]+)";/m.exec(coverSource);
   if (!coverMatch) {
     errors.push("Cover.tsx 에서 COVER_NAME 을 찾지 못했습니다 — 게이트가 무력화됩니다");
   }
