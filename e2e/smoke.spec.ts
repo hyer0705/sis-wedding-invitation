@@ -268,7 +268,9 @@ test.describe("청첩장 기본 동작", () => {
   // 둘뿐이고, 감사 대상이 되는 것은 role·이름을 가진 바깥 컨테이너 하나다.
   test.describe("로딩 화면", () => {
     const COVER_REQUEST = /1_main-\d+\.webp/;
-    const loadingOf = (page: Page) => page.getByRole("status", { name: "청첩장을 불러오는 중" });
+    // role 로 집지 않는다. index.html 의 부트 화면이 같은 role·같은 이름을 쓰고, React
+    // 로딩이 그것을 지우기 전까지 잠깐 공존해 두 요소로 풀린다 — CI 에서 실제로 걸렸다.
+    const loadingOf = (page: Page) => page.getByTestId("loading");
 
     test("커버 사진이 도착하면 걷히고 청첩장이 드러난다", async ({ page }) => {
       await page.route(COVER_REQUEST, async (route) => {
@@ -310,7 +312,7 @@ test.describe("청첩장 기본 동작", () => {
       // 1인 것을 확인하는 것으로 오버레이가 걷혔음까지 함께 본다.
       await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
       await page.evaluate(() => document.fonts.ready);
-      await expect(page.getByRole("status", { name: "청첩장을 불러오는 중" })).toBeHidden();
+      await expect(page.getByTestId("loading")).toBeHidden();
       await expect(page.locator("header")).toHaveCSS("opacity", "1");
 
       // 아코디언은 기본이 접힘이고 닫힌 패널은 DOM 에서 빠진다. 열어 두지 않으면 계좌 행과

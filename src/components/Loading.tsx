@@ -95,6 +95,9 @@ export default function Loading() {
       // labelledby 로 묶어 이름과 내용을 같은 노드 하나로 만든다.
       role="status"
       aria-labelledby={LABEL_ID}
+      // index.html 의 부트 화면도 같은 role·같은 이름을 쓴다. 이 컴포넌트가 그것을 지우기
+      // 전까지 잠깐 둘이 공존하므로, 테스트가 role 로 집으면 두 요소로 풀린다.
+      data-testid="loading"
       // 페이드아웃 0.4초 동안에도 이 오버레이는 DOM 에 남는다. 그때 pointer-events 를
       // 끄지 않으면, 거의 투명해져 보이지도 않는 판이 화면 전체의 탭을 삼킨다 —
       // 커버의 「scroll ↓」를 보고 바로 스와이프하는 것이 정확히 이 구간이다.
