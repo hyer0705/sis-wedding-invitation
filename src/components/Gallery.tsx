@@ -43,6 +43,10 @@ export default function Gallery() {
   const [index, setIndex] = useState(0);
   // 스크린리더에 알린 번호. index 와 따로 두는 이유는 아래 알림 지연 참고.
   const [spoken, setSpoken] = useState(0);
+  // 이미 받아 온 사진. 아직 안 온 자리에만 옅은 면을 깔기 위한 것이다 — 아래 슬라이드
+  // 상자 주석 참고.
+  const [loaded, setLoaded] = useState<ReadonlySet<string>>(() => new Set());
+  const markLoaded = (name: string) => setLoaded((prev) => (prev.has(name) ? prev : new Set(prev).add(name)));
   // Cover 와 같은 기준으로 판단한다 — main.tsx 의 MotionConfig reducedMotion="user".
   const reduced = useReducedMotionConfig();
 
@@ -139,9 +143,17 @@ export default function Gallery() {
               flex: "0 0 100%",
               scrollSnapAlign: "center",
               // 4:5 는 슬라이드가 차지하는 자리다. 사진은 이 안에 잘리지 않게 들어가므로
-              // 비율에 따라 남는 자리가 생긴다. 상자를 칠하지 않고 비워 두면 페이지 배경이
-              // 그대로 보여, 사진만 떠 있는 c안의 카드 느낌이 유지된다.
+              // 비율에 따라 남는 자리가 생긴다.
+              //
+              // 이 상자는 칠하지 않고 비워 둔다 — 페이지 배경이 그대로 보여 사진만 떠 있는
+              // c안의 카드 느낌이 유지되기 때문이다.
+              //
+              // 다만 **아직 안 온 사진의 자리**에만 옅은 면을 깐다(2026-08-11). 3G 에서
+              // 스크롤해 닿았을 때 자리가 통째로 비어 보이는 것을 막는다. 사진이 도착하면
+              // 곧바로 걷어 내므로 c안 인상은 그대로다 — 상시로 깔면 사진이 contain 이라
+              // 가로 사진 위아래에 손바닥만 한 띠가 남는다(실제로 그렇게 보였다).
               aspectRatio: FRAME_ASPECT,
+              ...(loaded.has(name) ? null : { background: "var(--surface)", borderRadius: 18 }),
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
@@ -150,6 +162,12 @@ export default function Gallery() {
             <img
               src={imageUrl(name, 960)}
               srcSet={imageSrcSet(name)}
+              onLoad={() => markLoaded(name)}
+              // 캐시에 있으면 React 가 onLoad 를 붙이기 전에 로드가 끝나 있을 수 있다.
+              // 그때는 이 콜백이 붙는 시점에 complete 가 이미 true 다.
+              ref={(el) => {
+                if (el?.complete) markLoaded(name);
+              }}
               // 페이지 최대 폭 430px 에서 섹션 여백 40px 과 트랙 여백 64px 을 뺀 값이
               // 실제 표시 폭이다. 빼지 않으면 브라우저가 필요보다 큰 후보를 고른다.
               sizes={`(max-width: 430px) calc(100vw - ${20 * 2 + PEEK * 2}px), ${430 - 20 * 2 - PEEK * 2}px`}

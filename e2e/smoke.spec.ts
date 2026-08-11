@@ -180,7 +180,7 @@ test.describe("청첩장 기본 동작", () => {
 
       await page.getByRole("button", { name: "주소 복사하기" }).click();
 
-      await expect(page.getByRole("status")).toHaveText("주소가 복사되었습니다");
+      await expect(page.getByTestId("toast")).toHaveText("주소가 복사되었습니다");
       const copied = await page.evaluate(() => navigator.clipboard.readText());
       expect(copied).toBe(INVITE.address);
     });
@@ -206,7 +206,7 @@ test.describe("청첩장 기본 동작", () => {
         .first()
         .click();
 
-      await expect(page.getByRole("status")).toHaveText("계좌번호가 복사되었습니다");
+      await expect(page.getByTestId("toast")).toHaveText("계좌번호가 복사되었습니다");
       // 하이픈째 복사한다. 화면에 보이는 값과 같아야 하객이 붙여넣고 대조할 수 있다.
       expect(await page.evaluate(() => navigator.clipboard.readText())).toBe("111-111-111111");
     });
@@ -241,7 +241,7 @@ test.describe("청첩장 기본 동작", () => {
 
       await page.getByRole("button", { name: "링크 복사" }).click();
 
-      await expect(page.getByRole("status")).toHaveText("청첩장 주소가 복사되었습니다");
+      await expect(page.getByTestId("toast")).toHaveText("청첩장 주소가 복사되었습니다");
       // location.href 가 아니라 INVITE.siteUrl 이어야 한다. 프리뷰에서 공유했을 때
       // 임시 주소가 하객에게 나가는 것을 막는 자리다 — 여기서는 localhost 가 아닌지가
       // 곧 그 증거다.

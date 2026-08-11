@@ -67,6 +67,10 @@ export default function Cover() {
           borderRadius: "200px 200px 18px 18px",
           overflow: "hidden",
           boxShadow: "0 24px 50px rgba(80, 95, 75, 0.2)",
+          // 사진이 오기 전 아치 안을 채워 둔다. 로딩 화면은 상한(4초)에 걷히는데 3G 에서는
+          // 사진이 그보다 늦게 오는 일이 흔하고, 그때 아치가 빈 채로 드러난다. 사진은
+          // objectFit: cover 로 이 상자를 꽉 채우므로 도착하면 완전히 덮인다.
+          background: "var(--surface)",
         }}
       >
         <m.img
