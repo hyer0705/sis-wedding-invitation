@@ -1,7 +1,6 @@
 import Cover from "./components/Cover";
 import Invitation from "./components/Invitation";
-import Details from "./components/Details";
-import DDay from "./components/DDay";
+import Calendar from "./components/Calendar";
 import Gallery from "./components/Gallery";
 import Location from "./components/Location";
 import Accounts from "./components/Accounts";
@@ -13,8 +12,8 @@ export default function App() {
     <div className="page">
       <Cover />
       <Invitation />
-      <Details />
-      <DDay />
+      {/* Calendar 가 예식 일시·장소·달력·D-Day 를 함께 담는다 (SIS-10) */}
+      <Calendar />
       <Gallery />
       <Location />
       <Accounts />
