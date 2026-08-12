@@ -16,12 +16,44 @@
     <meta property="og:description" content="__OG_DESCRIPTION__" />
     <meta property="og:image" content="__OG_IMAGE__" />
     <meta property="og:url" content="__SITE_URL__" />
+    <!--
+      Parisienne 만 self-host 한다(SIS-30). 부트 화면·로딩 화면·커버가 모두 이 서체로
+      「The wedding of」를 그리는데, Google Fonts 로 받으면 스타일시트를 파싱한 뒤에야
+      폰트 요청이 나가 Slow 3G 에서 9.9초에 도착했다 — 그때까지 폴백으로 그려지다
+      로딩 화면 위에서 서체가 바뀌었다. preload 는 HTML 파싱 즉시 받게 한다.
+      같은 출처라도 폰트는 CORS 요청이라 crossorigin 이 없으면 두 번 받는다.
+    -->
+    <link rel="preload" as="font" type="font/woff2" href="/fonts/parisienne-latin.woff2" crossorigin />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Parisienne&family=Nanum+Myeongjo:wght@400;700;800&family=Gowun+Dodum&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Nanum+Myeongjo:wght@400;700;800&family=Gowun+Dodum&display=swap"
       rel="stylesheet"
     />
+    <!--
+      Parisienne 의 @font-face. **부트 화면 스타일과 일부러 분리한 블록이다** — 부트를
+      나중에 걷어낼 때 폰트 정의가 딸려 나가면 커버·로딩의 서체가 폴백으로 떨어진다.
+      번들 CSS(4.1초)에 두지 않는 것도 같은 이유다 — 부트는 그보다 먼저 그려진다.
+
+      latin subset 만 받는다(22KB). 이 서체가 그리는 글자는 전부 ASCII 다.
+
+      **optional 인 이유**: 제때 준비되지 않으면 그 방문 동안 아예 쓰지 않는다. 즉 화면
+      중간에 서체가 바뀌는 일이 구조적으로 불가능하다 — swap 이면 늦게 온 폰트가 이미
+      그려진 글씨를 밀어내며 튄다(SIS-30 이 고치는 증상). 한글 2종은 화면 간 불일치가
+      없어 Google Fonts 의 swap 을 그대로 둔다.
+    -->
+    <style>
+      @font-face {
+        font-family: "Parisienne";
+        font-style: normal;
+        font-weight: 400;
+        font-display: optional;
+        src: url("/fonts/parisienne-latin.woff2") format("woff2");
+        unicode-range:
+          U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC,
+          U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+      }
+    </style>
     <!--
       카카오톡 공유(SH-01)용 SDK. 이 스크립트가 window.Kakao 를 만든다.
 
@@ -117,9 +149,13 @@
     <!--
       CM-04 부트 화면 — src/components/Loading.tsx 가 뜨기 전까지의 자리를 메운다.
 
-      로딩 화면은 React 컴포넌트라 번들이 도착해 실행돼야 보인다. Slow 3G 에서 재 보면
-      HTML 은 2.0초에 오는데 번들은 7.9초에 와서, 그 6초 동안 하객이 보는 것은 흰 화면
-      이었다. 로딩 화면을 만든 목적이 정작 가장 오래 비어 있는 구간에 닿지 않았다.
+      로딩 화면은 React 컴포넌트라 번들이 도착해 실행돼야 보인다.
+
+      **다만 이 화면이 실제로 메우는 구간은 1초 남짓이다**(SIS-30 실측). HTML 은 2.1초에
+      오지만 head 의 렌더 차단 스타일시트 두 장(번들 CSS 4.1초, Google Fonts 6.8초)이
+      끝나야 첫 픽셀이 그려져 부트가 뜨는 것은 7.2초고, 번들은 8.4초에 온다. 인라인
+      마크업이어도 스타일시트는 건너뛰지 못한다 — 이 화면을 손볼 때 「2.2초에 뜬다」를
+      전제로 삼지 말 것.
 
       **색상·치수를 직접 적은 이유**: 토큰이 담긴 CSS 파일도 4.1초에야 온다. var(--bg) 를
       쓰면 그때까지 아무 색이 없다. head 의 값들은 tokens.css 의 --bg, --primary,

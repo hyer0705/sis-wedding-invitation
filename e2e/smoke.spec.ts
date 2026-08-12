@@ -298,6 +298,49 @@ test.describe("청첩장 기본 동작", () => {
     });
   });
 
+  // SIS-30. 부트 화면·로딩 화면·커버가 모두 「The wedding of」를 Parisienne 으로 그린다.
+  // 이 서체가 늦게 오면 세 화면이 폴백 필기체로 그려지다 도중에 서체가 바뀌어 화면이
+  // 튀었다(Slow 3G 실측). self-host + preload + font-display:optional 로 막아 뒀는데,
+  // 조용히 깨질 수 있는 구성이라 — 파일 경로가 바뀌거나 preload 가 빠지거나 Google Fonts
+  // 요청에 Parisienne 이 다시 들어가면 — 눈에 보이는 증상 없이 폴백으로 돌아간다.
+  test.describe("폰트", () => {
+    test("Parisienne 을 같은 출처에서 받아 실제로 적용한다", async ({ page }) => {
+      const fontResponses: { url: string; status: number }[] = [];
+      page.on("response", (res) => {
+        if (/\.woff2?(\?|$)/.test(res.url())) fontResponses.push({ url: res.url(), status: res.status() });
+      });
+
+      await page.goto("/");
+      await page.evaluate(() => document.fonts.ready);
+
+      const selfHosted = fontResponses.find((r) => r.url.includes("/fonts/parisienne-latin.woff2"));
+      expect(selfHosted, "Parisienne 을 같은 출처에서 받지 않았다 — preload 나 @font-face 경로를 확인한다").toBeTruthy();
+      expect(selfHosted?.status).toBe(200);
+
+      // Google Fonts 로 되돌아가면 스타일시트를 기다린 뒤에야 폰트를 받기 시작한다.
+      expect(
+        fontResponses.filter((r) => /gstatic\.com.*parisienne/i.test(r.url)),
+        "Parisienne 이 Google Fonts 에서도 온다 — index.html 의 css2 요청에서 빼야 한다",
+      ).toHaveLength(0);
+
+      // 로드 여부와 별개로 실제로 그려지는 데 쓰이는지 본다. optional 은 제때 못 받으면
+      // 그 방문 동안 폰트를 아예 쓰지 않으므로, 로드됐다는 것만으로는 부족하다.
+      const applied = await page.evaluate(() => {
+        const probe = (family: string) => {
+          const el = document.createElement("span");
+          el.textContent = "The wedding of";
+          el.style.cssText = `position:absolute;visibility:hidden;white-space:nowrap;font-size:30px;font-family:${family}`;
+          document.body.appendChild(el);
+          const w = el.getBoundingClientRect().width;
+          el.remove();
+          return w;
+        };
+        return { script: probe('"Parisienne", cursive'), fallback: probe("cursive") };
+      });
+      expect(applied.script).not.toBeCloseTo(applied.fallback, 1);
+    });
+  });
+
   // 페이드인이 진행 중이면 axe가 합성된 중간 색상을 읽어 색상 대비를 오탐한다.
   // reduced-motion으로 애니메이션을 건너뛰어 최종 상태를 검사하고,
   // 동시에 prefers-reduced-motion 대응(MotionConfig reducedMotion="user")도 함께 검증한다.
