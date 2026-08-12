@@ -35,8 +35,12 @@ function inviteMeta(mode: string): Plugin {
 
       // 채우지 못한 자리가 남으면 빌드를 세운다. 조용히 넘어가면 카톡 공유
       // 카드에 __OG_TITLE__ 같은 문자열이 그대로 실린다.
-      const leftover = filled.match(/__[A-Z0-9_]+__/g);
-      if (leftover) {
+      //
+      // __VITE_...__ 는 Vite 자신의 자리표시자다. public/ 의 파일을 href 로 걸면
+      // (SIS-30 의 폰트 preload) 여기 단계에서는 __VITE_PUBLIC_ASSET__ 로 남아 있고
+      // 나중 단계에서 실제 경로로 바뀐다 — 우리 자리표시자가 아니므로 세지 않는다.
+      const leftover = filled.match(/__[A-Z0-9_]+__/g)?.filter((m) => !m.startsWith("__VITE_"));
+      if (leftover?.length) {
         throw new Error(`index.html 의 자리표시자를 채우지 못했습니다: ${[...new Set(leftover)].join(", ")}`);
       }
       return filled;
