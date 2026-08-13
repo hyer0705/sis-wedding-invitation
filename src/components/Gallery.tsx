@@ -49,6 +49,8 @@ export default function Gallery() {
   const markLoaded = (name: string) => setLoaded((prev) => (prev.has(name) ? prev : new Set(prev).add(name)));
   // Cover 와 같은 기준으로 판단한다 — main.tsx 의 MotionConfig reducedMotion="user".
   const reduced = useReducedMotionConfig();
+  // 이 섹션이 화면에 들어왔는지. 사진을 받는 순위를 여기에 맞춘다 — 아래 fetchPriority.
+  const [reached, setReached] = useState(false);
 
   // 화살표로 지시한 목적지. 여기 닿기 전까지는 스크롤 도중의 중간 위치를 현재 장으로
   // 치지 않는다. 이 잠금이 없으면 부드러운 스크롤 중간에 오는 scroll 이벤트가 번호를
@@ -112,7 +114,7 @@ export default function Gallery() {
   const isLast = index === PHOTOS.length - 1;
 
   return (
-    <Reveal>
+    <Reveal onInView={() => setReached(true)}>
       <div style={{ textAlign: "center", marginBottom: 22 }}>
         <div className="script-title">Our moments</div>
         {/* c안의 "사진을 탭하면 크게 볼 수 있어요"는 확대를 만들지 않으므로 바꿨다. */}
@@ -181,6 +183,15 @@ export default function Gallery() {
               //
               // 넘기면 다음 장의 이 값이 lazy 에서 eager 로 바뀌고, 그때 로딩이 시작된다.
               loading={Math.abs(i - index) <= 1 ? "eager" : "lazy"}
+              // 커버가 LCP 요소라 fetchPriority="high" 로 먼저 받는데, 처음 두 장은
+              // eager 라 그것과 같은 시점에 경쟁한다. 하객이 여기까지 내려오기 전에
+              // 커버가 떠 있어야 하므로 순서를 양보한다(SIS-18).
+              //
+              // **양보는 이 섹션에 닿기 전까지만이다.** 하객이 갤러리를 보고 있는데도
+              // 낮은 순위를 물고 있으면, 넘겨서 새로 받기 시작하는 장이 다른 요청에
+              // 밀려 빈자리가 더 오래 남는다 — 커버는 그때 이미 떠 있으므로 양보할
+              // 상대도 없다.
+              fetchPriority={reached ? "auto" : "low"}
               decoding="async"
               // 모서리와 그림자를 상자가 아니라 사진에 건다. contain 이라 상자에 걸면
               // 사진과 어긋난 자리에 그려진다.

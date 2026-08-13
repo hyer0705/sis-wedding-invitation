@@ -134,6 +134,25 @@ test.describe("청첩장 기본 동작", () => {
       await expect(counter(page)).toHaveText(`4 / ${INVITE.gallery.length}`);
     });
 
+    test("GL-04 커버가 받을 동안 사진이 순서를 양보한다", async ({ page }) => {
+      // 커버가 LCP 요소(fetchPriority="high")인데 갤러리 첫 두 장은 eager 라 같은
+      // 시점에 대역폭을 놓고 다툰다. 하객이 여기까지 내려오기 전에 커버가 떠 있어야
+      // 하므로 양보하고, 갤러리에 닿으면 거둔다 — 양보한 채로 두면 넘겨서 새로 받기
+      // 시작하는 장이 다른 요청에 밀려 빈자리가 더 오래 남는다(SIS-18).
+      //
+      // 컴포넌트 테스트로는 못 잡는다. 거기 IntersectionObserver 는 관측 즉시
+      // "들어왔다"고 알려 늘 닿은 상태고, Motion 이 관찰자를 캐싱해 갈아끼울 수도 없다.
+      await page.goto("/");
+      const first = track(page).locator("img").first();
+
+      // 아직 갤러리에 닿기 전 — 커버가 한참 위에 있다.
+      await expect(first).toHaveAttribute("fetchpriority", "low");
+
+      await track(page).scrollIntoViewIfNeeded();
+
+      await expect(first).toHaveAttribute("fetchpriority", "auto");
+    });
+
     test("화살표를 누르면 스크롤러가 실제로 움직인다", async ({ page }) => {
       await page.goto("/");
       await track(page).scrollIntoViewIfNeeded();
@@ -246,6 +265,19 @@ test.describe("청첩장 기본 동작", () => {
       // 임시 주소가 하객에게 나가는 것을 막는 자리다 — 여기서는 localhost 가 아닌지가
       // 곧 그 증거다.
       expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(INVITE.siteUrl);
+    });
+
+    test("kakao SDK 가 처음 받는 HTML 에 실려 오지 않는다", async ({ page }) => {
+      // SIS-18 — 이 태그가 index.html 에 있으면 defer 를 달아도 27KB 가 렌더 차단
+      // 스타일시트보다 먼저 내려와 첫 픽셀을 밀어낸다(Slow 3G 실측 6.85s → 6.27s).
+      // 지금은 src/lib/share.ts 가 공유 섹션에 닿을 때 붙인다.
+      //
+      // 렌더된 DOM 이 아니라 응답 본문을 보는 이유는, 키가 있는 환경에서는 스크롤만
+      // 해도 태그가 생겨 판정이 흔들리기 때문이다. 여기서 보려는 것은 "처음 받는
+      // HTML 에 들어 있는가" 하나다.
+      const html = await (await page.request.get("/")).text();
+
+      expect(html).not.toContain("kakao_js_sdk");
     });
 
     test("OG 태그가 INVITE.share 문구를 그대로 싣는다", async ({ page }) => {
