@@ -3,6 +3,7 @@ import Reveal from "./Reveal";
 import { useToast } from "./Toast";
 import { INVITE } from "../invite";
 import { copyText } from "../lib/clipboard";
+import { assetUrl } from "../lib/imageUrl";
 import { drawVenueMap, loadKakaoMaps } from "../lib/kakaoMap";
 import { kakaoMapUrl, naverAppUrl, naverWebUrl, openWithFallback, tmapAppUrl, tmapStoreUrl, type Place } from "../lib/mapLinks";
 
@@ -149,11 +150,18 @@ export default function Location() {
           )}
         </div>
 
-        <div style={{ display: "flex", gap: 8, marginTop: 14 }}>
-          <MapLink label="네이버지도" href={naverWeb} appUrl={naverAppUrl(VENUE, NAVER_APP_NAME)} fallbackUrl={naverWeb} />
+        {/* 버튼 배치·크기는 global.css 의 .map-links 에 있다 — 좁은 폭 미디어쿼리가 필요하다. */}
+        <div className="map-links">
+          <MapLink
+            label="네이버지도"
+            logo="logo-naver-map.webp"
+            href={naverWeb}
+            appUrl={naverAppUrl(VENUE, NAVER_APP_NAME)}
+            fallbackUrl={naverWeb}
+          />
           {/* 카카오맵 주소 하나가 앱과 웹을 모두 처리한다. 스킴을 따로 시도하지 않는다. */}
-          <MapLink label="카카오맵" href={kakaoMapUrl(VENUE)} />
-          <MapLink label="티맵" href={tmapStore} appUrl={tmapAppUrl(VENUE)} fallbackUrl={tmapStore} />
+          <MapLink label="카카오맵" logo="logo-kakao-map.webp" href={kakaoMapUrl(VENUE)} />
+          <MapLink label="티맵" logo="logo-tmap.webp" href={tmapStore} appUrl={tmapAppUrl(VENUE)} fallbackUrl={tmapStore} />
         </div>
 
         <button
@@ -199,8 +207,24 @@ export default function Location() {
  * `appUrl` 이 있으면 앱 스킴을 먼저 시도하고 열리지 않을 때 `href` 로 돌아간다. 없으면
  * 평범한 링크로 둔다(카카오맵). 스킴을 href 에 바로 넣지 않는 이유는, 앱이 없을 때
  * 아무 일도 일어나지 않거나 iOS 에서 "주소가 올바르지 않다"는 경고만 뜨기 때문이다.
+ *
+ * `logo` 는 R2 에 있는 각 사 앱 아이콘이다(SIS-32, 2026-08-13 고객 요청). 라벨이 이미
+ * 앱 이름을 말하므로 로고는 장식으로 두고 스크린리더에서 감춘다 — alt 를 채우면
+ * "네이버지도 네이버지도" 로 두 번 읽힌다.
  */
-function MapLink({ label, href, appUrl, fallbackUrl }: { label: string; href: string; appUrl?: string; fallbackUrl?: string }) {
+function MapLink({
+  label,
+  logo,
+  href,
+  appUrl,
+  fallbackUrl,
+}: {
+  label: string;
+  logo: string;
+  href: string;
+  appUrl?: string;
+  fallbackUrl?: string;
+}) {
   const cancelRef = useRef<(() => void) | null>(null);
 
   // 앱으로 넘어간 뒤 돌아왔을 때 예약된 폴백이 남아 있으면 엉뚱한 화면이 열린다.
@@ -215,22 +239,17 @@ function MapLink({ label, href, appUrl, fallbackUrl }: { label: string; href: st
   };
 
   return (
-    <a
-      href={href}
-      onClick={handleClick}
-      target="_blank"
-      rel="noopener"
-      style={{
-        flex: 1,
-        textAlign: "center",
-        padding: "13px 0",
-        background: "var(--surface)",
-        borderRadius: "var(--radius-control)",
-        textDecoration: "none",
-        color: "var(--on-surface)",
-        fontSize: 13,
-      }}
-    >
+    <a href={href} onClick={handleClick} target="_blank" rel="noopener">
+      <img
+        src={assetUrl(logo)}
+        alt=""
+        aria-hidden="true"
+        width={18}
+        height={18}
+        // 오시는 길은 페이지 아래쪽이라 첫 화면 대역폭을 나눠 쓰지 않게 한다.
+        loading="lazy"
+        decoding="async"
+      />
       {label}
     </a>
   );

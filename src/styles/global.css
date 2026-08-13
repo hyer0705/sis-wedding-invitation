@@ -131,6 +131,61 @@ body {
   touch-action: pan-y !important;
 }
 
+/* MP-03 지도 앱 버튼 — 각 사 로고와 라벨이 한 줄에 앉아야 한다(SIS-32).
+
+   인라인 style 이 아니라 여기 있는 이유는 미디어쿼리 때문이다. 320px 에서 세 버튼의
+   폭 합(82.4 + 70.5 + 59.1)에 간격 16 을 더하면 카드 안쪽 폭 228 과 정확히 같아
+   여유가 0 이다. 기기별 폰트 렌더링이 조금만 넓어도 버튼이 카드를 넘친다 —
+   nowrap 이라 접히는 대신 삐져나간다.
+
+   폭이 좁을 때는 라벨을 줄이는 대신 간격과 로고를 줄여 마진을 만든다. 앱 이름은
+   하객이 무엇을 누르는지 알려주는 정보라 줄이지 않는다. */
+.map-links {
+  display: flex;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.map-links a {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 11px 0;
+  background: var(--surface);
+  border-radius: var(--radius-control);
+  text-decoration: none;
+  color: var(--on-surface);
+  font-size: 12.5px;
+  white-space: nowrap;
+}
+
+/* 로고는 장식이라 자리만 고정한다. 늦게 오거나 오지 않아도 라벨이 밀리지 않는다. */
+.map-links img {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  display: block;
+}
+
+/* CM-01 하한대(320~359px) — 구형 좁은 화면. 위 계산의 여유 0 을 30px 남짓으로 벌린다. */
+@media (max-width: 359px) {
+  .map-links {
+    gap: 6px;
+  }
+
+  .map-links a {
+    gap: 4px;
+    font-size: 12px;
+  }
+
+  .map-links img {
+    width: 16px;
+    height: 16px;
+  }
+}
+
 /* DT-02 달력 — 표로 짜므로 th/td 를 인라인 style 로 채울 수 없다. 여기 모은다. */
 .calendar {
   width: 100%;
