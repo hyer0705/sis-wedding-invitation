@@ -19,7 +19,8 @@ export default function App() {
   return (
     <div className="page">
       <AnimatePresence>{!ready && <Loading key="loading" />}</AnimatePresence>
-      <Cover />
+      {/* 로딩이 걷힌 시점을 커버도 알아야 한다 — 그때까지 사진이 안 온 경우에만 페이드로 얹는다 (SIS-29) */}
+      <Cover coverReady={ready} />
       <Invitation />
       {/* Calendar 가 예식 일시·장소·달력·D-Day 를 함께 담는다 (SIS-10) */}
       <Calendar />

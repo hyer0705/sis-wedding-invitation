@@ -141,21 +141,22 @@ export default function Gallery() {
         {PHOTOS.map((name, i) => (
           <div
             key={name}
+            // 이 상자는 칠하지 않고 비워 둔다 — 페이지 배경이 그대로 보여 사진만 떠 있는
+            // c안의 카드 느낌이 유지되기 때문이다.
+            //
+            // 다만 **아직 안 온 사진의 자리**에만 옅은 면과 광택을 깐다(2026-08-11, SIS-29).
+            // 3G 에서 스크롤해 닿았을 때 자리가 통째로 비어 보이는 것을 막는다. 사진이
+            // 도착하면 클래스째 걷어 내므로 c안 인상은 그대로다 — 상시로 깔면 사진이
+            // contain 이라 가로 사진 위아래에 손바닥만 한 띠가 남는다(실제로 그렇게 보였다).
+            className={loaded.has(name) ? undefined : "skeleton"}
+            data-testid="gallery-slot"
             style={{
               flex: "0 0 100%",
               scrollSnapAlign: "center",
               // 4:5 는 슬라이드가 차지하는 자리다. 사진은 이 안에 잘리지 않게 들어가므로
               // 비율에 따라 남는 자리가 생긴다.
-              //
-              // 이 상자는 칠하지 않고 비워 둔다 — 페이지 배경이 그대로 보여 사진만 떠 있는
-              // c안의 카드 느낌이 유지되기 때문이다.
-              //
-              // 다만 **아직 안 온 사진의 자리**에만 옅은 면을 깐다(2026-08-11). 3G 에서
-              // 스크롤해 닿았을 때 자리가 통째로 비어 보이는 것을 막는다. 사진이 도착하면
-              // 곧바로 걷어 내므로 c안 인상은 그대로다 — 상시로 깔면 사진이 contain 이라
-              // 가로 사진 위아래에 손바닥만 한 띠가 남는다(실제로 그렇게 보였다).
               aspectRatio: FRAME_ASPECT,
-              ...(loaded.has(name) ? null : { background: "var(--surface)", borderRadius: 18 }),
+              ...(loaded.has(name) ? null : { borderRadius: 18 }),
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
@@ -165,6 +166,9 @@ export default function Gallery() {
               src={imageUrl(name, 960)}
               srcSet={imageSrcSet(name)}
               onLoad={() => markLoaded(name)}
+              // 못 받은 경우에도 기다리기를 그만둔다. 그러지 않으면 사진이 투명한 채
+              // 남아 대체 텍스트조차 보이지 않고, 빈 자리에 광택만 끝없이 돈다.
+              onError={() => markLoaded(name)}
               // 캐시에 있으면 React 가 onLoad 를 붙이기 전에 로드가 끝나 있을 수 있다.
               // 그때는 이 콜백이 붙는 시점에 complete 가 이미 true 다.
               ref={(el) => {
@@ -193,6 +197,9 @@ export default function Gallery() {
               // 상대도 없다.
               fetchPriority={reached ? "auto" : "low"}
               decoding="async"
+              // 스켈레톤이 보이고 있던 자리라 도착할 때 페이드로 얹는다(SIS-29). 커버와 달리
+              // 갤러리는 늘 로딩 화면이 걷힌 뒤에 받으므로 조건을 따지지 않는다.
+              className={["image-fade", loaded.has(name) ? null : "image-pending"].filter(Boolean).join(" ")}
               // 모서리와 그림자를 상자가 아니라 사진에 건다. contain 이라 상자에 걸면
               // 사진과 어긋난 자리에 그려진다.
               style={{

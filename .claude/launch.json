@@ -7,6 +7,13 @@
       "runtimeArgs": ["run", "dev"],
       "port": 5173,
       "autoPort": true
+    },
+    {
+      "// ": "3G 실측용. dev 서버로는 못 잰다 — 모듈이 수백 개로 쪼개져 90초가 지나도 안 뜬다. 먼저 npm run build.",
+      "name": "preview",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "preview", "--", "--port", "4173", "--strictPort"],
+      "port": 4173
     }
   ]
 }
