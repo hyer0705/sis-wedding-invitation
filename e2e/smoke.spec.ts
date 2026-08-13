@@ -134,6 +134,14 @@ test.describe("청첩장 기본 동작", () => {
       await page.setViewportSize(WIDE);
       await page.goto("/", { waitUntil: "commit" });
 
+      // commit 은 응답 헤더가 온 시점이라 문서가 아직 파싱되는 중이다. webkit 은 그
+      // 사이의 #boot 를 규칙이 걸리지 않은 채로 내주어, 컬럼(430) 대신 화면 전체 폭이
+      // 잡힌다 — CI 의 ios-safari 만 여기서 깨졌다(1264 수신). chromium 은 head 를 다
+      // 읽을 때까지 그리지 않아 드러나지 않는다.
+      //
+      // 그래서 규칙이 걸릴 때까지 기다렸다가 잰다. 재는 값과 기대값은 그대로다.
+      await expect(page.locator("#boot")).toHaveCSS("max-width", "430px");
+
       const { width, left, right } = await column(page, "#boot");
       expect(width).toBe(430);
       expect(Math.abs(left - right)).toBeLessThanOrEqual(1);
