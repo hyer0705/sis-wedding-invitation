@@ -86,15 +86,10 @@ describe("Gallery", () => {
     }
   });
 
-  it("GL-04 받는 순서를 커버에 양보한다", () => {
-    // 커버가 LCP 요소(fetchPriority="high")인데 여기 첫 두 장은 eager 라 같은 시점에
-    // 대역폭을 놓고 다툰다. 하객이 갤러리까지 내려오기 전에 커버가 떠 있어야 한다(SIS-18).
-    renderWithMotion(<Gallery />);
-
-    for (const image of screen.getAllByRole("img")) {
-      expect(image).toHaveAttribute("fetchpriority", "low");
-    }
-  });
+  // GL-04 받는 순위(fetchPriority)는 갤러리가 화면에 들어왔는지에 매여 있다. 여기
+  // 셋업의 IntersectionObserver 는 관측 즉시 "들어왔다"고 알리고, Motion 은 관찰자를
+  // 옵션별로 캐싱해 테스트 안에서 갈아끼워도 먹지 않는다 — 진짜 스크롤이 필요하므로
+  // e2e/smoke.spec.ts 의 「커버가 받을 동안 사진이 순서를 양보한다」가 이 동작을 덮는다.
 
   it("GL-04 넘기면 다음 장을 미리 받아 둔다", async () => {
     // 가로 스크롤러 안에서는 브라우저의 지연 로딩 판정을 믿을 수 없다. 넘긴 자리가
