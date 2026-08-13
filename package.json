@@ -7,8 +7,13 @@
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
+    "prepare": "git config core.hooksPath .githooks || true",
     "optimize": "node scripts/optimize-images.mjs",
+    "optimize:logos": "node scripts/optimize-logos.mjs",
+    "upload:images": "node scripts/upload-images.mjs",
     "verify": "node scripts/verify-release.mjs",
+    "review": "node scripts/review-guard.mjs",
+    "review:branch": "node scripts/review-guard.mjs --branch",
     "lint": "eslint src",
     "test": "vitest",
     "test:unit": "vitest run",
@@ -22,6 +27,7 @@
     "react-dom": "^19.2.7"
   },
   "devDependencies": {
+    "@aws-sdk/client-s3": "^3.1103.0",
     "@axe-core/playwright": "^4.12.1",
     "@eslint/js": "^10.0.1",
     "@playwright/test": "^1.62.1",

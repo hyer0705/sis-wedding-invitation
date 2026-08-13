@@ -1,26 +1,40 @@
 /* 디자인 토큰 — CLAUDE.md 토큰표와 1:1. 색감 변경 요청은 여기서만 수정한다 */
 :root {
-  --primary: #7e9079;
+  --primary: #667662;
   --bg: #f5f3ea;
   --card: #fffefb;
   --text: #3a3631;
   --text-body: #4a463e;
-  --text-sub: #7a766b;
-  --muted: #a7a496;
-  --muted-2: #9aa18d;
+  --text-sub: #716d63;
+  --muted: #716d5e;
+  --muted-2: #69705c;
   --surface: #f2f4ec;
   --surface-2: #eef1e8;
   --surface-3: #f7f9f3;
   --input-bg: #fbfcf8;
   --input-border: #e6e8dd;
+  /* 연녹색 박스(--surface) 위에 얹는 글자. c안 지도 앱 버튼의 색을 토큰으로 옮겼다 —
+     --primary 를 그대로 쓰면 그 배경 위에서 대비가 크게 모자란다. */
+  --on-surface: #5f7060;
+  /* 그린 배경 위 글자 3단. --primary 가 깊어지면서(2026-08-13) 세 값이 사실상 한 곳으로
+     모였다 — 옅은 쪽 둘은 각각 3.87·4.03 이라 AA 에 미달했고, 4.5 를 넘기려면 결국
+     --on-primary 자리까지 밝아진다. 톤 차이로 위계를 주는 것은 이 배경 위에서는 불가능하다.
+     **다시 옅게 만들지 말 것.** axe 는 이 자리를 violation 이 아니라 incomplete 로 분류해
+     E2E 가 잡아 주지 못했고, 그래서 e2e/smoke.spec.ts 의 「색상 토큰 조합」 검사가 따로 지킨다. */
   --on-primary: #f7f8f1;
-  --on-primary-sub: #e2e8d8;
-  --on-primary-title: #e7ecde;
+  --on-primary-sub: #f6f8f2;
+  --on-primary-title: #f6f8f2;
   --overlay: rgba(40, 46, 38, 0.94);
 
   --font-script: "Parisienne", cursive;
   --font-serif: "Nanum Myeongjo", serif;
   --font-caption: "Gowun Dodum", sans-serif;
+
+  /* 청첩장 컬럼의 폭. 페이지뿐 아니라 화면을 덮는 오버레이(로딩)도 이 폭을 지켜야
+     태블릿·PC 에서 배경이 화면을 가득 채웠다가 컬럼으로 접히지 않는다 (SIS-18).
+     index.html 의 부트 화면은 이 파일이 오기 전에 그려지므로 값을 직접 적어 두었다 —
+     여기를 바꾸면 그쪽도 함께 바꾼다. */
+  --page-max: 430px;
 
   --radius-card: 24px;
   --radius-control: 14px;
