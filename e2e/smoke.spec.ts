@@ -43,13 +43,14 @@ test.describe("청첩장 기본 동작", () => {
     }
   });
 
-  // IN-01·IN-02 — 인사말과 인용 시의 줄바꿈은 고객이 정한 것이라 화면에서도 그대로
-  // 앉아야 한다. c안 본문 크기(16.5)로는 375px 에서 두 문단이 한 줄씩 더 접혀
-  // 마지막 낱말만 홀로 떨어졌고, 그래서 이 카드만 14.5 로 낮춰 맞춰 두었다.
-  // 크기·패딩·문구 어느 하나만 건드려도 되살아나므로 여기서 고정한다.
+  // IN-01 — 인사말의 줄바꿈은 고객이 정한 것이라 화면에서도 그대로 앉아야 한다.
+  // c안 본문 크기(16.5)로는 375px 에서 두 문단이 한 줄씩 더 접혀 마지막 낱말만 홀로
+  // 떨어졌고, 그래서 이 카드만 14.5 로 낮춰 맞춰 두었다. 크기·패딩·문구 어느 하나만
+  // 건드려도 되살아나므로 여기서 고정한다. 인용 시(IN-02)가 빠진 뒤에도(2026-08-13)
+  // 이 값은 그대로다 — 한 문단이 접히는지는 카드 폭이 정하지 카드 길이가 정하지 않는다.
   //
   // 320px 은 제외한다. 그 폭에서 지키려면 11.5px 이하여야 해 읽을 수 없어진다.
-  test("인사말과 인용 시가 고객이 지정한 줄바꿈대로 앉는다", async ({ page }) => {
+  test("인사말이 고객이 지정한 줄바꿈대로 앉는다", async ({ page }) => {
     test.skip((page.viewportSize()?.width ?? 0) < 375, "320px 은 읽을 수 있는 크기로 지킬 수 없다");
     await page.goto("/");
 
@@ -64,9 +65,7 @@ test.describe("청첩장 기본 동작", () => {
     // 자리를 바꿔도 조용히 엉뚱한 문단을 재면서 통과해 버린다.
     // Playwright 의 텍스트 매칭은 공백을 하나로 눌러 비교하므로, 고객이 넣은 \n 도
     // 같은 모양으로 눌러서 건넨다.
-    const blocks = [...INVITE.greeting.body, ...INVITE.greeting.quote];
-
-    for (const block of blocks) {
+    for (const block of INVITE.greeting.body) {
       const authored = block.split("\n").length;
       // 원문에 줄바꿈이 없는 문단은 폭에 맞춰 저절로 접히는 것이 정상이다.
       if (authored === 1) continue;
@@ -134,6 +133,14 @@ test.describe("청첩장 기본 동작", () => {
       await page.route(/assets\/.*\.js$/, (route) => route.abort());
       await page.setViewportSize(WIDE);
       await page.goto("/", { waitUntil: "commit" });
+
+      // commit 은 응답 헤더가 온 시점이라 문서가 아직 파싱되는 중이다. webkit 은 그
+      // 사이의 #boot 를 규칙이 걸리지 않은 채로 내주어, 컬럼(430) 대신 화면 전체 폭이
+      // 잡힌다 — CI 의 ios-safari 만 여기서 깨졌다(1264 수신). chromium 은 head 를 다
+      // 읽을 때까지 그리지 않아 드러나지 않는다.
+      //
+      // 그래서 규칙이 걸릴 때까지 기다렸다가 잰다. 재는 값과 기대값은 그대로다.
+      await expect(page.locator("#boot")).toHaveCSS("max-width", "430px");
 
       const { width, left, right } = await column(page, "#boot");
       expect(width).toBe(430);

@@ -35,13 +35,13 @@ describe("Invitation", () => {
     expect(screen.getByText(flat(INVITE.greeting.body[0]))).toHaveStyle({ whiteSpace: "pre-line" });
   });
 
-  it("IN-02 인용 문구와 출처를 보여 준다", () => {
-    renderWithMotion(<Invitation />);
+  it("IN-02 인용 시를 두지 않는다", () => {
+    // 배포본을 본 고객이 「글이 너무 많다」며 제거를 요청했다(2026-08-13).
+    // 문구가 INVITE 에서 사라졌으므로 글로는 확인할 수 없어 블록의 자리로 본다.
+    const { container } = renderWithMotion(<Invitation />);
 
-    for (const stanza of INVITE.greeting.quote) {
-      expect(screen.getByText(flat(stanza))).toBeInTheDocument();
-    }
-    expect(screen.getByText(`— ${INVITE.greeting.quoteAuthor} —`)).toBeInTheDocument();
+    expect(container.querySelector("blockquote")).toBeNull();
+    expect(container.querySelector("cite")).toBeNull();
   });
 
   it("IN-03 양가 혼주와 자녀 관계를 표기한다", () => {

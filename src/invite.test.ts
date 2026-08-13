@@ -119,11 +119,10 @@ describe("INVITE", () => {
   });
 
   describe("인사말", () => {
-    it("본문과 인용구가 비어 있지 않다", () => {
-      // IN-01·IN-02. 빈 배열이면 카드에 제목과 구분선만 남는다.
+    it("본문이 비어 있지 않다", () => {
+      // IN-01. 빈 배열이면 카드에 제목과 구분선만 남는다.
       expect(INVITE.greeting.body.length).toBeGreaterThan(0);
-      expect(INVITE.greeting.quote.length).toBeGreaterThan(0);
-      for (const paragraph of [...INVITE.greeting.body, ...INVITE.greeting.quote]) {
+      for (const paragraph of INVITE.greeting.body) {
         expect(paragraph.trim()).not.toBe("");
       }
     });

@@ -2,13 +2,15 @@ import Reveal from "./Reveal";
 import { INVITE } from "../invite";
 import { formatParents } from "../lib/parents";
 
-// IN-01 인사말 · IN-02 인용 문구 · IN-03 혼주 표기 · IN-04 고인 표기.
+// IN-01 인사말 · IN-03 혼주 표기 · IN-04 고인 표기.
 //
 // c안에는 뒷문단을 감추는 「더보기」 버튼이 있었으나 두지 않는다(2026-08-11 확정).
 // 받은 인사말이 네 문단으로 짧은 데다, 청첩 인사는 하객이 반드시 읽는 글이라 접을
 // 이유가 없다. 갤러리의 더보기(GL-03)도 미채택이라 페이지에 이 패턴 자체가 없다.
 //
-// IN-02 인용구는 c안에 없던 항목이며 인사말 아래에 둔다.
+// IN-02 인용 시는 c안에 없던 신규 항목으로 인사말 아래에 두었으나, 배포본을 본
+// 고객이 분량 과다로 제거를 요청해 걷어냈다(2026-08-13). 인용 블록과 그 위 구분선이
+// 함께 빠지면서 인사말 다음이 곧바로 혼주 표기가 되어 c안 여백으로 되돌아왔다.
 
 // 고객이 지정한 줄바꿈(\n)을 그대로 살린다 — pre-line 이 개행만 보존하고 들여쓰기
 // 공백은 합쳐 준다. keep-all 은 저절로 접히는 줄이 낱말 중간에서 갈라지지 않게 한다.
@@ -28,7 +30,6 @@ const RULE_COLOR = "var(--input-border)";
 // 지키는 것은 e2e/smoke.spec.ts 이며, 320px 은 11.5px 이하라야 지켜져 제외했다.
 const CARD_PADDING_X = 26;
 const BODY_SIZE = 14.5;
-const QUOTE_SIZE = 13.5;
 const PARENTS_SIZE = 14;
 
 export default function Invitation() {
@@ -54,32 +55,6 @@ export default function Invitation() {
             {paragraph}
           </p>
         ))}
-
-        <div style={{ width: 34, height: 1, background: RULE_COLOR, margin: "32px auto 28px" }} />
-
-        <blockquote style={{ margin: 0 }}>
-          {INVITE.greeting.quote.map((stanza, index) => (
-            <p
-              key={stanza}
-              style={{
-                margin: index === 0 ? 0 : "18px 0 0",
-                fontSize: QUOTE_SIZE,
-                lineHeight: 2.1,
-                color: "var(--text-sub)",
-                ...WRAP,
-              }}
-            >
-              {stanza}
-            </p>
-          ))}
-          {/* cite 의 기본 이탤릭은 명조 본문과 어울리지 않아 되돌린다.
-              위계는 색이 아니라 크기로만 준다. 예전 --muted(#a7a496)는 카드 배경 위 2.5:1 이라
-              이 크기에 쓸 수 없었고, 2026-08-13 토큰 조정 뒤에는 --text-sub 와 명도가 거의 같아져
-              (4.66 대 4.64) 색으로는 위계가 생기지 않는다 — AA 바닥에 나란히 놓인 값들이다. */}
-          <cite style={{ display: "block", marginTop: 20, fontSize: 12.5, fontStyle: "normal", color: "var(--text-sub)" }}>
-            — {INVITE.greeting.quoteAuthor} —
-          </cite>
-        </blockquote>
 
         <div
           style={{
