@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { m, useMotionValue, useReducedMotionConfig } from "motion/react";
 import { INVITE } from "../invite";
 import { imageSrcSet, imageUrl } from "../lib/imageUrl";
@@ -30,6 +30,7 @@ export default function Cover({ coverReady = false }: { coverReady?: boolean }) 
   const parallaxY = useMotionValue(0);
 
   const [loaded, setLoaded] = useState(false);
+  const imgRef = useRef<HTMLImageElement | null>(null);
 
   // SIS-29 — 사진을 페이드로 얹을지 그냥 켤지.
   //
@@ -40,10 +41,15 @@ export default function Cover({ coverReady = false }: { coverReady?: boolean }) 
   // 반대로 사진이 먼저 와서 로딩이 걷힌 정상 경로에는 걸지 않는다. SIS-17 이 커버의
   // opacity 0→1(1.4초)을 걷어낸 이유가 그것이다 — 로딩 화면에 가려진 채 흘러가 회선마다
   // 걷히는 모습이 달라졌다.
+  //
+  // 판정은 state 가 아니라 **요소의 complete** 로 한다. 로딩 화면을 걷는 타이머와 이 img 의
+  // load 이벤트는 서로 다른 태스크라, 사진이 이미 도착했는데도 setLoaded 가 아직 커밋되지
+  // 않은 순간이 생긴다. 그 틈에 state 로 판정하면 정상 경로에까지 페이드가 걸려 위의 이중
+  // 연출이 되살아난다. complete 는 이벤트와 무관하게 그 시점의 사실을 알려준다.
   const [fadesIn, setFadesIn] = useState(false);
   useEffect(() => {
-    if (coverReady && !loaded) setFadesIn(true);
-  }, [coverReady, loaded]);
+    if (coverReady && !imgRef.current?.complete) setFadesIn(true);
+  }, [coverReady]);
 
   // Motion의 useScroll을 쓰지 않는다. StrictMode의 이중 마운트에서 내부 구독이
   // 되살아나지 않아 개발 화면에서만 패럴랙스가 멈춘다(motion 12.42). 구독을 직접
@@ -108,6 +114,7 @@ export default function Cover({ coverReady = false }: { coverReady?: boolean }) 
           // 캐시에 있으면 React 가 onLoad 를 붙이기 전에 로드가 끝나 있을 수 있다.
           // 그때는 이 콜백이 붙는 시점에 complete 가 이미 true 다.
           ref={(el) => {
+            imgRef.current = el;
             if (el?.complete) setLoaded(true);
           }}
           className={[loaded ? null : "image-pending", fadesIn ? "image-fade" : null].filter(Boolean).join(" ")}

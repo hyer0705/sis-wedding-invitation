@@ -46,6 +46,15 @@ describe("Cover", () => {
     const frame = () => screen.getByTestId("cover-frame");
     const photo = () => screen.getByRole("img");
 
+    /** jsdom 은 사진을 실제로 받지 않아 complete 가 늘 false 다. 도착을 흉내 낸다. */
+    const markComplete = () => Object.defineProperty(photo(), "complete", { configurable: true, value: true });
+
+    /** 사진이 도착하고 load 이벤트까지 온 상태. */
+    const arrive = () => {
+      markComplete();
+      fireEvent.load(photo());
+    };
+
     it("사진이 오기 전에는 아치에 면과 광택을 깐다", () => {
       renderWithMotion(<Cover />);
 
@@ -87,7 +96,19 @@ describe("Cover", () => {
       // 채 흘러가 회선마다 걷히는 모습이 달라지는 이중 연출이 되살아난다.
       const { rerender } = renderWithMotion(<Cover coverReady={false} />);
 
-      fireEvent.load(photo());
+      arrive();
+      rerender(<Cover coverReady />);
+
+      expect(photo()).not.toHaveClass("image-fade");
+    });
+
+    it("사진이 이미 도착했다면 load 이벤트가 늦어도 페이드를 걸지 않는다", () => {
+      // 로딩 화면을 걷는 타이머와 img 의 load 이벤트는 서로 다른 태스크라, 사진이 도착한
+      // 뒤에도 setLoaded 가 아직 커밋되지 않은 순간이 있다. 그 틈에 state 로 판정하면
+      // 정상 경로에까지 페이드가 걸린다 — 판정은 요소의 complete 로 해야 한다.
+      const { rerender } = renderWithMotion(<Cover coverReady={false} />);
+
+      markComplete();
       rerender(<Cover coverReady />);
 
       expect(photo()).not.toHaveClass("image-fade");

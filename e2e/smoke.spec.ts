@@ -342,19 +342,28 @@ test.describe("청첩장 기본 동작", () => {
         el.getAnimations({ subtree: true }).some((a) => (a as CSSAnimation).animationName === "skeleton-shimmer"),
       );
 
+    // 의사요소 애니메이션을 getAnimations 로 세는 것은 엔진마다 결과가 갈린다. 로컬 macOS 에서는
+    // webkit 바이너리가 죽어 실행조차 못 하므로(WORKFLOW.md), 여기서 어긋나면 CI 에서만 조용히
+    // 깨진다 — SIS-17 에서 겪은 그대로다. 광택의 유무는 chromium 에서만 세고, 클래스와 면 색은
+    // 모든 엔진에서 본다. CSS 자체는 표준이라 그 둘이면 회귀는 잡힌다.
+    const countsAnimations = (browserName: string) =>
+      test.skip(browserName !== "chromium", "의사요소 애니메이션 계수는 chromium 에서만 신뢰할 수 있다");
+
     /** 사진을 붙잡아 스켈레톤이 드러난 상태를 만든다. */
     const holdCover = (page: Page) => page.route(COVER_REQUEST, () => new Promise(() => {}));
 
-    test("사진이 오기 전 커버 아치에 광택이 돈다", async ({ page }) => {
+    test("사진이 오기 전 커버 아치에 광택이 돈다", async ({ page, browserName }) => {
       await holdCover(page);
       await page.goto("/", { waitUntil: "commit" });
 
       await expect(frame(page)).toHaveClass(/skeleton/);
       await expect(frame(page)).not.toHaveClass(/is-loaded/);
+
+      countsAnimations(browserName);
       await expect.poll(() => shimmering(page)).toBe(true);
     });
 
-    test("모션을 줄인 설정에서는 광택만 멎고 면은 그대로 남는다", async ({ page }) => {
+    test("모션을 줄인 설정에서는 광택만 멎고 면은 그대로 남는다", async ({ page, browserName }) => {
       // MotionConfig reducedMotion="user" 는 Motion 요소에만 걸려 CSS 키프레임을 잡지
       // 못하므로 @media 로 직접 막았다. 그리고 **면이 함께 사라지지 않는 것**이 이 검사의
       // 요점이다 — 정지 시 보여야 할 값을 키프레임 안에 두면 애니메이션이 꺼질 때 기본값으로
@@ -366,16 +375,20 @@ test.describe("청첩장 기본 동작", () => {
       await expect(frame(page)).toHaveClass(/skeleton/);
       // --surface #f2f4ec. 토큰을 바꾸면 여기도 바꾼다.
       await expect(frame(page)).toHaveCSS("background-color", "rgb(242, 244, 236)");
+
+      countsAnimations(browserName);
       expect(await shimmering(page)).toBe(false);
     });
 
-    test("사진이 도착하면 광택을 걷는다", async ({ page }) => {
+    test("사진이 도착하면 광택을 걷는다", async ({ page, browserName }) => {
       await page.goto("/");
 
       await expect(frame(page)).toHaveClass(/is-loaded/);
-      expect(await shimmering(page)).toBe(false);
       // 사진이 아치를 꽉 채운 상태로 보인다.
       await expect(page.locator("header img")).toHaveCSS("opacity", "1");
+
+      countsAnimations(browserName);
+      expect(await shimmering(page)).toBe(false);
     });
 
     test("갤러리는 사진이 도착한 자리의 면을 걷는다", async ({ page }) => {
