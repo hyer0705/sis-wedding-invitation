@@ -542,6 +542,74 @@ test.describe("청첩장 기본 동작", () => {
   test.describe("접근성", () => {
     test.use({ reducedMotion: "reduce" });
 
+    // 토큰 조합의 대비를 axe 와 별개로 직접 잰다(SIS-18).
+    //
+    // **axe 만으로는 새는 자리가 있다.** color-contrast 규칙을 켠 뒤에도 D-Day 「초」 라벨의
+    // 3.87:1 이 통과했는데, axe 가 배경을 확정하지 못한 노드를 violation 이 아니라
+    // `incomplete`(판정 불가) 로 빼기 때문이다. 겹친 요소·배경 사진·반투명 조상이 있으면
+    // 그렇게 되고, 사진 위에 글씨가 얹히는 화면이 이 청첩장에는 여럿이다.
+    //
+    // 값은 실제로 그려진 페이지에서 읽는다. tokens.css 를 파싱하면 그 파일이 로드되지
+    // 않았거나 다른 규칙이 덮어쓴 경우를 못 본다. (Vitest 유닛으로 두려 했으나 ?raw 가
+    // CSS 를 빈 문자열로 돌려주고, node:fs 는 @types/node 가 필요해 여기로 옮겼다.)
+    test("색상 토큰 조합이 WCAG AA 를 넘는다", async ({ page }) => {
+      await page.goto("/");
+
+      /** 작은 글씨 4.5:1 / 큰 글씨(24px 이상, 18.66px 이상 굵게) 3:1. */
+      const SMALL = 4.5;
+      const LARGE = 3;
+
+      // 기준은 그 조합이 **실제로 쓰이는 가장 작은 크기**로 정한다. 같은 토큰이라도 배경이
+      // 다르면 크기가 다르다 — --primary 는 --bg 위에서는 커버 30px·푸터 34px 뿐이지만
+      // 카드 위에서는 교통 안내 라벨 12.5px 로 내려온다.
+      // 조합을 더할 때는 그 자리의 글자 크기를 확인하고 기준을 고른다.
+      const pairs: [fg: string, bg: string, min: number, where: string][] = [
+        ["--text", "--bg", SMALL, "제목"],
+        ["--text", "--card", SMALL, "카드 제목·계좌 예금주"],
+        ["--text-body", "--bg", SMALL, "본문"],
+        ["--text-body", "--card", SMALL, "달력 날짜·인사말"],
+        ["--text-sub", "--bg", SMALL, "커버 일시·장소 14px"],
+        ["--text-sub", "--card", SMALL, "예식장·주소·계좌·인용 출처 12.5~15px"],
+        ["--text-sub", "--surface-3", SMALL, "인사말 카드의 강조 배경 12.5px"],
+        ["--muted", "--bg", SMALL, "커버 날짜 캡션 11px·푸터 날짜 12px"],
+        ["--muted", "--card", SMALL, "갤러리 안내 문구 12.5px"],
+        ["--muted-2", "--surface", SMALL, "D-Day 일·시·분 라벨 10.5px"],
+        ["--muted-2", "--card", SMALL, "갤러리 카운터 18px"],
+        ["--primary", "--bg", LARGE, "커버 30px·푸터 34px — 전부 큰 글씨"],
+        ["--primary", "--card", SMALL, "교통 안내 라벨 12.5px·혼주 관계 13px·D-Day 일수 14px 굵게"],
+        ["--on-surface", "--surface-2", SMALL, "공유 버튼 13px"],
+        ["--on-primary", "--primary", SMALL, "달력 예식일 원 14.5px 굵게·지도 앱 버튼 13px"],
+        ["--on-primary-sub", "--primary", SMALL, "D-Day 「초」 라벨 10.5px"],
+        ["--on-primary-title", "--primary", SMALL, "그린 배경 위 제목"],
+      ];
+
+      const measured = await page.evaluate((combos) => {
+        const root = getComputedStyle(document.documentElement);
+        const rgb = (token: string) => {
+          const hex = root.getPropertyValue(token).trim();
+          const m = /^#([0-9a-f]{6})$/i.exec(hex);
+          return m ? [0, 2, 4].map((i) => parseInt(m[1].slice(i, i + 2), 16)) : null;
+        };
+        const luminance = (c: number[]) => {
+          const ch = (v: number) => {
+            const s = v / 255;
+            return s <= 0.03928 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4;
+          };
+          return 0.2126 * ch(c[0]) + 0.7152 * ch(c[1]) + 0.0722 * ch(c[2]);
+        };
+
+        return combos.map(([fg, bg, min, where]) => {
+          const [f, b] = [rgb(fg), rgb(bg)];
+          if (!f || !b) return `${fg} on ${bg} — 토큰을 읽지 못했다 (${where})`;
+          const [hi, lo] = [luminance(f), luminance(b)].sort((x, y) => y - x);
+          const ratio = (hi + 0.05) / (lo + 0.05);
+          return ratio >= min ? null : `${fg} on ${bg} = ${ratio.toFixed(2)}:1 (${min} 필요) — ${where}`;
+        });
+      }, pairs);
+
+      expect(measured.filter(Boolean)).toEqual([]);
+    });
+
     test("critical/serious 위반이 없다", async ({ page }) => {
       await page.goto("/");
       // 색상 대비 판정은 스타일·폰트가 적용되고 화면이 자리를 잡은 뒤라야 의미가 있다.
@@ -586,8 +654,13 @@ test.describe("청첩장 기본 동작", () => {
         .toBe(0);
 
       // color-contrast 를 제외하지 않는다(SIS-18). --muted·--muted-2·--text-sub 가
-      // AA 에 미달해 오래 빼 두었던 규칙이며, 2026-08-13 고객 승인으로 세 토큰을
+      // AA 에 미달해 오래 빼 두었던 규칙이며, 2026-08-13 고객 승인으로 --primary 까지
       // 4.5:1 위로 올려 되살렸다. 다시 제외하는 변경이 들어오면 그때는 근거가 필요하다.
+      //
+      // **다만 이 검사만 믿으면 안 된다.** 아래는 violations 만 보는데, axe 는 배경을
+      // 확정하지 못한 노드를 violation 이 아니라 incomplete 로 빼 조용히 통과시킨다 —
+      // 실제로 D-Day 「초」 라벨의 3.87:1 이 그렇게 빠져나갔다. 토큰 조합 자체는
+      // 바로 위 「색상 토큰 조합이 WCAG AA 를 넘는다」가 따로 지킨다.
       const results = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa"]).analyze();
       // 위반 객체를 통째로 비교하면 실패 출력이 노드 하나에 수십 줄이라 무엇이 걸렸는지 안 보인다.
       // 규칙·요소·사유 한 줄로 눌러서 비교한다.

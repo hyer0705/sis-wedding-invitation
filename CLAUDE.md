@@ -71,7 +71,7 @@
 | surface | `#f2f4ec` | 연녹색 박스 (D-Day, 버튼) |
 | surface-2 | `#eef1e8`, `#f7f9f3` | 옅은 버튼, 아코디언 |
 | input-bg / border | `#fbfcf8` / `#e6e8dd` | 입력 필드 |
-| on-primary | `#f7f8f1` (보조 `#e2e8d8`, `#e7ecde`) | 그린 배경 위 텍스트 |
+| on-primary | `#f7f8f1` (보조 `#f6f8f2` 2종) | 그린 배경 위 텍스트 — 깊어진 primary 위에서 세 톤이 사실상 한 값으로 모였다 |
 | on-surface | `#5f7060` | 연녹색 박스(surface) 위 텍스트 — 지도 앱 버튼 |
 | overlay | `#282e26` @ 94% | 라이트박스 배경 |
 
