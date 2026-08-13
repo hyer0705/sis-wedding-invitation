@@ -31,6 +31,7 @@
 - 공유: `index.html` OG 태그는 **`vite.config.ts`의 `inviteMeta` 플러그인이 `INVITE`에서 빌드 시점에 주입**(직접 적지 않는다 — 값이 어긋난 채 배포된 적 있음). 썸네일은 R2의 `og-image.jpg`(JPEG — 외부 스크래퍼는 WebP 지원이 제각각) + Kakao JS SDK(`src/lib/share.ts`) + `navigator.share` 폴백
 - RSVP: Google Apps Script 웹앱 → Google Sheets (`src/lib/rsvp.ts`). DB 없음. `no-cors` POST + localStorage 중복 방지
 - 이미지: 원본은 `photos-original/`(git 제외) → `npm run optimize`(sharp)로 WebP 2벌(480w/960w) → `public/images/`(git 제외) → `npm run upload:images`로 **Cloudflare R2**에 업로드. 사진은 리포에 커밋하지 않는다. 로딩 URL은 `VITE_IMAGE_BASE_URL` + `src/lib/imageUrl.ts`가 만들며, 값이 비면 로컬 `/images` 폴백
+- 지도 앱 로고: 타사 상표라 사진과 같은 경로를 탄다. `logos-original/`(git 제외) → `npm run optimize:logos` → 같은 버킷. 폭 2벌이 아니라 64px 정사각 1벌이라 URL은 `imageUrl()`이 아니라 `assetUrl()`이 만든다. **로고를 변형하지 않는다** — 각 사 가이드가 색·형태 변경을 금지한다
 - 호스팅: Vercel — `main` 푸시 시 배포, PR 프리뷰 URL은 고객 검수용
 - 비밀값(Kakao JS 키, Apps Script URL)은 `.env` (템플릿: `.env.example`)
 
@@ -45,6 +46,7 @@
 | `npm run review` | 스테이징 변경의 시크릿·개인정보·금지 파일 검사 (pre-commit 훅) |
 | `npm run review:branch` | `develop...HEAD` + 커밋 메시지 검사 (**PR 전 게이트**, CI에서도 실행) |
 | `npm run optimize` | 원본 사진 → WebP 변환 |
+| `npm run optimize:logos` | `logos-original/`의 지도 앱 로고 → 64px 정사각 WebP (SIS-32) |
 | `npm run upload:images` | `public/images/` → Cloudflare R2 업로드. 목록만 볼 때는 `npm run upload:images -- --dry-run` (`--` 없으면 npm이 플래그를 먹는다) |
 | `npm run verify` | **배포 게이트** — mock 상태·placeholder 잔존·이미지 베이스 URL 미설정·커버/og-image R2 도달 불가 시 실패 |
 

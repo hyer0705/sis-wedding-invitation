@@ -9,6 +9,7 @@
     "preview": "vite preview",
     "prepare": "git config core.hooksPath .githooks || true",
     "optimize": "node scripts/optimize-images.mjs",
+    "optimize:logos": "node scripts/optimize-logos.mjs",
     "upload:images": "node scripts/upload-images.mjs",
     "verify": "node scripts/verify-release.mjs",
     "review": "node scripts/review-guard.mjs",

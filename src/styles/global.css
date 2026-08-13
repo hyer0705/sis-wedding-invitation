@@ -131,6 +131,71 @@ body {
   touch-action: pan-y !important;
 }
 
+/* MP-03 지도 앱 버튼 — 각 사 로고와 라벨이 한 줄에 앉아야 한다(SIS-32).
+
+   인라인 style 이 아니라 여기 있는 이유는 미디어쿼리 때문이다.
+
+   재는 값은 버튼의 **min-content 폭**이지 렌더된 폭이 아니다. flex:1 은 남는 자리를
+   나눠 주므로 렌더 폭에는 여유가 섞여 있고, 그것을 하한으로 착각하면 계산이 어긋난다.
+   넘침은 세 버튼의 min-content 합 + 간격이 카드 안쪽 폭을 넘을 때만 일어난다 —
+   nowrap 이라 그때는 접히는 대신 삐져나간다.
+
+   320px 기준(카드 안쪽 228): 아래 미디어쿼리 값으로 min-content 합 209.4 + 간격 12,
+   여유 6.6px. 기본값 그대로였다면 여유가 1px 아래로 떨어진다.
+
+   가로 패딩을 반드시 둔다. 0 으로 두면 좁은 폭에서 버튼이 min-content 까지 눌려
+   로고와 라벨이 알약 가장자리에 그대로 붙는다.
+
+   좁을 때 줄이는 것은 간격·로고·글자이고 라벨은 줄이지 않는다. 앱 이름은 하객이
+   무엇을 누르는지 알려주는 정보다. */
+.map-links {
+  display: flex;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.map-links a {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 11px 6px;
+  background: var(--surface);
+  border-radius: var(--radius-control);
+  text-decoration: none;
+  color: var(--on-surface);
+  /* c안 버튼 스케일(13~15)의 하한. 로고가 붙어도 모든 폭에서 들어간다. */
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+/* 로고는 장식이라 자리만 고정한다. 늦게 오거나 오지 않아도 라벨이 밀리지 않는다. */
+.map-links img {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  display: block;
+}
+
+/* CM-01 하한대(320~359px) — 구형 좁은 화면. 위 계산의 근거가 되는 값들이다. */
+@media (max-width: 359px) {
+  .map-links {
+    gap: 6px;
+  }
+
+  .map-links a {
+    gap: 4px;
+    padding: 11px 4px;
+    font-size: 12px;
+  }
+
+  .map-links img {
+    width: 16px;
+    height: 16px;
+  }
+}
+
 /* DT-02 달력 — 표로 짜므로 th/td 를 인라인 style 로 채울 수 없다. 여기 모은다. */
 .calendar {
   width: 100%;

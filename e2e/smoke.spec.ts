@@ -259,6 +259,44 @@ test.describe("청첩장 기본 동작", () => {
       expect(decodeURIComponent(kakao ?? "")).toContain(`${INVITE.coords.lat},${INVITE.coords.lng}`);
     });
 
+    test("지도 앱 버튼 3개가 한 줄에 앉고 라벨이 접히지 않는다", async ({ page }) => {
+      // SIS-32 에서 각 사 로고가 라벨 옆에 붙었다. 320px 에서 세 버튼의 최소 폭 합이
+      // 카드 안쪽 폭에 거의 닿아, 로고·간격·글자 중 하나만 커져도 라벨이 접히거나
+      // 버튼이 카드를 넘친다(nowrap 이라 접히는 대신 삐져나간다).
+      await page.goto("/");
+
+      // 웹폰트 도착 전 폴백으로 재면 폭이 달라 결과가 무작위로 흔들린다.
+      await page.evaluate(() => document.fonts.ready);
+
+      const row = page.locator(".map-links");
+      const rowBox = await row.boundingBox();
+      expect(rowBox).not.toBeNull();
+
+      for (const label of ["네이버지도", "카카오맵", "티맵"]) {
+        const link = page.getByRole("link", { name: label });
+
+        // 라벨 텍스트 노드만 재서 줄 수를 센다. 로고까지 포함하면 높이가 섞인다.
+        const lines = await link.evaluate((el) => {
+          const textNode = [...el.childNodes].find((n) => n.nodeType === Node.TEXT_NODE && n.textContent?.trim());
+          if (!textNode) return 0;
+          const range = document.createRange();
+          range.selectNodeContents(textNode);
+          return range.getClientRects().length;
+        });
+        expect(lines, `"${label}" 라벨이 ${lines}줄로 접혔다`).toBe(1);
+
+        // 카드를 넘치지 않는지는 버튼 줄 안에 들어 있는지로 본다.
+        const box = await link.boundingBox();
+        expect(box).not.toBeNull();
+        expect(box.x, `"${label}" 버튼이 왼쪽으로 삐져나왔다`).toBeGreaterThanOrEqual(rowBox.x - 0.5);
+        expect(box.x + box.width, `"${label}" 버튼이 오른쪽으로 삐져나왔다`).toBeLessThanOrEqual(rowBox.x + rowBox.width + 0.5);
+      }
+
+      // 셋의 세로 위치가 같아야 한 줄이다. 하나라도 아래로 밀리면 wrap 된 것이다.
+      const tops = await row.locator("a").evaluateAll((els) => els.map((el) => Math.round(el.getBoundingClientRect().top)));
+      expect(new Set(tops).size, `버튼이 여러 줄로 나뉘었다 (top: ${tops.join(", ")})`).toBe(1);
+    });
+
     test("주소 복사 버튼이 실제 클립보드에 주소를 넣는다", async ({ page, context, browserName }) => {
       // 클립보드 읽기 권한은 chromium에서만 부여할 수 있다. webkit은 실기기 수동 QA로 확인한다.
       test.skip(browserName !== "chromium", "clipboard-read 권한은 chromium 전용");

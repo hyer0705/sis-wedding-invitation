@@ -124,12 +124,25 @@ if (!imageBase) {
     errors.push("Cover.tsx 에서 COVER_NAME 을 찾지 못했습니다 — 게이트가 무력화됩니다");
   }
 
+  // 지도 앱 로고도 R2 에 있다(SIS-32). 파일명은 컴포넌트가 단일 기준이다 — 여기에
+  // 또 적으면 로고를 교체할 때 한쪽만 바뀌어 게이트가 엉뚱한 파일을 확인한다.
+  //
+  // 로고를 굳이 확인하는 이유는 조용히 사라지기 때문이다. 라벨이 이름을 말하므로
+  // 로고에는 alt 가 없고(장식), 404 가 나도 화면에 깨진 아이콘조차 남지 않는다.
+  // 고객이 명시적으로 요청한 변경이 아무 신호 없이 없어지는 경로다.
+  const locationSource = await readFile("src/components/Location.tsx", "utf8");
+  const logoFiles = [...locationSource.matchAll(/logo="([^"]+\.webp)"/g)].map((m) => m[1]);
+  if (logoFiles.length === 0) {
+    errors.push("Location.tsx 에서 지도 앱 로고 파일명을 찾지 못했습니다 — 게이트가 무력화됩니다");
+  }
+
   const base = imageBase.replace(/\/+$/, "");
   const targets = [
     coverMatch && { label: "커버 사진", url: `${base}/${coverMatch[1]}-960.webp` },
     // og-image 도 R2 에 둔다(SIS-24). 카톡 스크래퍼가 여기서 못 받아오면 공유
     // 카드에 썸네일이 통째로 빠진다.
     { label: "카톡 공유 썸네일(og-image.jpg)", url: `${base}/og-image.jpg` },
+    ...logoFiles.map((file) => ({ label: `지도 앱 로고(${file})`, url: `${base}/${file}` })),
   ].filter(Boolean);
 
   for (const { label, url } of targets) {

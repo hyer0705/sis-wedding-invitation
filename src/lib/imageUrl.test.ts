@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { IMAGE_WIDTHS, imageSrcSet, imageUrl, ogImageUrl } from "./imageUrl";
+import { assetUrl, IMAGE_WIDTHS, imageSrcSet, imageUrl, ogImageUrl } from "./imageUrl";
 
 // base 를 인자로 넘겨 환경변수와 무관하게 조합 규칙만 검증한다.
 // 환경변수 폴백은 마지막 describe 에서 따로 본다.
@@ -24,6 +24,25 @@ describe("imageUrl", () => {
   it("경로형 베이스 URL 도 그대로 쓴다", () => {
     // r2.dev 대신 같은 도메인의 하위 경로로 옮겨도 코드 변경이 없어야 한다.
     expect(imageUrl("wedding_1", 480, "/assets")).toBe("/assets/wedding_1-480.webp");
+  });
+});
+
+describe("assetUrl", () => {
+  it("파일명을 그대로 붙이고 너비 접미사를 넣지 않는다", () => {
+    // 로고는 표시 크기가 고정이라 폭 2벌이 없다. 접미사가 붙으면 404 가 난다.
+    expect(assetUrl("logo-tmap.webp", R2)).toBe("https://pub-example.r2.dev/logo-tmap.webp");
+  });
+
+  it("사진과 같은 슬래시·폴백 규칙을 쓴다", () => {
+    expect(assetUrl("logo-tmap.webp", "https://pub-example.r2.dev///")).toBe("https://pub-example.r2.dev/logo-tmap.webp");
+    expect(assetUrl("logo-tmap.webp", "")).toBe("/images/logo-tmap.webp");
+  });
+
+  it("optimize:logos 가 만드는 파일명과 어긋나지 않는다", () => {
+    // scripts/optimize-logos.mjs 의 LOGOS[].out 과 같은 이름이어야 한다.
+    for (const file of ["logo-naver-map.webp", "logo-kakao-map.webp", "logo-tmap.webp"]) {
+      expect(assetUrl(file, R2)).toBe(`${R2}/${file}`);
+    }
   });
 });
 

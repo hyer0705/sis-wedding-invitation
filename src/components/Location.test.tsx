@@ -58,6 +58,36 @@ describe("Location", () => {
     expect(linkTo("티맵")).toBeInTheDocument();
   });
 
+  it("MP-03 각 버튼에 해당 앱 로고가 붙는다", () => {
+    renderWithMotion(<Location />);
+
+    const expected = {
+      네이버지도: "logo-naver-map.webp",
+      카카오맵: "logo-kakao-map.webp",
+      티맵: "logo-tmap.webp",
+    };
+
+    for (const [label, file] of Object.entries(expected)) {
+      const logo = linkTo(label).querySelector("img");
+      expect(logo, `${label} 버튼에 로고가 없습니다`).not.toBeNull();
+      expect(logo).toHaveAttribute("src", expect.stringContaining(file));
+    }
+  });
+
+  it("로고가 라벨을 두 번 읽히게 하지 않는다", () => {
+    // alt 를 채우면 스크린리더가 "네이버지도 네이버지도" 로 읽는다. 라벨이 이미
+    // 앱 이름을 말하므로 로고는 장식으로 감춘다.
+    renderWithMotion(<Location />);
+
+    for (const label of ["네이버지도", "카카오맵", "티맵"]) {
+      const link = linkTo(label);
+      // getByRole 이 정확한 이름으로 찾았다는 것 자체가 중복이 없다는 뜻이지만,
+      // 근거가 alt 와 aria-hidden 이라는 것을 남긴다.
+      expect(link.querySelector("img")).toHaveAttribute("alt", "");
+      expect(link.querySelector("img")).toHaveAttribute("aria-hidden", "true");
+    }
+  });
+
   it("앱이 없는 하객도 갈 곳이 있도록 링크의 기본 주소는 웹이다", () => {
     // href 에 앱 스킴을 넣으면 앱이 없을 때 아무 일도 일어나지 않는다.
     renderWithMotion(<Location />);

@@ -39,6 +39,19 @@ export function imageSrcSet(name: string, base?: string): string {
 }
 
 /**
+ * 폭 2벌로 나뉘지 않는 에셋의 URL 을 만든다 (지도 앱 로고 등, SIS-32).
+ *
+ * 사진과 달리 로고는 표시 크기가 18px 로 고정이라 반응형 srcSet 이 필요 없다.
+ * 그래서 파일명을 통째로 받고 접미사를 붙이지 않는다. 같은 버킷에 있으므로
+ * 베이스 URL 과 로컬 폴백 규칙은 사진과 동일하다.
+ *
+ * @param file 확장자까지 포함한 파일명 (예: `logo-tmap.webp`)
+ */
+export function assetUrl(file: string, base?: string): string {
+  return `${normalizeBase(base ?? readBase())}/${file}`;
+}
+
+/**
  * 카톡 공유 카드·OG 태그의 썸네일 파일. 사진 중에 유일한 JPEG 인데, 외부 스크래퍼의
  * WebP 지원이 제각각이라 이것만 형식을 달리한다.
  */

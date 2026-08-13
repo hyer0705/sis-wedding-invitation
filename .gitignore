@@ -145,6 +145,10 @@ vite.config.ts.timestamp-*
 # 원본 사진
 photos-original/
 
+# 지도 앱 로고 원본 — 타사 상표라 리포에 두지 않는다(SIS-32).
+# 사진과 같은 경로를 탄다: optimize:logos → public/images/ → R2.
+logos-original/
+
 # 최적화 산출물 — 사진은 Cloudflare R2 에 두고 리포에 커밋하지 않는다(SIS-28).
 # 이 폴더는 optimize → upload:images 사이의 로컬 작업 공간이자,
 # VITE_IMAGE_BASE_URL 이 없을 때의 로컬 폴백일 뿐이다.
