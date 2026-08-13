@@ -88,6 +88,67 @@ test.describe("청첩장 기본 동작", () => {
     expect(overflow).toBe(false);
   });
 
+  // CM-01 — 하객 대부분은 휴대폰으로 열지만 PC 카톡이나 태블릿으로 여는 사람도 있다.
+  // 그 화면에서 청첩장은 430px 컬럼으로 가운데 서야 한다.
+  //
+  // 뷰포트를 프로젝트로 추가하지 않고 이 안에서만 바꾼다. 큰 화면용 프로젝트를 두면
+  // 모바일 전용 검사(줄바꿈·갤러리 걸침)까지 전부 한 벌 더 돌아 시간만 늘고, 그 폭에서는
+  // 기대값이 애초에 다르다.
+  test.describe("태블릿·PC", () => {
+    const WIDE = { width: 1280, height: 900 };
+
+    /** 컬럼의 폭과 좌우 여백. 세로 스크롤바가 있어 뷰포트 폭 대신 clientWidth 로 잰다. */
+    const column = (page: Page, selector: string) =>
+      page.locator(selector).evaluate((el) => {
+        const box = el.getBoundingClientRect();
+        return { width: box.width, left: box.left, right: document.documentElement.clientWidth - box.right };
+      });
+
+    test("페이지가 430px 컬럼으로 가운데 선다", async ({ page }) => {
+      await page.setViewportSize(WIDE);
+      await page.goto("/");
+
+      const { width, left, right } = await column(page, ".page");
+      expect(width).toBe(430);
+      expect(Math.abs(left - right), "컬럼이 가운데 서지 않았다").toBeLessThanOrEqual(1);
+    });
+
+    // 화면을 덮는 것들이 컬럼을 벗어나면, 걷히는 순간 청첩장이 화면 폭에서 컬럼으로
+    // 쪼그라든 것처럼 보인다. 셋 다 position:fixed 라 놔두면 뷰포트 전체를 덮는다.
+    test("로딩 화면이 컬럼 밖까지 덮지 않는다", async ({ page }) => {
+      // 사진을 붙잡아 로딩 화면이 떠 있는 상태를 만든다.
+      await page.route(/1_main-\d+\.webp/, () => new Promise(() => {}));
+      await page.setViewportSize(WIDE);
+      await page.goto("/", { waitUntil: "commit" });
+
+      await expect(page.getByTestId("loading")).toBeVisible();
+
+      const { width, left, right } = await column(page, '[data-testid="loading"]');
+      expect(width).toBe(430);
+      expect(Math.abs(left - right)).toBeLessThanOrEqual(1);
+    });
+
+    test("부트 화면이 컬럼 밖까지 덮지 않는다", async ({ page }) => {
+      // 번들을 막아 React 가 뜨기 전 상태를 붙잡는다 — 뜨는 순간 Loading 이 #boot 를 지운다.
+      // 부트 화면의 스타일은 index.html 인라인이라 JS 를 막아도 그대로 걸린다.
+      await page.route(/assets\/.*\.js$/, (route) => route.abort());
+      await page.setViewportSize(WIDE);
+      await page.goto("/", { waitUntil: "commit" });
+
+      const { width, left, right } = await column(page, "#boot");
+      expect(width).toBe(430);
+      expect(Math.abs(left - right)).toBeLessThanOrEqual(1);
+    });
+
+    test("가로 스크롤이 발생하지 않는다", async ({ page }) => {
+      await page.setViewportSize(WIDE);
+      await page.goto("/");
+
+      const overflow = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth);
+      expect(overflow).toBe(false);
+    });
+  });
+
   // CV-02 — 커버 패럴랙스. 스크롤 값에 직접 물린 애니메이션이라 MotionConfig가
   // 대신 꺼주지 않는다. 동작과 reduced-motion 대응을 양쪽 다 고정한다.
   test.describe("커버 패럴랙스", () => {
@@ -293,6 +354,35 @@ test.describe("청첩장 기본 동작", () => {
     });
   });
 
+  // CM-07 색인 차단. 혼주 성함·예식장·계좌가 실린 페이지가 검색으로 찾아지면 안 된다.
+  // 조용히 사라지기 쉬운 한 줄이라(빌드가 깨지지도, 화면이 달라지지도 않는다) 여기서 고정한다.
+  test.describe("색인 차단", () => {
+    test("robots 메타가 noindex 를 싣는다", async ({ page }) => {
+      await page.goto("/");
+
+      await expect(page.locator('meta[name="robots"]')).toHaveAttribute("content", /noindex/);
+    });
+
+    test("robots.txt 가 크롤링을 막지 않는다", async ({ page }) => {
+      // 막으면 크롤러가 noindex 를 읽지 못하고, 카카오톡 스크래퍼(SH-03)까지 함께 막힐 수 있다.
+      // robots.txt 로 색인을 막으려는 「개선」이 들어오는 것을 여기서 잡는다.
+      const res = await page.request.get("/robots.txt");
+      expect(res.status()).toBe(200);
+
+      const body = await res.text();
+      // 주석에도 Disallow 라는 낱말이 나오므로 지시문 줄만 본다.
+      const directives = body
+        .split("\n")
+        .map((line) => line.trim())
+        .filter((line) => line && !line.startsWith("#"));
+
+      expect(
+        directives.some((line) => /^Disallow:\s*\/\s*$/i.test(line)),
+        "robots.txt 가 전체를 막고 있다",
+      ).toBe(false);
+    });
+  });
+
   // CM-04 로딩 화면. 사진이 캐시에서 오면 눈 깜짝할 새에 걷혀 화면에 잡히지 않으므로,
   // 커버 사진 요청만 붙잡아 두고 본다.
   //
@@ -452,6 +542,74 @@ test.describe("청첩장 기본 동작", () => {
   test.describe("접근성", () => {
     test.use({ reducedMotion: "reduce" });
 
+    // 토큰 조합의 대비를 axe 와 별개로 직접 잰다(SIS-18).
+    //
+    // **axe 만으로는 새는 자리가 있다.** color-contrast 규칙을 켠 뒤에도 D-Day 「초」 라벨의
+    // 3.87:1 이 통과했는데, axe 가 배경을 확정하지 못한 노드를 violation 이 아니라
+    // `incomplete`(판정 불가) 로 빼기 때문이다. 겹친 요소·배경 사진·반투명 조상이 있으면
+    // 그렇게 되고, 사진 위에 글씨가 얹히는 화면이 이 청첩장에는 여럿이다.
+    //
+    // 값은 실제로 그려진 페이지에서 읽는다. tokens.css 를 파싱하면 그 파일이 로드되지
+    // 않았거나 다른 규칙이 덮어쓴 경우를 못 본다. (Vitest 유닛으로 두려 했으나 ?raw 가
+    // CSS 를 빈 문자열로 돌려주고, node:fs 는 @types/node 가 필요해 여기로 옮겼다.)
+    test("색상 토큰 조합이 WCAG AA 를 넘는다", async ({ page }) => {
+      await page.goto("/");
+
+      /** 작은 글씨 4.5:1 / 큰 글씨(24px 이상, 18.66px 이상 굵게) 3:1. */
+      const SMALL = 4.5;
+      const LARGE = 3;
+
+      // 기준은 그 조합이 **실제로 쓰이는 가장 작은 크기**로 정한다. 같은 토큰이라도 배경이
+      // 다르면 크기가 다르다 — --primary 는 --bg 위에서는 커버 30px·푸터 34px 뿐이지만
+      // 카드 위에서는 교통 안내 라벨 12.5px 로 내려온다.
+      // 조합을 더할 때는 그 자리의 글자 크기를 확인하고 기준을 고른다.
+      const pairs: [fg: string, bg: string, min: number, where: string][] = [
+        ["--text", "--bg", SMALL, "제목"],
+        ["--text", "--card", SMALL, "카드 제목·계좌 예금주"],
+        ["--text-body", "--bg", SMALL, "본문"],
+        ["--text-body", "--card", SMALL, "달력 날짜·인사말"],
+        ["--text-sub", "--bg", SMALL, "커버 일시·장소 14px"],
+        ["--text-sub", "--card", SMALL, "예식장·주소·계좌·인용 출처 12.5~15px"],
+        ["--text-sub", "--surface-3", SMALL, "인사말 카드의 강조 배경 12.5px"],
+        ["--muted", "--bg", SMALL, "커버 날짜 캡션 11px·푸터 날짜 12px"],
+        ["--muted", "--card", SMALL, "갤러리 안내 문구 12.5px"],
+        ["--muted-2", "--surface", SMALL, "D-Day 일·시·분 라벨 10.5px"],
+        ["--muted-2", "--card", SMALL, "갤러리 카운터 18px"],
+        ["--primary", "--bg", LARGE, "커버 30px·푸터 34px — 전부 큰 글씨"],
+        ["--primary", "--card", SMALL, "교통 안내 라벨 12.5px·혼주 관계 13px·D-Day 일수 14px 굵게"],
+        ["--on-surface", "--surface-2", SMALL, "공유 버튼 13px"],
+        ["--on-primary", "--primary", SMALL, "달력 예식일 원 14.5px 굵게·지도 앱 버튼 13px"],
+        ["--on-primary-sub", "--primary", SMALL, "D-Day 「초」 라벨 10.5px"],
+        ["--on-primary-title", "--primary", SMALL, "그린 배경 위 제목"],
+      ];
+
+      const measured = await page.evaluate((combos) => {
+        const root = getComputedStyle(document.documentElement);
+        const rgb = (token: string) => {
+          const hex = root.getPropertyValue(token).trim();
+          const m = /^#([0-9a-f]{6})$/i.exec(hex);
+          return m ? [0, 2, 4].map((i) => parseInt(m[1].slice(i, i + 2), 16)) : null;
+        };
+        const luminance = (c: number[]) => {
+          const ch = (v: number) => {
+            const s = v / 255;
+            return s <= 0.03928 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4;
+          };
+          return 0.2126 * ch(c[0]) + 0.7152 * ch(c[1]) + 0.0722 * ch(c[2]);
+        };
+
+        return combos.map(([fg, bg, min, where]) => {
+          const [f, b] = [rgb(fg), rgb(bg)];
+          if (!f || !b) return `${fg} on ${bg} — 토큰을 읽지 못했다 (${where})`;
+          const [hi, lo] = [luminance(f), luminance(b)].sort((x, y) => y - x);
+          const ratio = (hi + 0.05) / (lo + 0.05);
+          return ratio >= min ? null : `${fg} on ${bg} = ${ratio.toFixed(2)}:1 (${min} 필요) — ${where}`;
+        });
+      }, pairs);
+
+      expect(measured.filter(Boolean)).toEqual([]);
+    });
+
     test("critical/serious 위반이 없다", async ({ page }) => {
       await page.goto("/");
       // 색상 대비 판정은 스타일·폰트가 적용되고 화면이 자리를 잡은 뒤라야 의미가 있다.
@@ -470,19 +628,47 @@ test.describe("청첩장 기본 동작", () => {
       }
       await expect(page.getByRole("button", { name: /계좌번호 복사$/ }).first()).toBeVisible();
 
-      // 공유 버튼은 접히지 않아 늘 감사 대상이지만, 리빌이 끝나기 전에 감사가 돌면
-      // 반투명 상태의 색을 읽는다. 보이는 것을 확인하고 넘어간다.
       await expect(page.getByRole("button", { name: "카카오톡으로 공유" })).toBeVisible();
 
-      const results = await new AxeBuilder({ page })
-        .withTags(["wcag2a", "wcag2aa"])
-        // color-contrast는 의도적으로 제외한다.
-        // c안 확정 토큰인 --muted(#a7a496, 대비 2.25)와 --text-sub(#7a766b, 대비 4.07)이
-        // 배경 --bg(#f5f3ea) 위에서 WCAG AA 4.5:1에 미달한다. 토큰 변경은 고객 승인 사항이므로
-        // 품질 게이트 이슈에서 별도로 다루고, 그 전까지 나머지 규칙만 강제한다.
-        .disableRules(["color-contrast"])
-        .analyze();
-      const blocking = results.violations.filter((v) => v.impact === "critical" || v.impact === "serious");
+      // **리빌이 전부 끝나기를 기다린다.** 색상 대비를 검사하는 이상 이것이 필수다 —
+      // Reveal 은 whileInView 라 그 자리까지 내려가야 시작하고, MotionConfig 의
+      // reducedMotion 은 transform 만 줄이고 opacity 페이드는 남긴다(Motion 사양).
+      // 페이드 도중에 감사하면 axe 가 섹션의 반투명이 합성된 중간 색을 읽어
+      // (예: --primary #667662 를 옅은 회록으로) 색상 대비를 통째로 오탐한다.
+      //
+      // 한 번에 맨 아래로 뛰면 중간 섹션이 관찰되지 않아 opacity 0 인 채 남는다. 훑어 내려간다.
+      await page.evaluate(async () => {
+        for (let y = 0; y < document.body.scrollHeight; y += window.innerHeight * 0.6) {
+          window.scrollTo(0, y);
+          await new Promise((resolve) => setTimeout(resolve, 120));
+        }
+      });
+      // 리빌 대상은 Reveal 이 그리는 <section> 뿐이라 그것만 본다. 인라인 opacity 를 통째로
+      // 훑으면 갤러리의 잠긴 화살표(0.35)와 커버의 「scroll ↓」(무한 왕복)에 영영 걸린다.
+      await expect
+        .poll(() =>
+          page.evaluate(
+            () => [...document.querySelectorAll("section")].filter((el) => getComputedStyle(el).opacity !== "1").length,
+          ),
+        )
+        .toBe(0);
+
+      // color-contrast 를 제외하지 않는다(SIS-18). --muted·--muted-2·--text-sub 가
+      // AA 에 미달해 오래 빼 두었던 규칙이며, 2026-08-13 고객 승인으로 --primary 까지
+      // 4.5:1 위로 올려 되살렸다. 다시 제외하는 변경이 들어오면 그때는 근거가 필요하다.
+      //
+      // **다만 이 검사만 믿으면 안 된다.** 아래는 violations 만 보는데, axe 는 배경을
+      // 확정하지 못한 노드를 violation 이 아니라 incomplete 로 빼 조용히 통과시킨다 —
+      // 실제로 D-Day 「초」 라벨의 3.87:1 이 그렇게 빠져나갔다. 토큰 조합 자체는
+      // 바로 위 「색상 토큰 조합이 WCAG AA 를 넘는다」가 따로 지킨다.
+      const results = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa"]).analyze();
+      // 위반 객체를 통째로 비교하면 실패 출력이 노드 하나에 수십 줄이라 무엇이 걸렸는지 안 보인다.
+      // 규칙·요소·사유 한 줄로 눌러서 비교한다.
+      const blocking = results.violations
+        .filter((v) => v.impact === "critical" || v.impact === "serious")
+        .flatMap((v) =>
+          v.nodes.map((n) => `${v.id} · ${n.target.join(" ")} · ${n.failureSummary?.split("\n")[1]?.trim() ?? ""}`),
+        );
       expect(blocking).toEqual([]);
     });
 

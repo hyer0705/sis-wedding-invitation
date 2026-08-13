@@ -82,6 +82,10 @@ function Toast({ message }: { message: string | null }) {
         left: 0,
         right: 0,
         bottom: 40,
+        // 컬럼 밖으로 나가지 않게 묶는다. 모바일(≤430px)에서는 아무 영향이 없고,
+        // 태블릿·PC 에서만 캡슐이 청첩장 폭 안에서 접힌다 (SIS-18).
+        maxWidth: "var(--page-max)",
+        margin: "0 auto",
         display: "flex",
         justifyContent: "center",
         padding: "0 20px",

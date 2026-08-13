@@ -73,8 +73,9 @@ export default function Invitation() {
             </p>
           ))}
           {/* cite 의 기본 이탤릭은 명조 본문과 어울리지 않아 되돌린다.
-              캡션에 흔히 쓰는 --muted 는 카드 배경 위에서 2.5:1 이라, 이 크기에는
-              같은 토큰표 안에서 4.52:1 인 --text-sub 를 쓰고 크기로만 위계를 준다. */}
+              위계는 색이 아니라 크기로만 준다. 예전 --muted(#a7a496)는 카드 배경 위 2.5:1 이라
+              이 크기에 쓸 수 없었고, 2026-08-13 토큰 조정 뒤에는 --text-sub 와 명도가 거의 같아져
+              (4.66 대 4.64) 색으로는 위계가 생기지 않는다 — AA 바닥에 나란히 놓인 값들이다. */}
           <cite style={{ display: "block", marginTop: 20, fontSize: 12.5, fontStyle: "normal", color: "var(--text-sub)" }}>
             — {INVITE.greeting.quoteAuthor} —
           </cite>

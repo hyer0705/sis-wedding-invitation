@@ -142,8 +142,9 @@ function AccountRow({ side, account, first }: { side: "groom" | "bride"; account
           <span style={{ fontSize: 13, color: "var(--text-sub)", marginRight: 6 }}>{role}</span>
           {account.holder}
         </div>
-        {/* 은행과 번호는 한 줄에 둔다. 여기에 --muted 를 쓰면 카드 배경 위 대비가 2.5:1 로
-            떨어지는데, axe 는 color-contrast 를 제외하고 돌아 CI 가 잡아 주지 못한다. */}
+        {/* 은행과 번호는 한 줄에 둔다. 예전 --muted(#a7a496)는 카드 배경 위 2.5:1 이라 여기 쓸 수
+            없었다. 2026-08-13 토큰 조정으로 그 색은 사라졌고, CI 의 axe 가 color-contrast 를
+            실제로 검사한다(SIS-18). */}
         <div style={{ fontSize: 13.5, color: "var(--text-sub)", marginTop: 5 }}>
           {account.bank} {account.number}
         </div>
