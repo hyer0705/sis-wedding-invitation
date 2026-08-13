@@ -248,6 +248,19 @@ test.describe("청첩장 기본 동작", () => {
       expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(INVITE.siteUrl);
     });
 
+    test("kakao SDK 가 처음 받는 HTML 에 실려 오지 않는다", async ({ page }) => {
+      // SIS-18 — 이 태그가 index.html 에 있으면 defer 를 달아도 27KB 가 렌더 차단
+      // 스타일시트보다 먼저 내려와 첫 픽셀을 밀어낸다(Slow 3G 실측 6.85s → 6.27s).
+      // 지금은 src/lib/share.ts 가 공유 섹션에 닿을 때 붙인다.
+      //
+      // 렌더된 DOM 이 아니라 응답 본문을 보는 이유는, 키가 있는 환경에서는 스크롤만
+      // 해도 태그가 생겨 판정이 흔들리기 때문이다. 여기서 보려는 것은 "처음 받는
+      // HTML 에 들어 있는가" 하나다.
+      const html = await (await page.request.get("/")).text();
+
+      expect(html).not.toContain("kakao_js_sdk");
+    });
+
     test("OG 태그가 INVITE.share 문구를 그대로 싣는다", async ({ page }) => {
       // SH-03 은 명세서에서 유일한 「필수」다. 카톡에 링크를 붙여넣는 순간 보이는 화면이라
       // 깨진 채 배포되면 스크래퍼가 그 상태로 캐싱한다.

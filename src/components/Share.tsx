@@ -1,6 +1,6 @@
 import Reveal from "./Reveal";
 import { useToast } from "./Toast";
-import { copyLink, shareKakao, type ShareResult } from "../lib/share";
+import { copyLink, loadKakaoSdk, shareKakao, type ShareResult } from "../lib/share";
 
 // SH-01 카카오톡 공유 · SH-02 링크 복사. c안에 공유 UI 가 없어 새로 만들었다.
 //
@@ -32,8 +32,12 @@ export default function Share() {
     else if (result === "failed") showToast("공유에 실패했어요\n주소창을 길게 눌러 복사해 주세요");
   };
 
+  // 이 섹션이 보이면 공유 SDK 를 미리 받아 둔다. 버튼을 누른 뒤에 받기 시작하면
+  // 카톡 창이 뜨기까지 하객이 빈손으로 기다리고, PC 에서는 팝업이 막힐 수 있다
+  // (src/lib/share.ts 의 loadKakaoSdk 주석). 여기는 페이지 맨 아래라 첫 페인트를
+  // 방해하지 않는다 — SDK 를 index.html 에서 걷어낸 이유가 그것이다(SIS-18).
   return (
-    <Reveal>
+    <Reveal onInView={() => void loadKakaoSdk()}>
       <section aria-label="청첩장 공유" style={{ padding: "30px 20px 0" }}>
         <p style={{ margin: "0 0 14px", textAlign: "center", fontSize: 12, color: "var(--text-sub)" }}>{LEAD}</p>
         <div style={{ display: "flex", gap: 10 }}>

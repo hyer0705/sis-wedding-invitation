@@ -42,6 +42,23 @@ function stubKakao(options: { throws?: boolean; initThrows?: boolean } = {}) {
   return { Kakao, sendDefault };
 }
 
+const SCRIPT_ID = "kakao-share-sdk";
+
+/**
+ * 붙은 SDK 스크립트에 도착·실패를 알린다.
+ *
+ * jsdom 은 script.src 를 실제로 받지 않아 load 도 error 도 저절로 오지 않는다.
+ * 이걸 해 주지 않으면 SDK 를 기다리는 쪽이 영영 멎는다.
+ */
+async function settleSdkScript(ok: boolean) {
+  // 스크립트는 loadKakaoSdk 호출과 같은 틱에 붙지만, 호출부가 await 를 하나 거친
+  // 뒤일 수 있어 한 틱 양보하고 찾는다.
+  await Promise.resolve();
+  const script = document.getElementById(SCRIPT_ID);
+  if (!script) throw new Error("SDK 스크립트가 붙지 않았다");
+  script.dispatchEvent(new Event(ok ? "load" : "error"));
+}
+
 beforeEach(() => {
   // 기본은 "아무것도 없는 환경" — 각 테스트가 필요한 것만 얹는다.
   vi.stubGlobal("Kakao", undefined);
@@ -51,6 +68,9 @@ beforeEach(() => {
 afterEach(() => {
   vi.unstubAllEnvs();
   vi.unstubAllGlobals();
+  // document 는 파일 안의 테스트가 공유한다. 남겨 두면 다음 테스트가 앞 테스트의
+  // 스크립트를 보고 "이미 붙었다"고 잘못 판단한다.
+  document.getElementById(SCRIPT_ID)?.remove();
 });
 
 describe("shareKakao", () => {
@@ -107,12 +127,31 @@ describe("shareKakao", () => {
     expect(sendDefault).not.toHaveBeenCalled();
   });
 
-  it("SDK 가 실려 있지 않으면 폴백한다", async () => {
+  it("SDK 를 받아 온 뒤 카카오 공유 카드를 띄운다", async () => {
+    // SDK 는 index.html 이 아니라 share.ts 가 붙인다(SIS-18). 눌린 시점에 아직 안
+    // 와 있으면 기다렸다가 띄워야 한다.
+    const { shareKakao } = await loadShare("test-key");
+    const result = shareKakao();
+
+    // 스크립트가 도착하는 순간 window.Kakao 가 생긴다.
+    const { sendDefault } = stubKakao();
+    await settleSdkScript(true);
+
+    await expect(result).resolves.toBe("kakao");
+    expect(sendDefault).toHaveBeenCalledTimes(1);
+  });
+
+  it("SDK 를 받지 못하면 폴백한다", async () => {
+    // CDN 이 막혔거나 integrity 가 어긋난 경우다. 카카오 공유만 빠지고 하객은
+    // 여전히 링크를 얻을 수 있어야 한다.
     const share = vi.fn(() => Promise.resolve());
     vi.stubGlobal("navigator", { share, clipboard: undefined });
     const { shareKakao } = await loadShare("test-key");
+    const result = shareKakao();
 
-    await expect(shareKakao()).resolves.toBe("shared");
+    await settleSdkScript(false);
+
+    await expect(result).resolves.toBe("shared");
     expect(share).toHaveBeenCalledTimes(1);
   });
 
@@ -148,6 +187,78 @@ describe("shareKakao", () => {
     await shareKakao();
 
     expect(Kakao.init).not.toHaveBeenCalled();
+  });
+});
+
+describe("loadKakaoSdk", () => {
+  // SIS-18 — index.html 의 defer 스크립트를 걷어내고 이리 옮겼다. defer 는 실행만
+  // 미룰 뿐 다운로드는 미루지 않아, 27KB 가 렌더 차단 스타일시트보다 먼저 내려와
+  // 첫 페인트를 0.58초 늦추고 있었다(Slow 3G 실측 6.85s → 6.27s).
+
+  it("integrity 와 crossorigin 을 갖춰 스크립트를 붙인다", async () => {
+    const { loadKakaoSdk } = await loadShare("test-key");
+    const result = loadKakaoSdk();
+
+    const script = document.getElementById(SCRIPT_ID) as HTMLScriptElement | null;
+    expect(script).not.toBeNull();
+    expect(script!.src).toContain("kakao.min.js");
+    // 무결성 검사는 CORS 로 받은 응답에만 걸린다. crossOrigin 이 빠지면 integrity 가
+    // 무시되는 게 아니라 로드가 통째로 막힌다 — 카카오 공유가 조용히 사라진다.
+    expect(script!.integrity).toMatch(/^sha384-/);
+    expect(script!.crossOrigin).toBe("anonymous");
+    // async 가 아니면 파서를 붙잡는다. 공유는 기다려도 되는 기능이다.
+    expect(script!.async).toBe(true);
+
+    await settleSdkScript(false);
+    await result;
+  });
+
+  it("키가 없으면 스크립트를 붙이지 않는다", async () => {
+    // 로컬·CI 가 여기로 빠진다. 받아 봐야 쓸 데가 없다.
+    const { loadKakaoSdk } = await loadShare("");
+
+    await expect(loadKakaoSdk()).resolves.toBe(false);
+    expect(document.getElementById(SCRIPT_ID)).toBeNull();
+  });
+
+  it("이미 실려 있으면 다시 붙이지 않는다", async () => {
+    stubKakao();
+    const { loadKakaoSdk } = await loadShare("test-key");
+
+    await expect(loadKakaoSdk()).resolves.toBe(true);
+    expect(document.getElementById(SCRIPT_ID)).toBeNull();
+  });
+
+  it("두 번 불러도 스크립트는 하나다", async () => {
+    // 공유 섹션이 화면에 들어올 때 한 번, 버튼을 누를 때 또 한 번 불린다.
+    // StrictMode 의 이중 실행까지 겹치면 같은 27KB 를 여러 번 받게 된다.
+    const { loadKakaoSdk } = await loadShare("test-key");
+    const first = loadKakaoSdk();
+    const second = loadKakaoSdk();
+
+    expect(document.querySelectorAll(`#${SCRIPT_ID}`)).toHaveLength(1);
+
+    stubKakao();
+    await settleSdkScript(true);
+    await expect(first).resolves.toBe(true);
+    await expect(second).resolves.toBe(true);
+  });
+
+  it("실패한 뒤에는 다시 시도한다", async () => {
+    // 회선이 잠깐 끊겼을 뿐인 경우가 있다. 한 번 실패했다고 그 방문 내내 카카오
+    // 공유를 포기할 이유는 없다.
+    const { loadKakaoSdk } = await loadShare("test-key");
+    const failed = loadKakaoSdk();
+    await settleSdkScript(false);
+    await expect(failed).resolves.toBe(false);
+    // 실패한 태그는 남지 않는다 — 남으면 같은 id 가 둘이 된다.
+    expect(document.getElementById(SCRIPT_ID)).toBeNull();
+
+    const retried = loadKakaoSdk();
+    stubKakao();
+    await settleSdkScript(true);
+
+    await expect(retried).resolves.toBe(true);
   });
 });
 

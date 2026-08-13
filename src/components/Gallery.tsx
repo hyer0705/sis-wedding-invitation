@@ -181,6 +181,11 @@ export default function Gallery() {
               //
               // 넘기면 다음 장의 이 값이 lazy 에서 eager 로 바뀌고, 그때 로딩이 시작된다.
               loading={Math.abs(i - index) <= 1 ? "eager" : "lazy"}
+              // 커버가 LCP 요소라 fetchPriority="high" 로 먼저 받는데, 처음 두 장은
+              // eager 라 그것과 같은 시점에 경쟁한다. 하객이 여기까지 내려오기 전에
+              // 커버가 떠 있어야 하므로 순서를 양보한다 — 우선순위 힌트일 뿐이라
+              // 경쟁이 끝난 뒤에는 그대로 제 속도로 받는다.
+              fetchPriority="low"
               decoding="async"
               // 모서리와 그림자를 상자가 아니라 사진에 건다. contain 이라 상자에 걸면
               // 사진과 어긋난 자리에 그려진다.

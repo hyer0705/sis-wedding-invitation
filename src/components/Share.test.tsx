@@ -9,18 +9,30 @@ import Share from "./Share";
 
 const shareKakao = vi.fn();
 const copyLink = vi.fn();
+const loadKakaoSdk = vi.fn();
 
 vi.mock("../lib/share", () => ({
   shareKakao: () => shareKakao(),
   copyLink: () => copyLink(),
+  loadKakaoSdk: () => loadKakaoSdk(),
 }));
 
 beforeEach(() => {
   shareKakao.mockResolvedValue("kakao");
   copyLink.mockResolvedValue("copied");
+  loadKakaoSdk.mockResolvedValue(true);
 });
 
 describe("Share", () => {
+  it("섹션이 화면에 들어오면 공유 SDK 를 미리 받는다", () => {
+    // 버튼을 누른 뒤에야 27KB 를 받기 시작하면 하객이 빈손으로 기다리고, PC 에서는
+    // 사용자 조작 창이 지나 팝업이 막힌다 — 예외가 없어 폴백도 타지 않는다(SIS-18).
+    // 셋업의 IntersectionObserver 가 관측 즉시 "들어왔다"고 알리므로 렌더만으로 걸린다.
+    renderWithMotion(<Share />);
+
+    expect(loadKakaoSdk).toHaveBeenCalledTimes(1);
+  });
+
   it("공유 버튼 두 개를 보여준다", () => {
     renderWithMotion(<Share />);
 

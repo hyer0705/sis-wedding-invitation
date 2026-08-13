@@ -86,6 +86,16 @@ describe("Gallery", () => {
     }
   });
 
+  it("GL-04 받는 순서를 커버에 양보한다", () => {
+    // 커버가 LCP 요소(fetchPriority="high")인데 여기 첫 두 장은 eager 라 같은 시점에
+    // 대역폭을 놓고 다툰다. 하객이 갤러리까지 내려오기 전에 커버가 떠 있어야 한다(SIS-18).
+    renderWithMotion(<Gallery />);
+
+    for (const image of screen.getAllByRole("img")) {
+      expect(image).toHaveAttribute("fetchpriority", "low");
+    }
+  });
+
   it("GL-04 넘기면 다음 장을 미리 받아 둔다", async () => {
     // 가로 스크롤러 안에서는 브라우저의 지연 로딩 판정을 믿을 수 없다. 넘긴 자리가
     // 비지 않도록 직접 앞당겨 받는다.
