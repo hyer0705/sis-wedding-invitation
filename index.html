@@ -9,6 +9,17 @@
       직접 적어 둔 날짜가 INVITE 와 어긋난 채 배포된 적이 있다(SIS-24).
       카카오톡 스크래퍼는 절대 URL 만 읽으므로 og:image·og:url 이 절대 경로여야 한다.
     -->
+    <!--
+      CM-07 개인정보 보호 — 검색엔진 색인 차단(2026-08-13 고객 확정).
+
+      청첩장 링크는 누구나 접속할 수 있고 혼주 성함·예식장·계좌가 그대로 실린다.
+      주소를 아는 하객만 보는 것과 검색으로 찾아지는 것은 다르다.
+
+      **robots.txt 로 막지 않는 이유**는 public/robots.txt 에 적어 두었다. 요약하면
+      크롤링을 막으면 크롤러가 이 태그를 읽지도 못하고, 카카오톡 공유 카드(SH-03)를
+      만드는 스크래퍼까지 함께 막힐 수 있다. 색인 차단은 이 한 줄이 한다.
+    -->
+    <meta name="robots" content="noindex, nofollow" />
     <title>__OG_TITLE__</title>
     <meta name="description" content="__OG_DESCRIPTION__" />
     <meta property="og:type" content="website" />
@@ -102,7 +113,7 @@
         font-family: "Parisienne", cursive;
         font-size: 30px;
         line-height: 1;
-        color: #7e9079;
+        color: #667662;
       }
       .boot-track {
         display: block;
@@ -115,7 +126,7 @@
         display: block;
         width: 100%;
         height: 100%;
-        background: #7e9079;
+        background: #667662;
         /* 키프레임에만 두면 안 된다. 아래 reduced-motion 에서 animation 을 끄는 순간
            기본값 1 로 돌아가, React 로딩 화면(0.75)으로 넘어갈 때 선이 갑자기 옅어진다. */
         opacity: 0.75;

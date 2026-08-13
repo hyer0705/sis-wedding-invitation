@@ -60,8 +60,8 @@ function ShareButton({ onClick, children }: { onClick: () => void; children: str
         background: "var(--surface-2)",
         border: "none",
         borderRadius: "var(--radius-control)",
-        // --muted 계열을 쓰면 이 배경 위 대비가 3:1 아래로 떨어진다. axe 는
-        // color-contrast 를 제외하고 돌아 CI 가 잡아 주지 못한다.
+        // 이 배경 위에 얹는 글자용 토큰이다. 2026-08-13 부터 CI 의 axe 가 color-contrast 를
+        // 실제로 검사하므로(SIS-18), 여기를 바꿔 대비가 무너지면 E2E 가 잡는다.
         color: "var(--on-surface)",
         fontFamily: "var(--font-serif)",
         fontSize: 13,

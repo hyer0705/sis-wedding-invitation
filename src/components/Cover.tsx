@@ -137,13 +137,20 @@ export default function Cover({ coverReady = false }: { coverReady?: boolean }) 
         <br />
         {INVITE.venue} {INVITE.hall}
       </div>
+      {/* SIS-18 — 색 두 개를 토큰 밖에서 직접 적어 두었던 자리다(#a9b3a1·#bcc4b2). 불투명일 때도
+          배경 위 대비가 1.96·1.62 로, 페이지에서 가장 낮았다.
+
+          **펄스 하한을 0.55 에서 0.8 로 올린 것도 함께다.** 이 글씨는 합성된 색으로 읽히므로
+          하한이 그대로면 어떤 색을 넣어도 소용이 없다 — 토큰표에서 가장 어두운 --text 로도
+          0.55 에서 3.06 이다. 0.8 이면 --text-body 로 4.95 가 나오고 펄스도 눈에 남는다.
+          이 값을 낮추는 변경은 색을 아무리 진하게 해도 AA 를 되돌린다. */}
       <m.div
-        animate={{ y: [0, 7, 0], opacity: [0.55, 1, 0.55] }}
+        animate={{ y: [0, 7, 0], opacity: [0.8, 1, 0.8] }}
         transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
         style={{ marginTop: 36, display: "inline-flex", flexDirection: "column", alignItems: "center", gap: 7 }}
       >
-        <span style={{ fontFamily: "var(--font-script)", fontSize: 17, color: "#a9b3a1" }}>scroll</span>
-        <span style={{ fontSize: 15, color: "#bcc4b2" }}>↓</span>
+        <span style={{ fontFamily: "var(--font-script)", fontSize: 17, color: "var(--text-body)" }}>scroll</span>
+        <span style={{ fontSize: 15, color: "var(--text-body)" }}>↓</span>
       </m.div>
     </m.header>
   );
