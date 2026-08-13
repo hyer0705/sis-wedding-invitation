@@ -12,10 +12,16 @@ function inKST(options: Intl.DateTimeFormatOptions) {
 }
 
 describe("INVITE", () => {
-  it("mock 데이터인 동안 isMock 플래그가 켜져 있다", () => {
-    // 이 값이 false가 되는 순간 배포 게이트가 열린다. 고객 확정값을 전부
-    // 반영한 뒤에만 바꾼다 (docs/WORKFLOW.md §10).
-    expect(INVITE.isMock).toBe(true);
+  it("화면에 나가는 값에 mock 이 남아 있지 않다", () => {
+    // 이 플래그가 false 라는 것은 하객이 보는 값이 전부 고객 확정값이라는 뜻이고,
+    // 그 순간 배포 게이트가 열린다 (docs/WORKFLOW.md §10).
+    //
+    // 마지막까지 mock 이던 것은 RSVP 팝업·개인정보 동의 문구뿐이었고, 그 섹션이
+    // v1 에서 빠지면서 함께 지웠다(2026-08-13). 플래그만 뒤집고 값을 남겨 두면
+    // 나중에 RSVP 를 되살릴 때 mock 문구가 그대로 배포되므로 둘을 같이 본다.
+    expect(INVITE.isMock).toBe(false);
+    expect(INVITE.rsvp).not.toHaveProperty("popup");
+    expect(INVITE.rsvp).not.toHaveProperty("privacy");
   });
 
   it("미채택 기능의 필드를 만들지 않는다", () => {

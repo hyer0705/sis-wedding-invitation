@@ -29,6 +29,38 @@ for (const file of targets) {
   }
 }
 
+// 자리표시 섹션이 그대로 나가는 것을 막는다.
+//
+// PLACEHOLDERS 문자열 검사만으로는 이것을 잡지 못했다. 미구현 섹션은 `.todo` 클래스로
+// "○○ 예정" 같은 문구를 띄우는데 그 문구가 매번 달라서다. 실제로 RSVP 가 스텁인 채로
+// 배포 게이트를 통과할 수 있는 상태였다(2026-08-13 발견).
+//
+// src 전체가 아니라 **App.tsx 가 실제로 그리는 컴포넌트**만 본다. 렌더되지 않는 파일에
+// 남은 자리표시는 하객에게 보이지 않으므로 배포를 막을 이유가 없다 — v1 에서 빠진
+// Rsvp.tsx 가 그 경우다.
+const appSource = await readFile("src/App.tsx", "utf8");
+const imported = new Map(
+  [...appSource.matchAll(/^import\s+(?:{[^}]*}|(\w+))(?:\s*,\s*{[^}]*})?\s+from\s+"\.\/(components\/\w+)";/gm)]
+    .filter(([, name]) => name)
+    .map(([, name, modulePath]) => [name, `src/${modulePath}.tsx`]),
+);
+
+for (const [name, file] of imported) {
+  // import 만 하고 그리지 않는 컴포넌트는 대상이 아니다. JSX 로 쓰인 것만 본다.
+  if (!new RegExp(`<${name}[\\s/>]`).test(appSource)) continue;
+
+  let source;
+  try {
+    source = await readFile(file, "utf8");
+  } catch {
+    errors.push(`${file} 을 읽지 못했습니다 — App.tsx 가 ${name} 을 그리고 있습니다`);
+    continue;
+  }
+  if (/className="todo"/.test(source)) {
+    errors.push(`${file}: 자리표시(.todo) 섹션이 그대로 렌더됩니다 — 구현하거나 App.tsx 에서 빼세요`);
+  }
+}
+
 // INVITE.isMock — 고객 확정값이 아직 반영되지 않았다는 뜻이다.
 // 정규식으로 읽는 이유는 verify가 빌드 없이 도는 순수 node 스크립트이기 때문이다.
 const inviteSource = await readFile("src/invite.ts", "utf8");
