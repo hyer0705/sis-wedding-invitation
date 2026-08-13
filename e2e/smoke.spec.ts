@@ -330,6 +330,66 @@ test.describe("청첩장 기본 동작", () => {
     });
   });
 
+  // SIS-29 스켈레톤 shimmer. 광택은 CSS 의사요소(::after)의 키프레임이라 컴포넌트
+  // 테스트로는 존재조차 확인할 수 없다 — 진짜 브라우저에서 애니메이션을 직접 센다.
+  test.describe("스켈레톤 shimmer", () => {
+    const COVER_REQUEST = /1_main-\d+\.webp/;
+    const frame = (page: Page) => page.getByTestId("cover-frame");
+
+    /** 아치 안에서 shimmer 키프레임이 실제로 돌고 있는지. 의사요소라 subtree 로 훑는다. */
+    const shimmering = (page: Page) =>
+      frame(page).evaluate((el) =>
+        el.getAnimations({ subtree: true }).some((a) => (a as CSSAnimation).animationName === "skeleton-shimmer"),
+      );
+
+    /** 사진을 붙잡아 스켈레톤이 드러난 상태를 만든다. */
+    const holdCover = (page: Page) => page.route(COVER_REQUEST, () => new Promise(() => {}));
+
+    test("사진이 오기 전 커버 아치에 광택이 돈다", async ({ page }) => {
+      await holdCover(page);
+      await page.goto("/", { waitUntil: "commit" });
+
+      await expect(frame(page)).toHaveClass(/skeleton/);
+      await expect(frame(page)).not.toHaveClass(/is-loaded/);
+      await expect.poll(() => shimmering(page)).toBe(true);
+    });
+
+    test("모션을 줄인 설정에서는 광택만 멎고 면은 그대로 남는다", async ({ page }) => {
+      // MotionConfig reducedMotion="user" 는 Motion 요소에만 걸려 CSS 키프레임을 잡지
+      // 못하므로 @media 로 직접 막았다. 그리고 **면이 함께 사라지지 않는 것**이 이 검사의
+      // 요점이다 — 정지 시 보여야 할 값을 키프레임 안에 두면 애니메이션이 꺼질 때 기본값으로
+      // 돌아가 자리가 통째로 비어 버린다(SIS-17 에서 실제로 밟았다).
+      await page.emulateMedia({ reducedMotion: "reduce" });
+      await holdCover(page);
+      await page.goto("/", { waitUntil: "commit" });
+
+      await expect(frame(page)).toHaveClass(/skeleton/);
+      // --surface #f2f4ec. 토큰을 바꾸면 여기도 바꾼다.
+      await expect(frame(page)).toHaveCSS("background-color", "rgb(242, 244, 236)");
+      expect(await shimmering(page)).toBe(false);
+    });
+
+    test("사진이 도착하면 광택을 걷는다", async ({ page }) => {
+      await page.goto("/");
+
+      await expect(frame(page)).toHaveClass(/is-loaded/);
+      expect(await shimmering(page)).toBe(false);
+      // 사진이 아치를 꽉 채운 상태로 보인다.
+      await expect(page.locator("header img")).toHaveCSS("opacity", "1");
+    });
+
+    test("갤러리는 사진이 도착한 자리의 면을 걷는다", async ({ page }) => {
+      // 상시로 깔면 사진이 contain 이라 가로 사진 위아래에 띠가 남는다(2026-08-11 에
+      // 그렇게 했다가 되돌렸다). 도착한 자리는 배경이 그대로 비쳐야 한다.
+      await page.goto("/");
+      await page.getByRole("group", { name: "웨딩 사진 갤러리" }).scrollIntoViewIfNeeded();
+
+      const first = page.getByTestId("gallery-slot").first();
+      await expect(first).not.toHaveClass(/skeleton/);
+      await expect(first.locator("img")).toHaveCSS("opacity", "1");
+    });
+  });
+
   // SIS-30. 부트 화면·로딩 화면·커버가 모두 「The wedding of」를 Parisienne 으로 그린다.
   // 이 서체가 늦게 오면 세 화면이 폴백 필기체로 그려지다 도중에 서체가 바뀌어 화면이
   // 튀었다(Slow 3G 실측). self-host + preload + font-display:optional 로 막아 뒀는데,

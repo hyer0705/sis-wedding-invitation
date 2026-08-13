@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { m, useMotionValue, useReducedMotionConfig } from "motion/react";
 import { INVITE } from "../invite";
 import { imageSrcSet, imageUrl } from "../lib/imageUrl";
@@ -21,13 +21,29 @@ const PARALLAX_MAX = 90;
 // 이미지를 아래로 밀어도 아치 안쪽에 빈 곳이 생기지 않도록 미리 키워 둔다.
 const PARALLAX_SCALE = 1.08;
 
-export default function Cover() {
+export default function Cover({ coverReady = false }: { coverReady?: boolean }) {
   // MotionConfig reducedMotion="user"는 transition이 붙은 애니메이션만 줄인다.
   // 스크롤 값에 직접 물린 패럴랙스는 여기서 직접 꺼야 한다.
   // useReducedMotion이 아니라 이 훅을 쓰는 이유는 OS 설정과 MotionConfig 설정을
   // 함께 보기 때문이다 — main.tsx의 reducedMotion="user"와 같은 기준으로 판단한다.
   const reduced = useReducedMotionConfig();
   const parallaxY = useMotionValue(0);
+
+  const [loaded, setLoaded] = useState(false);
+
+  // SIS-29 — 사진을 페이드로 얹을지 그냥 켤지.
+  //
+  // 로딩 화면이 걷히는 시점에 사진이 아직 없었다면, 하객은 지금 shimmer 가 도는 빈 아치를
+  // 보고 있다는 뜻이다(MAX_VISIBLE_MS 4초 상한에 걸린 경우). 그 자리에 사진이 뒤늦게
+  // 들어올 때만 페이드가 필요하다.
+  //
+  // 반대로 사진이 먼저 와서 로딩이 걷힌 정상 경로에는 걸지 않는다. SIS-17 이 커버의
+  // opacity 0→1(1.4초)을 걷어낸 이유가 그것이다 — 로딩 화면에 가려진 채 흘러가 회선마다
+  // 걷히는 모습이 달라졌다.
+  const [fadesIn, setFadesIn] = useState(false);
+  useEffect(() => {
+    if (coverReady && !loaded) setFadesIn(true);
+  }, [coverReady, loaded]);
 
   // Motion의 useScroll을 쓰지 않는다. StrictMode의 이중 마운트에서 내부 구독이
   // 되살아나지 않아 개발 화면에서만 패럴랙스가 멈춘다(motion 12.42). 구독을 직접
@@ -62,15 +78,19 @@ export default function Cover() {
         {INVITE.dateDots}
       </div>
       <div
+        // 사진이 오기 전 아치 안을 채워 둔다. 로딩 화면은 상한(4초)에 걷히는데 3G 에서는
+        // 사진이 그보다 늦게 오는 일이 흔하고, 그때 아치가 빈 채로 드러난다. 사진은
+        // objectFit: cover 로 이 상자를 꽉 채우므로 도착하면 완전히 덮인다.
+        //
+        // .skeleton 이 면(--surface)과 좌→우 광택을 함께 맡는다(SIS-29). 광택은 이 상자의
+        // overflow: hidden + 아치 radius 안에서만 지나가므로 모서리를 넘지 않는다.
+        className={loaded ? "skeleton is-loaded" : "skeleton"}
+        data-testid="cover-frame"
         style={{
           marginTop: 32,
           borderRadius: "200px 200px 18px 18px",
           overflow: "hidden",
           boxShadow: "0 24px 50px rgba(80, 95, 75, 0.2)",
-          // 사진이 오기 전 아치 안을 채워 둔다. 로딩 화면은 상한(4초)에 걷히는데 3G 에서는
-          // 사진이 그보다 늦게 오는 일이 흔하고, 그때 아치가 빈 채로 드러난다. 사진은
-          // objectFit: cover 로 이 상자를 꽉 채우므로 도착하면 완전히 덮인다.
-          background: "var(--surface)",
         }}
       >
         <m.img
@@ -80,6 +100,17 @@ export default function Cover() {
           alt={`신랑 ${INVITE.groom.name}, 신부 ${INVITE.bride.name}의 웨딩 사진`}
           // LCP 요소다. 다른 리소스보다 먼저 받게 한다.
           fetchPriority="high"
+          onLoad={() => setLoaded(true)}
+          // 못 받은 경우에도 기다리기를 그만둔다. 그러지 않으면 사진이 투명한 채(image-pending)
+          // 남아 대체 텍스트조차 보이지 않고, 빈 아치 위로 광택만 끝없이 돈다. R2 가 죽었을 때
+          // 로딩 화면이 상한에서 걷히는 것과 같은 이유다.
+          onError={() => setLoaded(true)}
+          // 캐시에 있으면 React 가 onLoad 를 붙이기 전에 로드가 끝나 있을 수 있다.
+          // 그때는 이 콜백이 붙는 시점에 complete 가 이미 true 다.
+          ref={(el) => {
+            if (el?.complete) setLoaded(true);
+          }}
+          className={[loaded ? null : "image-pending", fadesIn ? "image-fade" : null].filter(Boolean).join(" ")}
           style={{
             width: "100%",
             aspectRatio: "4/5",

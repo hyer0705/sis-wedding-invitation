@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { act, screen } from "@testing-library/react";
+import { act, fireEvent, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { renderWithMotion } from "../test/renderWithMotion";
 import Gallery from "./Gallery";
@@ -110,6 +110,54 @@ describe("Gallery", () => {
       expect(image.closest("button")).toBeNull();
     }
     expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
+  describe("SIS-29 스켈레톤", () => {
+    const slots = () => screen.getAllByTestId("gallery-slot");
+
+    it("아직 안 온 자리에 면과 광택을 깐다", () => {
+      renderWithMotion(<Gallery />);
+
+      for (const slot of slots()) {
+        expect(slot).toHaveClass("skeleton");
+      }
+      for (const image of screen.getAllByRole("img")) {
+        expect(image).toHaveClass("image-pending");
+      }
+    });
+
+    it("사진이 도착한 자리는 면째로 걷어 배경이 그대로 비치게 한다", () => {
+      // 상시로 깔면 사진이 contain 이라 가로 사진 위아래에 띠가 남고, c안의 "사진만
+      // 떠 있는" 인상이 무너진다. 2026-08-11 에 그렇게 했다가 되돌렸다.
+      renderWithMotion(<Gallery />);
+      const images = screen.getAllByRole("img");
+
+      fireEvent.load(images[0]);
+
+      expect(slots()[0]).not.toHaveClass("skeleton");
+      expect(slots()[1]).toHaveClass("skeleton");
+      expect(images[0]).not.toHaveClass("image-pending");
+      expect(images[1]).toHaveClass("image-pending");
+    });
+
+    it("도착한 사진은 페이드로 얹는다", () => {
+      // 갤러리는 늘 로딩 화면이 걷힌 뒤에 받으므로 커버와 달리 조건을 따지지 않는다.
+      renderWithMotion(<Gallery />);
+
+      for (const image of screen.getAllByRole("img")) {
+        expect(image).toHaveClass("image-fade");
+      }
+    });
+
+    it("사진을 못 받아도 그 자리의 기다리기를 그만둔다", () => {
+      renderWithMotion(<Gallery />);
+      const images = screen.getAllByRole("img");
+
+      fireEvent.error(images[0]);
+
+      expect(slots()[0]).not.toHaveClass("skeleton");
+      expect(images[0]).not.toHaveClass("image-pending");
+    });
   });
 
   describe("넘기기", () => {
