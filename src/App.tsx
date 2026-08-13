@@ -5,7 +5,6 @@ import Calendar from "./components/Calendar";
 import Gallery from "./components/Gallery";
 import Location from "./components/Location";
 import Accounts from "./components/Accounts";
-import Rsvp from "./components/Rsvp";
 import Share from "./components/Share";
 import Footer from "./components/Footer";
 import Loading, { useCoverReady } from "./components/Loading";
@@ -27,7 +26,15 @@ export default function App() {
       <Gallery />
       <Location />
       <Accounts />
-      <Rsvp />
+      {/*
+        RSVP 는 v1 에서 뺐다 (2026-08-13 사용자 결정). src/components/Rsvp.tsx 가 아직
+        스텁이라 자리표시 문구밖에 없고, 그것을 하객에게 보이느니 섹션째 빼는 쪽이 낫다.
+
+        되살릴 자리는 여기다 — Accounts 와 Share 사이. 구현은 SIS-15 이며 폼 구성·
+        개인정보 동의(RS-03, 법적 요구사항)·진입 팝업 문구가 그 이슈에 정리돼 있다.
+        복원할 때 INVITE.rsvp 의 팝업·동의 문구도 함께 받아 채운다 — mock 을 남겨 두면
+        isMock 이 다시 true 가 되어야 하므로 지웠다.
+      */}
       {/* 공유 버튼은 푸터 위다 — 청첩장을 다 읽은 뒤에 "전해 주세요"가 나온다 (SIS-16) */}
       <Share />
       <Footer />
