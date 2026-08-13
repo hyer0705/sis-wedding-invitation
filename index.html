@@ -78,6 +78,11 @@
         position: fixed;
         inset: 0;
         z-index: 100;
+        /* 청첩장 컬럼 폭. tokens.css 의 --page-max 와 같은 값이며 바꿀 때 함께 고친다 —
+           그 파일은 4.1초에야 오므로 여기서 var() 를 쓸 수 없다. 화면 전체를 덮어 두면
+           태블릿·PC 에서 배경이 가득 찼다가 컬럼으로 접힌다 (SIS-18). */
+        max-width: 430px;
+        margin: 0 auto;
         background: #f5f3ea;
         display: flex;
         flex-direction: column;

@@ -106,6 +106,11 @@ export default function Loading() {
       style={{
         position: "fixed",
         inset: 0,
+        // 청첩장 컬럼 안에만 덮는다. 화면 전체를 덮으면 태블릿·PC 에서 --bg 가 가득 찼다가
+        // 걷히는 순간 430px 컬럼으로 접혀, 청첩장이 한 번 쪼그라든 것처럼 보인다 (SIS-18).
+        // inset:0 과 max-width 가 함께 걸리면 auto margin 이 좌우로 똑같이 나뉘어 가운데 선다.
+        maxWidth: "var(--page-max)",
+        margin: "0 auto",
         // 토스트(95)보다 위다. 로딩 중에는 아무것도 이 위로 올라오지 않는다.
         zIndex: 100,
         background: "var(--bg)",

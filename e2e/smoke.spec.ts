@@ -88,6 +88,67 @@ test.describe("청첩장 기본 동작", () => {
     expect(overflow).toBe(false);
   });
 
+  // CM-01 — 하객 대부분은 휴대폰으로 열지만 PC 카톡이나 태블릿으로 여는 사람도 있다.
+  // 그 화면에서 청첩장은 430px 컬럼으로 가운데 서야 한다.
+  //
+  // 뷰포트를 프로젝트로 추가하지 않고 이 안에서만 바꾼다. 큰 화면용 프로젝트를 두면
+  // 모바일 전용 검사(줄바꿈·갤러리 걸침)까지 전부 한 벌 더 돌아 시간만 늘고, 그 폭에서는
+  // 기대값이 애초에 다르다.
+  test.describe("태블릿·PC", () => {
+    const WIDE = { width: 1280, height: 900 };
+
+    /** 컬럼의 폭과 좌우 여백. 세로 스크롤바가 있어 뷰포트 폭 대신 clientWidth 로 잰다. */
+    const column = (page: Page, selector: string) =>
+      page.locator(selector).evaluate((el) => {
+        const box = el.getBoundingClientRect();
+        return { width: box.width, left: box.left, right: document.documentElement.clientWidth - box.right };
+      });
+
+    test("페이지가 430px 컬럼으로 가운데 선다", async ({ page }) => {
+      await page.setViewportSize(WIDE);
+      await page.goto("/");
+
+      const { width, left, right } = await column(page, ".page");
+      expect(width).toBe(430);
+      expect(Math.abs(left - right), "컬럼이 가운데 서지 않았다").toBeLessThanOrEqual(1);
+    });
+
+    // 화면을 덮는 것들이 컬럼을 벗어나면, 걷히는 순간 청첩장이 화면 폭에서 컬럼으로
+    // 쪼그라든 것처럼 보인다. 셋 다 position:fixed 라 놔두면 뷰포트 전체를 덮는다.
+    test("로딩 화면이 컬럼 밖까지 덮지 않는다", async ({ page }) => {
+      // 사진을 붙잡아 로딩 화면이 떠 있는 상태를 만든다.
+      await page.route(/1_main-\d+\.webp/, () => new Promise(() => {}));
+      await page.setViewportSize(WIDE);
+      await page.goto("/", { waitUntil: "commit" });
+
+      await expect(page.getByTestId("loading")).toBeVisible();
+
+      const { width, left, right } = await column(page, '[data-testid="loading"]');
+      expect(width).toBe(430);
+      expect(Math.abs(left - right)).toBeLessThanOrEqual(1);
+    });
+
+    test("부트 화면이 컬럼 밖까지 덮지 않는다", async ({ page }) => {
+      // 번들을 막아 React 가 뜨기 전 상태를 붙잡는다 — 뜨는 순간 Loading 이 #boot 를 지운다.
+      // 부트 화면의 스타일은 index.html 인라인이라 JS 를 막아도 그대로 걸린다.
+      await page.route(/assets\/.*\.js$/, (route) => route.abort());
+      await page.setViewportSize(WIDE);
+      await page.goto("/", { waitUntil: "commit" });
+
+      const { width, left, right } = await column(page, "#boot");
+      expect(width).toBe(430);
+      expect(Math.abs(left - right)).toBeLessThanOrEqual(1);
+    });
+
+    test("가로 스크롤이 발생하지 않는다", async ({ page }) => {
+      await page.setViewportSize(WIDE);
+      await page.goto("/");
+
+      const overflow = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth);
+      expect(overflow).toBe(false);
+    });
+  });
+
   // CV-02 — 커버 패럴랙스. 스크롤 값에 직접 물린 애니메이션이라 MotionConfig가
   // 대신 꺼주지 않는다. 동작과 reduced-motion 대응을 양쪽 다 고정한다.
   test.describe("커버 패럴랙스", () => {

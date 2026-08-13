@@ -25,6 +25,12 @@
   --font-serif: "Nanum Myeongjo", serif;
   --font-caption: "Gowun Dodum", sans-serif;
 
+  /* 청첩장 컬럼의 폭. 페이지뿐 아니라 화면을 덮는 오버레이(로딩)도 이 폭을 지켜야
+     태블릿·PC 에서 배경이 화면을 가득 채웠다가 컬럼으로 접히지 않는다 (SIS-18).
+     index.html 의 부트 화면은 이 파일이 오기 전에 그려지므로 값을 직접 적어 두었다 —
+     여기를 바꾸면 그쪽도 함께 바꾼다. */
+  --page-max: 430px;
+
   --radius-card: 24px;
   --radius-control: 14px;
   --shadow-card: 0 16px 40px rgba(80, 95, 75, 0.08);
