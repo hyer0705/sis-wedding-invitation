@@ -63,8 +63,8 @@ export interface RsvpPayload {
   name: string;
   count: number;
   meal: Meal;
-  /** 미참석 회신에서는 선택이므로, 적지 않으면 null 이다. */
-  phone: string | null;
+  /** 참석·미참석을 가리지 않고 필수다 (SIS-37). 숫자만 남긴 값이 들어간다. */
+  phone: string;
 }
 
 const STORAGE_KEY = "rsvp-submitted";
@@ -93,8 +93,9 @@ function pick<T extends string>(values: readonly T[], message: string) {
  * 인원 칸은 화면에 아예 없으므로 비어 있는 것이 정상이고, 이를 오류로 잡으면 회신
  * 자체가 막힌다.
  *
- * 연락처는 참석에서 필수, 미참석에서 선택이다(SIS-35). 선택이라고 검사까지 건너뛰지는
- * 않는다 — 적었는데 자릿수가 틀리면 그대로 저장되어 예식 전에 걸어도 닿지 않는다.
+ * 연락처는 **참석·미참석 모두 필수다**(SIS-37). SIS-35 에서는 미참석만 선택이었다 —
+ * 회신 자체를 포기하게 만들지 않으려는 판단이었으나, 고객이 뒤집었다. 되돌릴 일이
+ * 생기면 여기와 supabase/schema.sql 의 phone not null 을 함께 본다.
  */
 export const rsvpSchema = z
   .object({
@@ -128,28 +129,23 @@ export const rsvpSchema = z
       }
     }
 
-    // 적기는 했는지를 자릿수와 따로 본다. 「몰라요」·「-」처럼 숫자가 하나도 없는
+    // 비워 둔 것과 잘못 적은 것을 가른다. 「몰라요」·「-」처럼 숫자가 하나도 없는
     // 입력은 normalizePhone 을 거치면 빈 문자열이 되어 미입력과 구별되지 않는데,
-    // 미참석에서 그것을 그냥 통과시키면 하객은 번호를 남겼다고 믿지만 저장되는 값은
-    // null 이다 — 축의 대조·답례에 쓸 것이 남지 않는다.
+    // 그대로 「입력해 주세요」라고 하면 적어 넣은 하객은 무엇이 잘못인지 알 수 없다.
     const typed = data.phone.trim() !== "";
     const digits = normalizePhone(data.phone);
 
     if (!digits) {
-      // 미참석은 **비워 두는 것만** 허용한다(SIS-35). 참석은 다르다 — 폼 검증이 DB
-      // 제약(rsvp_phone_required_for_attendees)보다 느슨하면 참석 회신만 23514 로
-      // 거부되는데, 화면에서는 원인이 보이지 않는다.
-      if (attending) {
-        ctx.addIssue({ code: "custom", path: ["phone"], message: "연락처를 입력해 주세요" });
-      } else if (typed) {
-        ctx.addIssue({ code: "custom", path: ["phone"], message: "연락처를 다시 확인해 주세요" });
-      }
+      // 폼 검증이 DB 제약(phone not null)보다 느슨하면 회신이 23514 로 거부되는데,
+      // 화면에서는 원인이 보이지 않는다.
+      ctx.addIssue({
+        code: "custom",
+        path: ["phone"],
+        message: typed ? "연락처를 다시 확인해 주세요" : "연락처를 입력해 주세요",
+      });
       return;
     }
 
-    // 적었다면 참석·미참석을 가리지 않고 자릿수를 본다. 선택 항목이라고 검사를 건너뛰면
-    // 잘못 적힌 번호가 그대로 저장되고, 예식 전에 걸어도 닿지 않는다. DB 의
-    // rsvp_phone_format 도 미참석 회신의 phone 을 똑같이 본다.
     if (digits.length < PHONE_MIN || digits.length > PHONE_MAX) {
       ctx.addIssue({ code: "custom", path: ["phone"], message: "연락처를 다시 확인해 주세요" });
     }
@@ -218,8 +214,8 @@ export function isPastDeadline(deadline: string, now: number): boolean {
  * count 가 not null 이고 1 이상이어야 하기 때문이며, 집계는 attend 로 거르므로 이 값이
  * 미참석 인원으로 새지 않는다.
  *
- * 연락처는 attend 로 가르지 않고 **적혔는지로만** 가른다(SIS-35). 미참석에서도 받게
- * 되면서 attend 로 판단하면 방금 적어 넣은 번호를 도로 버리게 된다.
+ * 연락처는 attend 를 보지 않는다(SIS-37). 검증을 통과했다면 참석·미참석 어느 쪽이든
+ * 값이 들어 있다.
  */
 export function toRsvpPayload(values: RsvpValues): RsvpPayload {
   const attending = values.attend === "참석";
@@ -231,9 +227,7 @@ export function toRsvpPayload(values: RsvpValues): RsvpPayload {
     name: values.name,
     count: attending ? Number(values.count) : 1,
     meal: values.meal,
-    // 빈 문자열이 아니라 null 로 보낸다. ''는 rsvp_phone_format 에 걸려 23514 가 되고,
-    // 참석 회신이라면 rsvp_phone_required_for_attendees 를 빈 값으로 통과해 버린다.
-    phone: phone || null,
+    phone,
   };
 }
 

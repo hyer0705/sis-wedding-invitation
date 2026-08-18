@@ -102,10 +102,9 @@ describe("Rsvp", () => {
       expect(await screen.findByRole("checkbox")).toBeInTheDocument();
     });
 
-    // 못 간다고 알려주려는 하객을 연락처에서 막으면 회신 자체를 포기한다. 그래서
-    // 묻되 선택으로 두고(SIS-35), 채워야 다음이 나오는 규칙을 여기서만 풀어
-    // 동의를 함께 내보낸다 — 적지 않고 내려가는 것이 곧 건너뛰는 방법이다.
-    it("미참석이면 성함 다음에 연락처(선택)와 동의가 함께 나온다", async () => {
+    // 연락처가 필수로 돌아오면서(SIS-37) 미참석도 「채워야 다음이 나온다」를 따른다.
+    // 인원·식사만 건너뛰므로 성함 다음이 연락처고, 그 다음이 곧 동의다.
+    it("미참석이면 성함 다음이 연락처고, 채워야 동의가 나온다", async () => {
       const user = userEvent.setup();
       renderWithMotion(<Rsvp />);
       await openForm(user);
@@ -114,8 +113,12 @@ describe("Rsvp", () => {
       await user.click(await screen.findByRole("button", { name: "참석 어려워요" }));
       await user.type(await screen.findByLabelText("성함"), "김하객");
 
-      // 연락처를 비워 둔 채로 동의와 제출 버튼까지 닿는다.
-      expect(await screen.findByLabelText("연락처 (선택)")).toHaveValue("");
+      const phone = await screen.findByLabelText("연락처");
+      expect(phone).toHaveValue("");
+      // 비어 있는 동안에는 동의가 나오지 않는다.
+      expect(screen.queryByRole("checkbox")).not.toBeInTheDocument();
+
+      await user.type(phone, "000-0000-0000");
       expect(await screen.findByRole("checkbox")).toBeInTheDocument();
 
       expect(screen.queryByLabelText("참석 인원 (본인 포함)")).not.toBeInTheDocument();
@@ -134,7 +137,7 @@ describe("Rsvp", () => {
 
       await waitFor(() => expect(screen.queryByLabelText("참석 인원 (본인 포함)")).not.toBeInTheDocument());
       // 지워 버리면 방금 적은 번호가 눈앞에서 사라진다. 미참석에서도 쓰는 칸이다.
-      expect(screen.getByLabelText("연락처 (선택)")).toHaveValue("000-0000-0000");
+      expect(screen.getByLabelText("연락처")).toHaveValue("000-0000-0000");
     });
   });
 
@@ -205,7 +208,8 @@ describe("Rsvp", () => {
       expect(screen.queryByRole("button", { name: "참석 의사 전하기" })).not.toBeInTheDocument();
     });
 
-    it("미참석 회신은 연락처 없이 통과하고 phone 이 null 로 나간다", async () => {
+    // 축의 대조·답례·회신 정정에 이 번호 말고는 창구가 없다 (SIS-37).
+    it("미참석 회신도 연락처를 실어 보낸다", async () => {
       const user = userEvent.setup();
       renderWithMotion(<Rsvp />);
       await openForm(user);
@@ -213,6 +217,7 @@ describe("Rsvp", () => {
       await user.click(screen.getByRole("button", { name: "신부측 하객" }));
       await user.click(await screen.findByRole("button", { name: "참석 어려워요" }));
       await user.type(await screen.findByLabelText("성함"), "김하객");
+      await user.type(await screen.findByLabelText("연락처"), "000-0000-0000");
       await user.click(await screen.findByRole("checkbox"));
       await user.click(screen.getByRole("button", { name: "참석 의사 전하기" }));
 
@@ -224,30 +229,11 @@ describe("Rsvp", () => {
         // 인원을 묻지 않으므로 1 로 채운다 — DB 의 count 는 not null 이다.
         count: 1,
         meal: "식사안함",
-        phone: null,
+        phone: "00000000000",
       });
     });
 
-    // 선택이지만 적으면 반드시 실려야 한다. 축의 대조·답례·회신 정정에 이 번호
-    // 말고는 창구가 없다 (SIS-35).
-    it("미참석이 연락처를 적으면 그대로 실어 보낸다", async () => {
-      const user = userEvent.setup();
-      renderWithMotion(<Rsvp />);
-      await openForm(user);
-
-      await user.click(screen.getByRole("button", { name: "신부측 하객" }));
-      await user.click(await screen.findByRole("button", { name: "참석 어려워요" }));
-      await user.type(await screen.findByLabelText("성함"), "김하객");
-      await user.type(await screen.findByLabelText("연락처 (선택)"), "000-0000-0000");
-      await user.click(await screen.findByRole("checkbox"));
-      await user.click(screen.getByRole("button", { name: "참석 의사 전하기" }));
-
-      await waitFor(() => expect(sendMock).toHaveBeenCalledTimes(1));
-      expect(sendMock).toHaveBeenCalledWith(expect.objectContaining({ attend: "미참석", phone: "00000000000" }));
-    });
-
-    // 선택이라고 검사까지 건너뛰면 잘못 적힌 번호가 그대로 저장되고, 예식 전에 걸어도
-    // 닿지 않는다.
+    // 잘못 적힌 번호가 그대로 저장되면 예식 전에 걸어도 닿지 않는다.
     it("미참석이 적은 연락처도 자릿수가 틀리면 제출하지 않고 알린다", async () => {
       const user = userEvent.setup();
       renderWithMotion(<Rsvp />);
@@ -256,7 +242,7 @@ describe("Rsvp", () => {
       await user.click(screen.getByRole("button", { name: "신부측 하객" }));
       await user.click(await screen.findByRole("button", { name: "참석 어려워요" }));
       await user.type(await screen.findByLabelText("성함"), "김하객");
-      await user.type(await screen.findByLabelText("연락처 (선택)"), "000-00");
+      await user.type(await screen.findByLabelText("연락처"), "000-00");
       await user.click(await screen.findByRole("checkbox"));
       await user.click(screen.getByRole("button", { name: "참석 의사 전하기" }));
 
