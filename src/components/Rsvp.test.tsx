@@ -5,9 +5,10 @@ import { renderWithMotion } from "../test/renderWithMotion";
 import Rsvp from "./Rsvp";
 import { submitRsvp } from "../lib/rsvp";
 
-// 전송은 SIS-20 의 몫이라 이 파일에서는 호출 여부와 인자만 본다. 실제 구현은
-// 연결 전이라 반드시 던지도록 되어 있어(lib/rsvp.ts), mock 없이는 성공 경로를
-// 확인할 수 없다.
+// 전송을 mock 으로 덮고 호출 여부와 인자만 본다. 이제 submitRsvp 는 실제로
+// Supabase 로 요청을 보내므로(SIS-20), 덮지 않으면 이 파일이 매번 네트워크를 탄다.
+// supabase-js 가 실제로 무엇을 어디로 보내는지는 유닛 테스트(lib/rsvp.test.ts)와
+// E2E(e2e/smoke.spec.ts)가 각각 본다.
 vi.mock("../lib/rsvp", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../lib/rsvp")>();
   return { ...actual, submitRsvp: vi.fn() };

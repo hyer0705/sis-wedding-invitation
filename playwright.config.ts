@@ -51,9 +51,16 @@ export default defineConfig({
     // 섹션이 통째로 사라진다. 그러면 CI 에서 접근성 감사가 그 섹션을 한 번도 보지 못한다.
     // 여기서 넣는 값은 모든 자리가 같은 숫자인 가짜다. 고객 실계좌(.env)가 있는 로컬에서도
     // 이 값이 이기므로, 테스트 화면에 실제 계좌번호가 뜨는 일은 없다.
+    //
+    // Supabase 값도 여기서 덮는다(SIS-20). 회신 제출 왕복을 E2E 로 보려면 클라이언트가
+    // 만들어져야 하는데(없으면 getSupabase 가 던진다), 로컬 .env 의 실제 값으로 빌드되면
+    // 테스트가 고객의 진짜 테이블에 행을 쌓는다. `.invalid` 는 RFC 2606 이 예약한
+    // 도메인이라 절대 해석되지 않는다 — 스텁을 깜빡한 테스트가 있어도 나갈 곳이 없다.
     env: {
       VITE_ACCOUNTS_GROOM: "신랑|행복은행|111-111-111111|김신랑;신랑 아버지|행복은행|222-222-222222|김아버지",
       VITE_ACCOUNTS_BRIDE: "신부|행복은행|333-333-333333|이신부;신부 어머니|행복은행|444-444-444444|이어머니",
+      VITE_SUPABASE_URL: "https://rsvp-e2e.invalid",
+      VITE_SUPABASE_PUBLISHABLE_KEY: "sb_publishable_e2e-not-a-real-key",
     },
   },
 });

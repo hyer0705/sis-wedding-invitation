@@ -66,11 +66,17 @@ for (const [name, file] of imported) {
 // 드러나지 않는다 — 폼은 멀쩡히 그려지고 제출만 매번 실패하므로, 하객은 자기 문제로
 // 여기고 고객은 회신이 0건인 이유를 알 수 없다. 눈으로 잡히지 않아 여기서 막는다.
 //
+// 미연결 표식(RSVP_NOT_WIRED)을 찾던 검사를 뒤집어, **연결되어 있음**을 확인하는
+// 쪽으로 바꿨다. 표식을 찾는 방식은 SIS-20 이 그 이름을 지운 순간 아무것도 잡지
+// 못한 채 늘 통과하게 되고, 게이트가 죽었다는 사실조차 드러나지 않는다.
+//
 // App.tsx 가 Rsvp 를 그릴 때만 본다. 섹션을 뺀 상태라면 미연결이어도 배포에 지장이 없다.
 if (/<Rsvp[\s/>]/.test(appSource)) {
   const rsvpLib = await readFile("src/lib/rsvp.ts", "utf8");
-  if (rsvpLib.includes("RSVP_NOT_WIRED")) {
-    errors.push("RSVP 전송이 연결되지 않았습니다 (SIS-20) — 폼은 보이는데 회신이 전부 실패합니다");
+  if (!/\.from\((?:TABLE|"rsvp")\)\s*\.insert\(/.test(rsvpLib)) {
+    errors.push(
+      "src/lib/rsvp.ts 에서 rsvp 테이블 insert 를 찾지 못했습니다 (SIS-20) — 폼은 보이는데 회신이 전부 실패하거나, 게이트가 무력화된 상태입니다",
+    );
   }
 }
 
