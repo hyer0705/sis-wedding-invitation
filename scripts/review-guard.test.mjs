@@ -18,7 +18,20 @@ describe("scanText — 개인정보", () => {
   });
 
   it("휴대폰 번호를 적발한다", () => {
-    const found = scanText("연락처 010-1234-5678 입니다", "src/components/Footer.tsx");
+    const found = scanText("연락처 010-9876-5432 입니다", "src/components/Footer.tsx");
+    expect(found.map((f) => f.rule)).toContain("휴대폰 번호");
+  });
+
+  // 입력칸의 힌트("ex) …")가 쓰는 값이다. 모두 같은 숫자로 적으면 게이트는 통과하지만
+  // 하객이 보고 「번호를 적는 칸」이라고 알아채지 못한다.
+  it("예시 번호는 적발하지 않는다", () => {
+    expect(scanText("ex) 01012345678", "src/components/Rsvp.tsx")).toEqual([]);
+    expect(scanText("010-1234-5678", "src/components/Rsvp.tsx")).toEqual([]);
+  });
+
+  // 예외는 목록에 적은 값에만 걸린다. 한 자리만 달라도 다시 잡혀야 한다.
+  it("예시와 한 자리만 다른 번호는 적발한다", () => {
+    const found = scanText("010-1234-5679", "src/components/Rsvp.tsx");
     expect(found.map((f) => f.rule)).toContain("휴대폰 번호");
   });
 
@@ -35,7 +48,7 @@ describe("scanText — 개인정보", () => {
   });
 
   it("몇 번째 줄인지 알려준다", () => {
-    const [found] = scanText("a\nb\n010-1234-5678", "src/x.ts");
+    const [found] = scanText("a\nb\n010-9876-5432", "src/x.ts");
     expect(found.line).toBe(3);
   });
 
@@ -46,8 +59,8 @@ describe("scanText — 개인정보", () => {
   });
 
   it("휴대폰 번호를 계좌번호로 중복 보고하지 않는다", () => {
-    // 010-1234-5678은 3마디라 계좌 정규식에도 걸린다
-    const found = scanText("010-1234-5678", "src/x.ts");
+    // 3마디라 계좌 정규식에도 걸린다
+    const found = scanText("010-9876-5432", "src/x.ts");
     expect(found).toHaveLength(1);
   });
 });

@@ -62,6 +62,18 @@ for (const [name, file] of imported) {
   }
 }
 
+// RSVP 전송 연결 여부(SIS-20). `.todo` 와 같은 종류의 미완성이지만 화면에는 전혀
+// 드러나지 않는다 — 폼은 멀쩡히 그려지고 제출만 매번 실패하므로, 하객은 자기 문제로
+// 여기고 고객은 회신이 0건인 이유를 알 수 없다. 눈으로 잡히지 않아 여기서 막는다.
+//
+// App.tsx 가 Rsvp 를 그릴 때만 본다. 섹션을 뺀 상태라면 미연결이어도 배포에 지장이 없다.
+if (/<Rsvp[\s/>]/.test(appSource)) {
+  const rsvpLib = await readFile("src/lib/rsvp.ts", "utf8");
+  if (rsvpLib.includes("RSVP_NOT_WIRED")) {
+    errors.push("RSVP 전송이 연결되지 않았습니다 (SIS-20) — 폼은 보이는데 회신이 전부 실패합니다");
+  }
+}
+
 // INVITE.isMock — 고객 확정값이 아직 반영되지 않았다는 뜻이다.
 // 정규식으로 읽는 이유는 verify가 빌드 없이 도는 순수 node 스크립트이기 때문이다.
 const inviteSource = await readFile("src/invite.ts", "utf8");
@@ -91,6 +103,23 @@ const envFile = await readEnvFile();
 const missingEnv = REQUIRED_ENV.filter((key) => !envValue(key, envFile));
 if (missingEnv.length > 0) {
   errors.push(`개인정보 환경변수 미설정: ${missingEnv.join(", ")} — mock 값이 그대로 배포됩니다`);
+}
+
+// 개인정보 보호 담당자(RS-03) — 처리방침이 「열람·정정·삭제 요청은 담당자에게」라고
+// 안내하는 창구다. 계좌와 같은 이유로 mock 을 두지 않았으므로(src/invite.ts) 값이
+// 비면 담당자 문단이 화면에서 통째로 사라진다. 권리 행사 창구 없는 처리방침은
+// 법적 요구를 채우지 못하므로 그 상태로는 배포할 수 없다.
+const OFFICER_ENV = ["VITE_PRIVACY_OFFICER_NAME", "VITE_PRIVACY_OFFICER_EMAIL"];
+const missingOfficer = OFFICER_ENV.filter((key) => !envValue(key, envFile));
+if (missingOfficer.length > 0) {
+  errors.push(`개인정보 보호 담당자 미설정: ${missingOfficer.join(", ")} — 처리방침에 문의처가 빠진 채 배포됩니다`);
+}
+
+// 오타 난 주소는 값이 있는 것과 구별되지 않는다. 받는 사람이 없는 메일함으로
+// 안내하면 창구가 없는 것과 같으므로 형식만이라도 본다.
+const officerEmail = envValue("VITE_PRIVACY_OFFICER_EMAIL", envFile);
+if (officerEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(officerEmail)) {
+  errors.push("VITE_PRIVACY_OFFICER_EMAIL 형식이 이메일이 아닙니다 — 처리방침의 문의처가 닿지 않습니다");
 }
 
 // Supabase(SIS-33) — RSVP 수신처다. 값이 없거나 형식이 어긋나면 폼은 정상으로

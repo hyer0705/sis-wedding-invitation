@@ -2,6 +2,31 @@ import { test, expect, type Page } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
 import { INVITE } from "../src/invite";
 
+/**
+ * RSVP 폼은 버튼 뒤에 숨어 있다 (SIS-15). 폼을 보는 테스트는 여기서 시작한다.
+ *
+ * goto 는 부르는 쪽이 한다 — 접근성 감사는 페이지 상태를 이미 만들어 둔 뒤에 부르므로
+ * 여기서 다시 열면 그 준비가 통째로 날아간다.
+ */
+async function openRsvpForm(page: Page) {
+  const opener = page.getByRole("button", { name: "참석 여부 알리기" });
+  await opener.scrollIntoViewIfNeeded();
+  await opener.click();
+  await expect(page.getByRole("button", { name: "신랑측 하객" })).toBeVisible();
+}
+
+/** 참석 회신을 동의 단계까지 채운다. 개인정보 안내는 그 단계에서야 나타난다. */
+async function fillRsvpToConsent(page: Page) {
+  await openRsvpForm(page);
+  await page.getByRole("button", { name: "신랑측 하객" }).click();
+  await page.getByRole("button", { name: "참석합니다" }).click();
+  await page.getByLabel("성함").fill("홍길동");
+  await page.getByLabel("참석 인원 (본인 포함)").fill("2");
+  await page.getByLabel("연락처").fill("000-0000-0000");
+  await page.getByRole("button", { name: "식사합니다" }).click();
+  await expect(page.getByRole("checkbox")).toBeVisible();
+}
+
 test.describe("청첩장 기본 동작", () => {
   test("페이지가 열리고 신랑·신부 이름과 예식 일시가 보인다", async ({ page }) => {
     await page.goto("/");
@@ -320,7 +345,8 @@ test.describe("청첩장 기본 동작", () => {
       await context.grantPermissions(["clipboard-read", "clipboard-write"]);
       await page.goto("/");
 
-      const groom = page.getByRole("button", { name: /^신랑측/ });
+      // RSVP 의 「신랑측 하객」 버튼과 겹치지 않도록 정확히 일치시킨다 (SIS-15).
+      const groom = page.getByRole("button", { name: "신랑측", exact: true });
       await groom.click();
 
       // 측당 2건이 모두 보여야 한다 — 형식이 어긋난 항목은 조용히 버려지므로 건수를 센다.
@@ -581,6 +607,125 @@ test.describe("청첩장 기본 동작", () => {
     });
   });
 
+  // RS-01·RS-03 (SIS-15). 전송은 아직 연결되지 않았으므로(SIS-20) 여기서는 제출
+  // 직전까지만 본다 — 제출 → 완료 카드 흐름은 컴포넌트 테스트(Rsvp.test.tsx)가
+  // mock 으로 덮고 있고, 실제 왕복은 전송이 붙은 뒤에 이 파일로 옮긴다.
+  test.describe("RSVP", () => {
+    // 단계가 접혔다 펴지는 전환이 있어, 애니메이션을 끄고 최종 상태를 본다.
+    test.use({ reducedMotion: "reduce" });
+
+    test("여는 버튼을 눌러야 폼이 나온다", async ({ page }) => {
+      await page.goto("/");
+      await expect(page.getByRole("button", { name: "신랑측 하객" })).toBeHidden();
+
+      await openRsvpForm(page);
+      await expect(page.getByRole("button", { name: "신랑측 하객" })).toBeVisible();
+    });
+
+    // 여섯 칸을 한꺼번에 펼치면 카드가 화면 두 배가 된다. 한 번에 하나씩 묻는다.
+    test("앞 항목을 채워야 다음 항목이 나타난다", async ({ page }) => {
+      await page.goto("/");
+      await openRsvpForm(page);
+      await expect(page.getByRole("button", { name: "참석합니다" })).toBeHidden();
+
+      await page.getByRole("button", { name: "신랑측 하객" }).click();
+      await expect(page.getByRole("button", { name: "참석합니다" })).toBeVisible();
+      await expect(page.getByLabel("성함")).toBeHidden();
+
+      await page.getByRole("button", { name: "참석합니다" }).click();
+      await expect(page.getByLabel("성함")).toBeVisible();
+      await expect(page.getByLabel("참석 인원 (본인 포함)")).toBeHidden();
+
+      await page.getByLabel("성함").fill("홍길동");
+      await expect(page.getByLabel("참석 인원 (본인 포함)")).toBeVisible();
+      await expect(page.getByLabel("연락처")).toBeHidden();
+
+      await page.getByLabel("참석 인원 (본인 포함)").fill("2");
+      await expect(page.getByLabel("연락처")).toBeVisible();
+    });
+
+    // 못 간다고 알려주려는 하객을 연락처에서 막으면 회신 자체를 포기한다.
+    test("미참석이면 성함 다음이 바로 동의다", async ({ page }) => {
+      await page.goto("/");
+      await openRsvpForm(page);
+
+      await page.getByRole("button", { name: "신부측 하객" }).click();
+      await page.getByRole("button", { name: "참석 어려워요" }).click();
+      await page.getByLabel("성함").fill("김하객");
+
+      await expect(page.getByRole("checkbox")).toBeVisible();
+      await expect(page.getByLabel("연락처")).toBeHidden();
+      await expect(page.getByLabel("참석 인원 (본인 포함)")).toBeHidden();
+    });
+
+    test("동의 전에는 제출 버튼이 잠겨 있다", async ({ page }) => {
+      await page.goto("/");
+      await fillRsvpToConsent(page);
+
+      const submit = page.getByRole("button", { name: "참석 의사 전하기" });
+      await expect(submit).toBeDisabled();
+
+      await page.getByRole("checkbox").check();
+      await expect(submit).toBeEnabled();
+    });
+
+    // 고지한 수집 항목이 실제 수집과 어긋나면 고지가 효력을 잃는다(RS-03).
+    test("개인정보 처리방침 전문을 펼쳐 볼 수 있다", async ({ page }) => {
+      await page.goto("/");
+      await fillRsvpToConsent(page);
+      await expect(page.getByText("개인정보 처리방침", { exact: true })).toBeHidden();
+
+      await page.getByRole("button", { name: "개인정보 처리방침 자세히 보기" }).click();
+      await expect(page.getByText("개인정보 처리방침", { exact: true })).toBeVisible();
+      await expect(page.getByText(/데이터 저장 리전/)).toBeVisible();
+    });
+
+    // 페이드의 끝색은 --surface-3 의 알파 0 을 값으로 직접 적어 둔 것이다(global.css).
+    // 토큰만 바꾸면 시작색은 따라오고 끝색은 옛 색으로 남아, 잘린 자리에 탁한 띠가
+    // 생긴다. 눈으로는 알아채기 어려운 종류라 여기서 두 색이 같은지 직접 잰다.
+    test("페이드 끝색이 안내 박스 배경과 같다", async ({ page }) => {
+      await page.goto("/");
+      await fillRsvpToConsent(page);
+      await page.getByRole("button", { name: "개인정보 처리방침 자세히 보기" }).click();
+
+      const measured = await page.locator(".privacy-policy-wrap").evaluate((el) => {
+        const gradient = getComputedStyle(el, "::after").backgroundImage;
+        // 그라데이션 안의 rgb·rgba 를 순서대로 뽑는다. 시작색은 토큰, 끝색은 하드코딩이다.
+        const stops = gradient.match(/rgba?\([^)]*\)/g) ?? [];
+        const rgb = (value) => (value.match(/[\d.]+/g) ?? []).slice(0, 3).join(",");
+        return { stops: stops.length, first: rgb(stops[0] ?? ""), last: rgb(stops.at(-1) ?? "") };
+      });
+
+      expect(measured.stops, "그라데이션에서 색을 읽지 못했다").toBe(2);
+      expect(measured.last, "페이드 끝색이 --surface-3 와 어긋났다").toBe(measured.first);
+    });
+
+    // 9개 항목을 그대로 펼치면 카드가 화면 몇 배로 늘어난다. 안쪽에서만 스크롤해
+    // 폼과 다음 섹션의 자리가 흔들리지 않아야 한다.
+    test("전문은 카드를 늘리지 않고 자체 높이 안에서 스크롤한다", async ({ page }) => {
+      await page.goto("/");
+      await fillRsvpToConsent(page);
+
+      const card = page.locator(".card").filter({ hasText: "개인정보 수집·이용 안내" });
+      const before = (await card.boundingBox())?.height ?? 0;
+
+      await page.getByRole("button", { name: "개인정보 처리방침 자세히 보기" }).click();
+      const panel = page.getByRole("region", { name: "개인정보 처리방침" });
+      await expect(panel).toBeVisible();
+
+      // 내용이 영역보다 길어야 스크롤이 의미가 있다.
+      const { clientHeight, scrollHeight } = await panel.evaluate((el) => ({
+        clientHeight: el.clientHeight,
+        scrollHeight: el.scrollHeight,
+      }));
+      expect(scrollHeight).toBeGreaterThan(clientHeight);
+
+      // 카드가 늘어나는 폭은 접힌 영역의 높이까지다. 전문 전체 길이만큼 늘면 안 된다.
+      const after = (await card.boundingBox())?.height ?? 0;
+      expect(after - before).toBeLessThan(scrollHeight);
+    });
+  });
+
   // 페이드인이 진행 중이면 axe가 합성된 중간 색상을 읽어 색상 대비를 오탐한다.
   // reduced-motion으로 애니메이션을 건너뛰어 최종 상태를 검사하고,
   // 동시에 prefers-reduced-motion 대응(MotionConfig reducedMotion="user")도 함께 검증한다.
@@ -623,6 +768,9 @@ test.describe("청첩장 기본 동작", () => {
         ["--primary", "--bg", LARGE, "커버 30px·푸터 34px — 전부 큰 글씨"],
         ["--primary", "--card", SMALL, "교통 안내 라벨 12.5px·혼주 관계 13px·D-Day 일수 14px 굵게"],
         ["--on-surface", "--surface-2", SMALL, "공유 버튼 13px"],
+        ["--on-surface", "--surface", SMALL, "RSVP 미선택 버튼 14px·잠긴 제출 버튼 15px"],
+        ["--on-surface", "--surface-3", SMALL, "개인정보 처리방침 펼치기 12.5px"],
+        ["--text", "--surface-3", SMALL, "개인정보 안내 제목 13.5px·동의 문구 13px"],
         ["--on-primary", "--primary", SMALL, "달력 예식일 원 14.5px 굵게·지도 앱 버튼 13px"],
         ["--on-primary-sub", "--primary", SMALL, "D-Day 「초」 라벨 10.5px"],
         ["--on-primary-title", "--primary", SMALL, "그린 배경 위 제목"],
@@ -668,10 +816,16 @@ test.describe("청첩장 기본 동작", () => {
 
       // 아코디언은 기본이 접힘이고 닫힌 패널은 DOM 에서 빠진다. 열어 두지 않으면 계좌 행과
       // 복사 버튼이 감사 대상에 아예 없어, 그 안의 위반은 CI 가 영영 보지 못한다.
-      for (const label of [/^신랑측/, /^신부측/]) {
-        await page.getByRole("button", { name: label }).click();
+      // 이름을 정확히 맞춘다 — RSVP 의 「신랑측 하객」이 앞자리를 공유한다 (SIS-15).
+      for (const label of ["신랑측", "신부측"]) {
+        await page.getByRole("button", { name: label, exact: true }).click();
       }
       await expect(page.getByRole("button", { name: /계좌번호 복사$/ }).first()).toBeVisible();
+
+      // 처리방침 전문도 접힌 채로는 감사되지 않는다. 문단·목록이 많아 대비 위반이
+      // 숨기 쉬운 자리라, 폼을 동의 단계까지 채워 펼쳐 두고 검사한다 (RS-03).
+      await fillRsvpToConsent(page);
+      await page.getByRole("button", { name: "개인정보 처리방침 자세히 보기" }).click();
 
       await expect(page.getByRole("button", { name: "카카오톡으로 공유" })).toBeVisible();
 

@@ -17,11 +17,41 @@ describe("INVITE", () => {
     // 그 순간 배포 게이트가 열린다 (docs/WORKFLOW.md §10).
     //
     // 마지막까지 mock 이던 것은 RSVP 팝업·개인정보 동의 문구뿐이었고, 그 섹션이
-    // v1 에서 빠지면서 함께 지웠다(2026-08-13). 플래그만 뒤집고 값을 남겨 두면
-    // 나중에 RSVP 를 되살릴 때 mock 문구가 그대로 배포되므로 둘을 같이 본다.
+    // v1 에서 빠지면서 함께 지웠다(2026-08-13). 동의 문구(RS-03)는 고객 확정본을
+    // 받아 되살렸다(2026-08-18, SIS-15) — 팝업(RS-02)은 미채택이라 필드가 없다.
     expect(INVITE.isMock).toBe(false);
     expect(INVITE.rsvp).not.toHaveProperty("popup");
-    expect(INVITE.rsvp).not.toHaveProperty("privacy");
+  });
+
+  // 고지한 수집 항목이 실제 수집과 어긋나면 고지 자체가 효력을 잃는다. 폼에 칸을
+  // 더하거나 빼면서 문구를 잊는 것이 가장 흔한 경로라, 양쪽을 여기서 묶어 둔다.
+  describe("개인정보 수집 항목(RS-03)", () => {
+    // supabase/schema.sql 의 side·attend·name·count·meal·phone 에 대응한다.
+    const COLLECTED = ["이름", "연락처", "참석 여부", "참석 인원 수", "식사 여부", "하객 구분"];
+
+    it("화면 요약이 여섯 항목을 모두 밝힌다", () => {
+      const summaryItems = INVITE.rsvp.privacy.summary.find((item) => item.label === "수집 항목")?.value ?? "";
+
+      expect(summaryItems).not.toBe("");
+      for (const item of COLLECTED) expect(summaryItems).toContain(item);
+    });
+
+    // 전문 전체를 문자열로 훑으면 안 된다. 1번 항목의 목록에서 「연락처」를 지워도
+    // 다른 문장에 그 낱말이 남아 있으면 통과해, 정작 고지 누락을 놓친다.
+    it("전문 1번 항목의 목록이 여섯 항목을 그대로 담는다", () => {
+      const [firstSection] = INVITE.rsvp.privacy.policy.sections;
+      expect(firstSection.heading).toContain("수집·이용");
+
+      const items = firstSection.blocks.flatMap((block) =>
+        block.kind === "list" && "label" in block && block.label === "수집 항목" ? [...block.items] : [],
+      );
+
+      expect(items).toHaveLength(COLLECTED.length);
+      // 항목마다 대응하는 줄이 있어야 한다. 하객 구분은 뒤에 괄호 설명이 붙는다.
+      for (const item of COLLECTED) {
+        expect(items.some((line) => line.includes(item))).toBe(true);
+      }
+    });
   });
 
   it("미채택 기능의 필드를 만들지 않는다", () => {
