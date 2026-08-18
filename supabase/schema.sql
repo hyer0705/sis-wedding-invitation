@@ -21,8 +21,8 @@
 -- (초안 SQL 로 이미 만들어 둔 테이블이 있다면, 아직 응답이 없을 때 drop table rsvp
 --  로 지우고 이 파일을 처음부터 실행하는 편이 확실하다.)
 --
--- 방명록(SIS-21)·관리자(SIS-22)는 같은 프로젝트에 테이블을 더 얹는다. 이 파일에는
--- RSVP 만 둔다.
+-- 방명록(SIS-21)은 같은 프로젝트에 테이블을 더 얹는다. 이 파일에는 RSVP 와
+-- 관리자 접근(SIS-22)만 둔다.
 
 create table if not exists rsvp (
   id uuid primary key default gen_random_uuid(),
@@ -120,3 +120,72 @@ create policy rsvp_insert_only on rsvp
 -- 관리자 페이지(SIS-22)가 최신순으로 읽는다. 지금은 행이 적지만 인덱스를
 -- 나중에 붙이면 그때 잠깐 잠기므로 처음부터 만들어 둔다.
 create index if not exists rsvp_created_at_idx on rsvp (created_at desc);
+
+-- ── 관리자 접근 (SIS-22) ───────────────────────────────────────────────────
+--
+-- 여기서부터가 관리자 페이지(/admin)가 응답을 읽고 지우기 위한 부분이다.
+-- **anon 은 끝까지 아무것도 읽지 못한다** — 위 rsvp_insert_only 는 그대로 두고,
+-- 로그인한 관리자에게만 별도 정책을 연다.
+--
+-- ⚠ **`to authenticated` 만으로는 부족하다.** Supabase 는 기본적으로 이메일
+-- 회원가입이 열려 있어, 번들에 박힌 publishable 키로 아무나 signUp 을 부르면
+-- 그 순간 `authenticated` 가 된다. 그 상태로 select 가 열려 있으면 하객 명단이
+-- 통째로 나간다. 그래서 두 겹으로 막는다.
+--
+--   1. 대시보드에서 **회원가입을 끈다** (Authentication → Sign In / Providers →
+--      Email → "Allow new users to sign up" 해제). 계정은 대시보드에서만 만든다
+--   2. 아래 admin_users 에 등록된 사용자만 통과시킨다 — 1 이 실수로 다시 켜져도
+--      명단은 열리지 않는다
+--
+-- 관리자 계정의 이메일은 이 파일에 적지 않는다. 개인정보를 리포에 남기지 않기
+-- 위해서이며(CLAUDE.md), 그래서 이메일이 아니라 **uuid** 로 등록한다.
+
+-- 관리자로 인정할 사용자. 대시보드에서 계정을 만든 뒤 그 uuid 를 한 줄 넣는다.
+--
+--   insert into admin_users (user_id) values ('<Authentication → Users 의 UID>');
+--
+-- auth.users 를 참조하므로 계정을 지우면 이 행도 함께 사라진다.
+create table if not exists admin_users (
+  user_id uuid primary key references auth.users (id) on delete cascade,
+  created_at timestamptz not null default now()
+);
+
+-- 이 테이블은 아무에게도 열지 않는다. RLS 를 켜고 정책을 하나도 만들지 않으면
+-- anon·authenticated 양쪽 모두 0건을 본다. 등록·해제는 대시보드(service role)가
+-- RLS 를 우회해 처리한다.
+alter table admin_users enable row level security;
+
+-- 정책 안에서 admin_users 를 그냥 조회하면 **그 조회에도 RLS 가 걸려 늘 0건**이
+-- 나온다. 즉 관리자조차 통과하지 못한다. security definer 로 감싸 소유자 권한으로
+-- 읽게 한다.
+--
+-- `set search_path` 는 생략하면 안 된다. security definer 함수는 호출자가 정한
+-- search_path 를 그대로 쓰는데, 그 틈으로 같은 이름의 가짜 테이블을 앞세워
+-- 함수를 속일 수 있다.
+create or replace function is_admin()
+returns boolean
+language sql
+security definer
+set search_path = public
+stable
+as $$
+  select exists (select 1 from admin_users where user_id = auth.uid());
+$$;
+
+grant execute on function is_admin() to authenticated;
+-- anon 이 부를 일은 없다. 부르더라도 auth.uid() 가 null 이라 false 다.
+revoke execute on function is_admin() from anon;
+
+-- 조회 — 관리자 페이지의 목록·CSV 가 쓴다.
+drop policy if exists rsvp_admin_select on rsvp;
+create policy rsvp_admin_select on rsvp
+  for select to authenticated
+  using (is_admin());
+
+-- 삭제 — AD-01 의 「삭제」. 잘못 들어온 회신이나 테스트 행을 지우는 용도다.
+-- 수정(update)은 열지 않는다. 하객이 보낸 회신을 관리자가 고쳐 쓸 이유가 없고,
+-- 열어 두면 실수로 원본이 바뀐 것을 알아챌 방법이 없다.
+drop policy if exists rsvp_admin_delete on rsvp;
+create policy rsvp_admin_delete on rsvp
+  for delete to authenticated
+  using (is_admin());

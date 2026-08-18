@@ -1,10 +1,17 @@
 // SIS-33 — RLS 정책 스모크. `npm run smoke:rls`
 //
 // supabase/schema.sql 을 적용한 뒤 한 번 돌려, 정책이 의도대로 걸렸는지 확인한다.
-// 확인하는 것은 두 가지다.
+// 확인하는 것은 네 가지다.
 //
 //   1. 읽기가 막혔는가 — 참석 명단은 하객에게 비공개다.
 //   2. 쓰기가 열렸는가 — 막혀 있으면 회신이 통째로 유실된다.
+//   3. 관리자 명단(admin_users)이 감춰졌는가 — 관리자 uuid 가 노출될 이유가 없다.
+//   4. is_admin() 을 anon 이 부를 수 없는가 (SIS-22).
+//
+// 3·4 는 관리자 페이지(SIS-22)가 select 정책을 열면서 생긴 검사다. **이 스모크는
+// 로그인하지 않은 하객의 시선으로만 본다** — publishable 키로 돌기 때문이다. 즉
+// 관리자가 실제로 읽을 수 있는지는 여기서 확인되지 않는다. 그쪽은 /admin 에
+// 로그인해 목록이 뜨는지로 확인한다(docs/manual-qa.md).
 //
 // 2번이 까다롭다. 진짜 행을 넣어 보면 확인은 되지만 테스트 데이터가 남고, 지우려면
 // delete 권한이 필요한데 그 권한은 열지 않았다. 그래서 **check 제약을 일부러
@@ -45,7 +52,10 @@ const isMissingTable = (error) => error?.code === "42P01" || error?.code === "PG
 
 // ── 1. select 가 막혀 있는가 ────────────────────────────────────────────────
 // 주의: 권한 오류(42501)가 아니라 **빈 결과**가 정상이다. RLS 는 정책에 맞지 않는
-// 행을 걸러 내는 방식이라, select 정책이 없으면 0건이 온다.
+// 행을 걸러 내는 방식이라, 이 롤에 맞는 select 정책이 없으면 0건이 온다.
+//
+// SIS-22 로 rsvp 에 select 정책이 생겼지만 `to authenticated` + is_admin() 이라
+// anon 에는 걸리지 않는다. 여기서 행이 보인다면 그 정책이 anon 까지 열렸다는 뜻이다.
 {
   const { data, error } = await supabase.from("rsvp").select("id").limit(1);
   if (isMissingTable(error)) {
@@ -60,7 +70,10 @@ const isMissingTable = (error) => error?.code === "42P01" || error?.code === "PG
       failures.push(`select 에서 예상 못한 오류: ${error.code} ${error.message}`);
     }
   } else if (data && data.length > 0) {
-    failures.push("select 로 응답이 읽힙니다 — 참석 명단이 하객에게 노출됩니다. select 정책을 제거하세요");
+    failures.push(
+      "select 로 응답이 읽힙니다 — 참석 명단이 하객에게 노출됩니다. " +
+        "rsvp_admin_select 가 anon 까지 열려 있지 않은지 확인하세요 (for select to authenticated using (is_admin()))",
+    );
   } else {
     console.log("① 읽기 차단 — 통과 (0건)");
   }
@@ -114,9 +127,52 @@ const isMissingTable = (error) => error?.code === "42P01" || error?.code === "PG
   }
 }
 
+// ── 3. 관리자 명단이 감춰져 있는가 (SIS-22) ────────────────────────────────
+// admin_users 는 RLS 를 켜 두고 정책을 하나도 만들지 않았다. anon 에게는 늘 0건이다.
+// 여기서 행이 보이면 누군가 정책을 열었다는 뜻이고, 관리자 uuid 가 그대로 나간다.
+{
+  const { data, error } = await supabase.from("admin_users").select("user_id").limit(1);
+  if (isMissingTable(error)) {
+    failures.push("admin_users 테이블이 없습니다 — supabase/schema.sql 의 「관리자 접근(SIS-22)」 구역을 실행하세요");
+  } else if (error) {
+    if (error.code === "42501") {
+      console.log("③ 관리자 명단 차단 — 통과 (권한 오류로 차단됨)");
+    } else {
+      failures.push(`admin_users select 에서 예상 못한 오류: ${error.code} ${error.message}`);
+    }
+  } else if (data && data.length > 0) {
+    failures.push("admin_users 가 anon 에게 읽힙니다 — 관리자 uuid 가 노출됩니다. 이 테이블에는 정책을 만들지 않습니다");
+  } else {
+    console.log("③ 관리자 명단 차단 — 통과 (0건)");
+  }
+}
+
+// ── 4. is_admin() 을 anon 이 부를 수 없는가 (SIS-22) ───────────────────────
+// schema.sql 이 anon 의 execute 를 걷어낸다. 막히는 것이 정상이고, 설령 불리더라도
+// auth.uid() 가 null 이라 false 여야 한다. true 가 돌아오면 로그인 없이 관리자로
+// 통과한다는 뜻이라 관리자 정책 전체가 무력해진다.
+{
+  const { data, error } = await supabase.rpc("is_admin");
+  if (error) {
+    if (error.code === "42501" || error.code === "PGRST202") {
+      // PGRST202 는 「함수를 찾을 수 없음」이기도 하다. ③ 이 통과했다면 스키마는
+      // 적용된 것이므로 권한이 걷힌 상태로 본다.
+      console.log("④ is_admin() 차단 — 통과 (anon 은 호출할 수 없음)");
+    } else {
+      failures.push(`is_admin() 호출에서 예상 못한 오류: ${error.code} ${error.message}`);
+    }
+  } else if (data === true) {
+    failures.push("is_admin() 이 로그인 없이 true 를 돌려줍니다 — 관리자 정책이 통째로 무력합니다");
+  } else {
+    failures.push(
+      "is_admin() 을 anon 이 호출할 수 있습니다 — supabase/schema.sql 의 `revoke execute on function is_admin() from anon` 을 실행하세요",
+    );
+  }
+}
+
 if (failures.length > 0) {
   console.error("\nRLS 스모크 실패:");
   for (const f of failures) console.error(`  - ${f}`);
   process.exit(1);
 }
-console.log("\nRLS 스모크 통과 — 읽기 차단·쓰기 허용 확인");
+console.log("\nRLS 스모크 통과 — 하객(anon) 기준 읽기 차단·쓰기 허용, 관리자 경로 차단 확인");
