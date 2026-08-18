@@ -246,20 +246,43 @@ test.describe("청첩장 기본 동작", () => {
   test.describe("커버 패럴랙스", () => {
     const coverTransform = (page: Page) => page.locator("header img").evaluate((el) => getComputedStyle(el).transform);
 
-    test("스크롤하면 커버 사진이 따라 내려온다", async ({ page }) => {
-      await page.goto("/");
+    /**
+     * 패럴랙스를 재기 전에 화면이 준비되기를 기다린다.
+     *
+     * goto 는 load 에서 풀리는데 그 시점에는 로딩 오버레이(CM-04)가 아직 덮고 있고,
+     * 스크롤 구독은 Cover 의 effect 가 마운트된 뒤에야 걸린다(Cover.tsx — useScroll 을
+     * 쓰지 않고 직접 구독한다). 그 사이에 재면 스크롤을 흘려보낸다.
+     *
+     * **스크롤이 실제로 먹었는지도 확인한다.** 이것이 없으면 실패했을 때
+     * 「스크롤이 안 됐다」와 「패럴랙스가 깨졌다」를 구분할 수 없다 — 2026-08-18 에
+     * ios-safari 에서 이 테스트가 흔들렸을 때 로그만으로는 원인을 좁히지 못했다.
+     */
+    async function scrollPastCover(page: Page) {
+      await expect(page.getByTestId("loading")).toBeHidden();
       const before = await coverTransform(page);
 
       await page.evaluate(() => window.scrollTo(0, 400));
-      await expect.poll(() => coverTransform(page)).not.toBe(before);
+      await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(0);
+
+      return before;
+    }
+
+    test("스크롤하면 커버 사진이 따라 내려온다", async ({ page }) => {
+      await page.goto("/");
+      const before = await scrollPastCover(page);
+
+      // 기본 5초는 여유가 없다. 스크롤 값에 물린 갱신이 한 프레임 늦게 커밋되는 일이
+      // 있어(webkit) 여기서 시간을 조금 더 준다 — 늦게라도 따라오면 통과다.
+      await expect.poll(() => coverTransform(page), { timeout: 10_000 }).not.toBe(before);
     });
 
     test("모션을 줄인 설정에서는 사진이 움직이지 않는다", async ({ page }) => {
       await page.emulateMedia({ reducedMotion: "reduce" });
       await page.goto("/");
-      const before = await coverTransform(page);
+      // 「안 움직였다」를 보는 테스트라 준비 대기가 더 중요하다. 화면이 아직 스크롤될
+      // 상태가 아니면 아무것도 안 한 채로 통과해 버린다.
+      const before = await scrollPastCover(page);
 
-      await page.evaluate(() => window.scrollTo(0, 400));
       await page.waitForTimeout(300);
       expect(await coverTransform(page)).toBe(before);
     });
