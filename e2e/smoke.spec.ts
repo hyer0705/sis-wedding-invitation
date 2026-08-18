@@ -680,6 +680,26 @@ test.describe("청첩장 기본 동작", () => {
       await expect(page.getByText(/데이터 저장 리전/)).toBeVisible();
     });
 
+    // 페이드의 끝색은 --surface-3 의 알파 0 을 값으로 직접 적어 둔 것이다(global.css).
+    // 토큰만 바꾸면 시작색은 따라오고 끝색은 옛 색으로 남아, 잘린 자리에 탁한 띠가
+    // 생긴다. 눈으로는 알아채기 어려운 종류라 여기서 두 색이 같은지 직접 잰다.
+    test("페이드 끝색이 안내 박스 배경과 같다", async ({ page }) => {
+      await page.goto("/");
+      await fillRsvpToConsent(page);
+      await page.getByRole("button", { name: "개인정보 처리방침 자세히 보기" }).click();
+
+      const measured = await page.locator(".privacy-policy-wrap").evaluate((el) => {
+        const gradient = getComputedStyle(el, "::after").backgroundImage;
+        // 그라데이션 안의 rgb·rgba 를 순서대로 뽑는다. 시작색은 토큰, 끝색은 하드코딩이다.
+        const stops = gradient.match(/rgba?\([^)]*\)/g) ?? [];
+        const rgb = (value) => (value.match(/[\d.]+/g) ?? []).slice(0, 3).join(",");
+        return { stops: stops.length, first: rgb(stops[0] ?? ""), last: rgb(stops.at(-1) ?? "") };
+      });
+
+      expect(measured.stops, "그라데이션에서 색을 읽지 못했다").toBe(2);
+      expect(measured.last, "페이드 끝색이 --surface-3 와 어긋났다").toBe(measured.first);
+    });
+
     // 9개 항목을 그대로 펼치면 카드가 화면 몇 배로 늘어난다. 안쪽에서만 스크롤해
     // 폼과 다음 섹션의 자리가 흔들리지 않아야 한다.
     test("전문은 카드를 늘리지 않고 자체 높이 안에서 스크롤한다", async ({ page }) => {

@@ -1,4 +1,4 @@
-import { useId, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { AnimatePresence, m } from "motion/react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -107,16 +107,26 @@ function Notice({ title, message }: { title: string; message: string }) {
 function Step({ show, children }: { show: boolean; children: React.ReactNode }) {
   const ref = useRef<HTMLDivElement>(null);
   // 처음부터 보이던 단계는 옮기지 않는다. 폼을 여는 순간 첫 항목으로 튀지 않게 한다.
-  const appeared = useRef(show);
+  const wasShown = useRef(show);
+  // 등장 애니메이션이 끝나기를 기다리는 중인지. 상태 전이는 전부 이 effect 안에서만
+  // 일어난다 — 렌더 본문에서 ref 를 건드리면 그 렌더가 버려질 때 전이가 함께 사라져,
+  // 자동 스크롤이 조용히 멎는다.
+  const pendingReveal = useRef(false);
+
+  useEffect(() => {
+    if (show && !wasShown.current) pendingReveal.current = true;
+    // 접히는 중이면 대기를 거둔다. 이것이 없으면 exit 애니메이션이 끝날 때도
+    // 콜백이 불려, 사라지는 칸으로 화면이 끌려간다.
+    if (!show) pendingReveal.current = false;
+    wasShown.current = show;
+  }, [show]);
 
   const revealDone = () => {
-    if (appeared.current) return;
-    appeared.current = true;
+    if (!pendingReveal.current) return;
+    pendingReveal.current = false;
     // jsdom 에는 scrollIntoView 가 없다. 테스트에서 터지지 않도록 있을 때만 부른다.
     ref.current?.scrollIntoView?.({ block: "nearest", behavior: "smooth" });
   };
-
-  if (!show && appeared.current) appeared.current = false;
 
   return (
     <AnimatePresence initial={false}>

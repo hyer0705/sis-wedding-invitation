@@ -148,9 +148,23 @@ export const EMPTY_FORM: RsvpForm = {
  * DB 는 하이픈을 허용하지만(`^[0-9-]{9,13}$`) 저장값은 숫자만으로 통일한다. 하객이
  * 하이픈을 넣기도 빼기도 해서, 그대로 두면 같은 번호가 두 모양으로 쌓여 대조가
  * 안 된다. 괄호·점·공백 같은 구분자도 여기서 함께 걷어낸다.
+ *
+ * 국가번호를 붙여 적는 하객이 있다(`+82 10-…`, `0082-10-…`). 숫자만 남기면
+ * 821012345678 이 되는데, 길이가 12 라 검증도 통과해 그대로 저장된다 — 예식 전에
+ * 그 번호로 걸면 닿지 않고, 저장된 값만 봐서는 원래 010 번호였다는 것도 알 수 없다.
+ * 그래서 한국 국가번호는 국내 표기로 되돌린다.
+ *
+ * 되돌리는 것은 **`+` 나 `00` 이 앞에 붙어 국가번호임이 분명할 때뿐이다.** 그 표시
+ * 없이 82 로 시작하는 값까지 건드리면, 뜻하지 않게 멀쩡한 입력을 고치게 된다.
  */
 export function normalizePhone(input: string): string {
-  return input.replace(/\D/g, "");
+  const trimmed = input.trim();
+  const digits = trimmed.replace(/\D/g, "");
+
+  if (!/^(?:\+|00)/.test(trimmed)) return digits;
+
+  const korean = /^(?:00)?82(\d+)$/.exec(digits);
+  return korean ? `0${korean[1]}` : digits;
 }
 
 /**
@@ -227,6 +241,18 @@ export function isRsvpClosed(now: number = Date.now()): boolean {
 }
 
 /**
+ * 전송이 아직 연결되지 않았다는 표식.
+ *
+ * **`scripts/verify-release.mjs` 가 이 이름을 찾아 배포를 막는다.** 미연결 상태는
+ * 화면에 전혀 드러나지 않는 종류의 미완성이다 — 폼은 멀쩡히 그려지고 제출만 매번
+ * 실패하므로, 하객은 자기 문제로 여기고 고객은 회신이 0건인 이유를 알 수 없다.
+ * `.todo` 자리표시와 달리 눈으로는 잡히지 않아 게이트가 대신 본다.
+ *
+ * SIS-20 은 이 상수와 아래 throw 를 통째로 지우고 insert 를 넣는다.
+ */
+export const RSVP_NOT_WIRED = "RSVP 전송이 아직 연결되지 않았습니다 (SIS-20)";
+
+/**
  * 회신을 Supabase 로 보낸다.
  *
  * ⚠ 아직 연결되지 않았다 — 전송은 SIS-20 의 범위이며, 이 함수의 몸통만
@@ -239,5 +265,5 @@ export function isRsvpClosed(now: number = Date.now()): boolean {
  */
 export async function submitRsvp(payload: RsvpPayload): Promise<void> {
   void payload; // SIS-20 이 이 줄을 지우고 insert 를 넣는다
-  throw new Error("RSVP 전송이 아직 연결되지 않았습니다 (SIS-20)");
+  throw new Error(RSVP_NOT_WIRED);
 }

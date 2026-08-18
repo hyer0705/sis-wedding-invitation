@@ -62,6 +62,18 @@ for (const [name, file] of imported) {
   }
 }
 
+// RSVP 전송 연결 여부(SIS-20). `.todo` 와 같은 종류의 미완성이지만 화면에는 전혀
+// 드러나지 않는다 — 폼은 멀쩡히 그려지고 제출만 매번 실패하므로, 하객은 자기 문제로
+// 여기고 고객은 회신이 0건인 이유를 알 수 없다. 눈으로 잡히지 않아 여기서 막는다.
+//
+// App.tsx 가 Rsvp 를 그릴 때만 본다. 섹션을 뺀 상태라면 미연결이어도 배포에 지장이 없다.
+if (/<Rsvp[\s/>]/.test(appSource)) {
+  const rsvpLib = await readFile("src/lib/rsvp.ts", "utf8");
+  if (rsvpLib.includes("RSVP_NOT_WIRED")) {
+    errors.push("RSVP 전송이 연결되지 않았습니다 (SIS-20) — 폼은 보이는데 회신이 전부 실패합니다");
+  }
+}
+
 // INVITE.isMock — 고객 확정값이 아직 반영되지 않았다는 뜻이다.
 // 정규식으로 읽는 이유는 verify가 빌드 없이 도는 순수 node 스크립트이기 때문이다.
 const inviteSource = await readFile("src/invite.ts", "utf8");
