@@ -1070,11 +1070,18 @@ test.describe("청첩장 기본 동작", () => {
       });
       // 리빌 대상은 Reveal 이 그리는 <section> 뿐이라 그것만 본다. 인라인 opacity 를 통째로
       // 훑으면 갤러리의 잠긴 화살표(0.35)와 커버의 「scroll ↓」(무한 왕복)에 영영 걸린다.
+      //
+      // 기본 5초로는 모자란다. 마지막 섹션들은 훑기가 끝날 무렵에야 뷰에 들어와 그때부터
+      // 0.9초 페이드를 시작하고, 워커들이 CPU 를 나눠 쓰면 그 페이드들이 서로 밀린다 —
+      // ios-safari 에서 「3개가 아직 1이 아니다」로 흔들렸다(2026-08-18). 조건 대기라
+      // 정상일 때는 곧바로 풀리고, 늘린 시간을 실제로 쓰지 않는다.
       await expect
-        .poll(() =>
-          page.evaluate(
-            () => [...document.querySelectorAll("section")].filter((el) => getComputedStyle(el).opacity !== "1").length,
-          ),
+        .poll(
+          () =>
+            page.evaluate(
+              () => [...document.querySelectorAll("section")].filter((el) => getComputedStyle(el).opacity !== "1").length,
+            ),
+          { timeout: 20_000 },
         )
         .toBe(0);
 
