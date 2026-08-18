@@ -279,3 +279,274 @@ body {
   font-size: 13px;
   color: var(--muted);
 }
+
+/* ── RS-01·RS-03 참석 회신 폼 (SIS-15) ─────────────────────────────────────
+   c안 §8(drafts/c.dc.html 565~666행)을 옮기면서 색을 현행 토큰으로 치환했다 —
+   §8 은 구 primary(#7e9079) 기준이라 그대로 쓰면 지금 화면과 어긋난다.
+
+   ★ 오류 표시에 빨강을 쓰지 않는다. 토큰에 경고색이 없고, 이 하나 때문에 새 색을
+   들이면 색 체계가 청첩장 밖으로 새어 나간다. 대신 테두리를 --primary 로 세우고
+   메시지를 글로 붙인다 — 색만으로 오류를 전달하지 않는 편이 접근성에도 맞다. */
+/* 항목이 한 번에 하나씩 나타나므로 gap 을 두지 않는다 — 접힌 단계에도 간격이 남아
+   빈자리가 생긴다. 여백은 각 단계가 자기 안쪽에 준다(Rsvp.tsx 의 Step). */
+.rsvp-form {
+  display: flex;
+  flex-direction: column;
+  text-align: left;
+}
+
+/* 선택 버튼 묶음. fieldset 의 기본 테두리·여백을 걷어낸다. */
+.pick-group {
+  display: flex;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.pick-btn {
+  flex: 1;
+  padding: 13px 4px;
+  border: 1px solid var(--input-border);
+  border-radius: var(--radius-control);
+  background: var(--surface);
+  color: var(--on-surface);
+  font-family: var(--font-serif);
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.pick-btn[aria-pressed="true"] {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: var(--on-primary);
+}
+
+/* 칸 위에 남는 라벨. 글자를 적어도 무엇을 적는 칸인지 사라지지 않는다. */
+.rsvp-label {
+  display: block;
+  margin: 0 0 6px 2px;
+  font-size: 13px;
+  color: var(--text-sub);
+}
+
+/* 16px 아래로 내리지 말 것. iOS Safari 는 그보다 작은 입력칸에 초점이 가면 페이지를
+   통째로 확대하고, 확대된 뒤에는 가로로도 밀려 되돌리기가 번거롭다. c안은 15px 이었다. */
+.rsvp-input {
+  width: 100%;
+  padding: 14px 16px;
+  border: 1px solid var(--input-border);
+  border-radius: var(--radius-control);
+  background: var(--input-bg);
+  color: var(--text);
+  font-family: var(--font-serif);
+  font-size: 16px;
+}
+
+.rsvp-input::placeholder {
+  color: var(--text-sub);
+}
+
+/* 오류가 난 자리만 테두리를 세운다. 메시지는 .rsvp-error 가 따로 읽힌다. */
+.rsvp-invalid {
+  border-color: var(--primary);
+}
+
+.rsvp-error {
+  margin: 6px 2px 0;
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: var(--text);
+}
+
+.rsvp-submit {
+  margin-top: 4px;
+  padding: 16px 0;
+  border: none;
+  border-radius: var(--radius-control);
+  background: var(--primary);
+  color: var(--on-primary);
+  font-family: var(--font-serif);
+  font-size: 15px;
+  cursor: pointer;
+}
+
+/* 동의 전에는 눌리지 않는다(RS-03). 잠긴 것이 보이도록 면을 연녹색으로 낮춘다. */
+.rsvp-submit:disabled {
+  background: var(--surface);
+  color: var(--on-surface);
+  cursor: not-allowed;
+}
+
+/* ── 개인정보 수집·이용 안내 ─────────────────────────────────────────────── */
+.privacy {
+  margin-top: 4px;
+  padding: 16px 16px 14px;
+  border-radius: 16px;
+  background: var(--surface-3);
+}
+
+.privacy-title {
+  margin: 0 0 10px;
+  font-size: 13.5px;
+  color: var(--text);
+}
+
+.privacy-summary {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.85;
+  color: var(--text-sub);
+}
+
+.privacy-summary dt {
+  display: inline;
+  font-weight: 400;
+}
+
+.privacy-summary dt::after {
+  content: ": ";
+}
+
+.privacy-summary dd {
+  display: inline;
+  margin: 0;
+}
+
+/* dl 안에서 항목마다 줄을 바꾼다. dd 뒤에 넣어야 마지막 줄에 빈 줄이 남지 않는다. */
+.privacy-summary dd::after {
+  content: "";
+  display: block;
+}
+
+.privacy-consent {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  margin-top: 14px;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--text);
+  cursor: pointer;
+}
+
+/* 체크박스는 브라우저 기본 모양을 쓰되 색만 맞춘다. 직접 그리면 iOS·안드로이드에서
+   눌리는 영역이 제각각이 되고, 그 폭을 보정하다 접근성이 먼저 깨진다. */
+.privacy-consent input {
+  flex: none;
+  width: 17px;
+  height: 17px;
+  margin: 1px 0 0;
+  accent-color: var(--primary);
+}
+
+.privacy-toggle {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  /* 손가락으로 누를 자리를 글자 높이보다 넉넉히 준다 */
+  margin-top: 10px;
+  padding: 6px 0;
+  border: 0;
+  background: none;
+  color: var(--on-surface);
+  font-family: var(--font-serif);
+  font-size: 12.5px;
+  cursor: pointer;
+}
+
+.privacy-toggle span:first-child {
+  text-decoration: underline;
+}
+
+/* 펼치면 화살표가 뒤집힌다 — 계좌 아코디언과 같은 기호·같은 회전이다 */
+.privacy-toggle-arrow {
+  font-size: 12px;
+  line-height: 1;
+  transition: transform 0.25s;
+}
+
+.privacy-toggle-arrow[data-open="true"] {
+  transform: rotate(180deg);
+}
+
+/* 전문 9개 항목을 그대로 펼치면 카드가 화면 몇 배로 늘어난다. 자체 높이를 두고 안에서만
+   스크롤해, 펼쳐도 폼과 다음 섹션의 자리가 흔들리지 않게 한다.
+   높이는 375px 에서 대여섯 줄이 보이는 값으로, 스크롤이 있다는 것이 드러날 만큼은 짧다. */
+.privacy-policy {
+  max-height: 220px;
+  overflow-y: auto;
+  margin-top: 12px;
+  padding: 12px 12px 0 0;
+  border-top: 1px solid var(--input-border);
+  font-size: 12px;
+  line-height: 1.8;
+  color: var(--text-sub);
+  /* 안쪽을 넘기다 끝에 닿아도 페이지가 따라 움직이지 않는다 */
+  overscroll-behavior: contain;
+}
+
+/* 키보드로 스크롤 영역에 들어왔을 때 어디에 있는지 보이게 한다 */
+.privacy-policy:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+/* 잘린 아래쪽을 흐리게 덮어 「더 있다」를 알린다. 글이 선명하게 끊기면 거기가 끝인 줄
+   알기 쉽다. 색은 안내 박스 배경(--surface-3) 그대로라 새 색이 늘지 않는다. */
+.privacy-policy-wrap {
+  position: relative;
+}
+
+.privacy-policy-wrap::after {
+  content: "";
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: 30px;
+  background: linear-gradient(to top, var(--surface-3), rgba(247, 249, 243, 0));
+  /* 덮개일 뿐이라 스크롤·선택을 가로막지 않는다 */
+  pointer-events: none;
+}
+
+.privacy-policy h4 {
+  margin: 14px 0 4px;
+  font-size: 12.5px;
+  font-weight: 400;
+  color: var(--text);
+}
+
+.privacy-policy h4:first-of-type {
+  margin-top: 10px;
+}
+
+.privacy-policy p {
+  margin: 0 0 4px;
+}
+
+.privacy-policy ul {
+  margin: 0 0 6px;
+  padding-left: 16px;
+}
+
+.privacy-policy .privacy-label {
+  margin-top: 6px;
+  color: var(--text);
+}
+
+/* ── 제출 완료 · 마감 안내 ──────────────────────────────────────────────── */
+.rsvp-done {
+  padding: 30px 16px;
+  border-radius: 18px;
+  background: var(--surface-3);
+  text-align: center;
+}
+
+.rsvp-done p {
+  margin: 10px 0 0;
+  font-size: 14px;
+  line-height: 1.8;
+  color: var(--text-body);
+  white-space: pre-line;
+}
