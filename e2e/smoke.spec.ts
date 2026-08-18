@@ -258,7 +258,11 @@ test.describe("청첩장 기본 동작", () => {
      * ios-safari 에서 이 테스트가 흔들렸을 때 로그만으로는 원인을 좁히지 못했다.
      */
     async function scrollPastCover(page: Page) {
-      await expect(page.getByTestId("loading")).toBeHidden();
+      // 기본 5초로는 모자란다. 로딩 화면은 커버 사진 도착 또는 **상한 4초**(Loading.tsx 의
+      // MAX_VISIBLE_MS) 중 먼저 오는 쪽에 걷히는데, CI 에는 사진이 없어(리포에 커밋하지
+      // 않는다) 매번 상한을 꽉 채운다. 거기에 페이드가 더해져 여유가 1초도 남지 않고,
+      // 워커들이 CPU 를 나눠 쓰면 그대로 넘어간다 — 실제로 넘어갔다(2026-08-18).
+      await expect(page.getByTestId("loading")).toBeHidden({ timeout: 15_000 });
       const before = await coverTransform(page);
 
       await page.evaluate(() => window.scrollTo(0, 400));
@@ -1031,7 +1035,9 @@ test.describe("청첩장 기본 동작", () => {
       // 1인 것을 확인하는 것으로 오버레이가 걷혔음까지 함께 본다.
       await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
       await page.evaluate(() => document.fonts.ready);
-      await expect(page.getByTestId("loading")).toBeHidden();
+      // 기본 5초를 쓰지 않는 이유는 커버 패럴랙스 쪽 scrollPastCover 의 주석 참고 —
+      // CI 에서 로딩은 늘 상한 4초를 채우므로 여유가 1초도 남지 않는다.
+      await expect(page.getByTestId("loading")).toBeHidden({ timeout: 15_000 });
       await expect(page.locator("header")).toHaveCSS("opacity", "1");
 
       // 아코디언은 기본이 접힘이고 닫힌 패널은 DOM 에서 빠진다. 열어 두지 않으면 계좌 행과
