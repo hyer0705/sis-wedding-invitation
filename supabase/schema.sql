@@ -34,16 +34,17 @@ create table if not exists rsvp (
   meal text not null,
   -- 연락처 (고객 요청 2026-08-18). 제출자 대표 연락처 한 개를 받는다.
   --
-  -- 컬럼 자체는 nullable 이지만 비워 둘 수 있다는 뜻이 아니다. **참석 회신에는
-  -- 반드시 있어야 하고**, 그 강제는 아래 rsvp_phone_required_for_attendees 가
-  -- 한다. not null 을 쓰지 않은 것은 미참석 회신에서는 연락처가 **선택**이기
-  -- 때문이다 (SIS-35) — 못 간다고 알려주려는 하객을 연락처에서 막으면 회신 자체를
-  -- 포기하고, 식수 파악이라는 본래 목적을 놓친다. 그래도 묻기는 하는 것은 축의
-  -- 대조·답례·회신 정정에 그 번호 말고는 창구가 없기 때문이다.
+  -- **참석·미참석을 가리지 않고 필수다** (SIS-37). SIS-35 에서는 미참석만 선택으로
+  -- 두었었다 — 못 간다고 알려주려는 하객을 연락처에서 막으면 회신 자체를 포기한다고
+  -- 보았기 때문이다. 고객이 그 판단을 뒤집었다: 축의 대조·답례·회신 정정에 그 번호
+  -- 말고는 창구가 없고, 미참석 회신도 같은 이유로 연락이 필요하다.
   --
-  -- 형식 제약도 이름을 붙여 아래에 따로 건다. 여기 인라인으로 적으면 새로 만든
+  -- 되돌리려면 여기 not null 과 아래 alter column 을 함께 걷어낸다. 둘 중 하나만
+  -- 고치면 새 프로젝트와 운영 중인 프로젝트가 갈라진다.
+  --
+  -- 형식 제약은 이름을 붙여 아래에 따로 건다. 여기 인라인으로 적으면 새로 만든
   -- 경우에만 이름 없는 제약이 하나 더 생겨 둘이 겹친다.
-  phone text,
+  phone text not null,
   created_at timestamptz not null default now()
 );
 
@@ -78,14 +79,21 @@ alter table rsvp add constraint rsvp_meal_allowed check (meal in ('식사함', '
 -- 형식: 숫자와 하이픈만 9~13자. 휴대폰·집전화·하이픈 유무가 섞여 들어오므로
 -- 넓게 잡았고, 정규화는 SIS-15 의 폼이 한다.
 alter table rsvp drop constraint if exists rsvp_phone_format;
-alter table rsvp add constraint rsvp_phone_format check (phone is null or phone ~ '^[0-9-]{9,13}$');
+alter table rsvp add constraint rsvp_phone_format check (phone ~ '^[0-9-]{9,13}$');
 
--- 참석 회신에는 연락처가 반드시 있어야 한다. 화면(SIS-15)에서도 막지만 여기서
+-- 연락처는 모든 회신에 있어야 한다 (SIS-37). 화면(SIS-15)에서도 막지만 여기서
 -- 한 번 더 닫는다 — 응답 마감일을 RLS 정책으로 닫은 것과 같은 이유다. 클라이언트
 -- 검증만 믿으면 코드가 바뀌는 순간 조용히 빈 값이 쌓이고, 그때는 예식이 코앞이라
 -- 다시 받을 방법이 없다.
+--
+-- 참석에만 걸던 check 제약을 걷어내고 컬럼 자체의 not null 로 옮긴다. 「미참석은
+-- 예외」라는 조건이 사라진 마당에 제약으로 표현할 것이 남지 않는다.
+--
+-- **phone 이 빈 행이 남아 있으면 아래 set not null 이 실패한다.** 그것이 옳은
+-- 동작이다 — 조용히 넘어가면 필수라고 믿는 채로 빈 값이 섞인 명단을 쓰게 된다.
+-- 실패하면 그 행을 어떻게 할지(번호를 채울지, 지울지) 먼저 정하고 다시 실행한다.
 alter table rsvp drop constraint if exists rsvp_phone_required_for_attendees;
-alter table rsvp add constraint rsvp_phone_required_for_attendees check (attend = '미참석' or phone is not null);
+alter table rsvp alter column phone set not null;
 
 alter table rsvp enable row level security;
 

@@ -689,10 +689,8 @@ test.describe("청첩장 기본 동작", () => {
       await expect(page.getByLabel("연락처")).toBeVisible();
     });
 
-    // 못 간다고 알려주려는 하객을 연락처에서 막으면 회신 자체를 포기한다. 그래서
-    // 묻되 선택으로 두고(SIS-35), 동의를 연락처와 함께 내보낸다 — 적지 않고 그대로
-    // 내려가는 것이 곧 건너뛰는 방법이다.
-    test("미참석이면 성함 다음에 연락처(선택)와 동의가 함께 나온다", async ({ page }) => {
+    // 연락처가 필수로 돌아오면서(SIS-37) 미참석도 「채워야 다음이 나온다」를 따른다.
+    test("미참석이면 성함 다음이 연락처고, 채워야 동의가 나온다", async ({ page }) => {
       await page.goto("/");
       await openRsvpForm(page);
 
@@ -700,15 +698,16 @@ test.describe("청첩장 기본 동작", () => {
       await page.getByRole("button", { name: "참석 어려워요" }).click();
       await page.getByLabel("성함").fill("김하객");
 
-      // 연락처를 비워 둔 채로 동의와 제출 버튼까지 닿는다.
-      await expect(page.getByLabel("연락처 (선택)")).toHaveValue("");
+      await expect(page.getByLabel("연락처")).toHaveValue("");
+      await expect(page.getByRole("checkbox")).toBeHidden();
+
+      await page.getByLabel("연락처").fill("000-0000-0000");
       await expect(page.getByRole("checkbox")).toBeVisible();
       await expect(page.getByLabel("참석 인원 (본인 포함)")).toBeHidden();
     });
 
-    // 선택이지만 적으면 반드시 실려야 한다. 축의 대조·답례·회신 정정에 이 번호
-    // 말고는 창구가 없다 (SIS-35).
-    test("미참석이 연락처를 적으면 그대로 실려 나간다", async ({ page }) => {
+    // 축의 대조·답례·회신 정정에 이 번호 말고는 창구가 없다 (SIS-37).
+    test("미참석 회신도 연락처를 실어 나른다", async ({ page }) => {
       const sent = await stubRsvpInsert(page);
       await page.goto("/");
       await openRsvpForm(page);
@@ -716,32 +715,14 @@ test.describe("청첩장 기본 동작", () => {
       await page.getByRole("button", { name: "신부측 하객" }).click();
       await page.getByRole("button", { name: "참석 어려워요" }).click();
       await page.getByLabel("성함").fill("김하객");
-      await page.getByLabel("연락처 (선택)").fill("000-0000-0000");
+      await page.getByLabel("연락처").fill("000-0000-0000");
       await page.getByRole("checkbox").check();
       await page.getByRole("button", { name: "참석 의사 전하기" }).click();
 
       await expect(page.getByText(/참석 의사가 전달되었습니다/)).toBeVisible();
       expect(sent).toHaveLength(1);
       const row = Array.isArray(sent[0]) ? sent[0][0] : sent[0];
-      expect(row).toMatchObject({ attend: "미참석", phone: "00000000000" });
-    });
-
-    // 비워 두면 null 이어야 한다. 빈 문자열은 rsvp_phone_format 에 걸려 23514 가 된다.
-    test("미참석이 연락처를 비워 두면 phone 이 null 로 나간다", async ({ page }) => {
-      const sent = await stubRsvpInsert(page);
-      await page.goto("/");
-      await openRsvpForm(page);
-
-      await page.getByRole("button", { name: "신부측 하객" }).click();
-      await page.getByRole("button", { name: "참석 어려워요" }).click();
-      await page.getByLabel("성함").fill("김하객");
-      await page.getByRole("checkbox").check();
-      await page.getByRole("button", { name: "참석 의사 전하기" }).click();
-
-      await expect(page.getByText(/참석 의사가 전달되었습니다/)).toBeVisible();
-      expect(sent).toHaveLength(1);
-      const row = Array.isArray(sent[0]) ? sent[0][0] : sent[0];
-      expect(row).toMatchObject({ attend: "미참석", count: 1, meal: "식사안함", phone: null });
+      expect(row).toMatchObject({ attend: "미참석", count: 1, meal: "식사안함", phone: "00000000000" });
     });
 
     test("동의 전에는 제출 버튼이 잠겨 있다", async ({ page }) => {

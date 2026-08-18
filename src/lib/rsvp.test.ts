@@ -130,7 +130,9 @@ describe("buildRsvpPayload", () => {
 
     expect(result.ok).toBe(false);
     if (result.ok) return;
-    expect(Object.keys(result.errors).sort()).toEqual(["agreed", "attend", "meal", "name", "side"].sort());
+    // count 는 없다 — 참석을 고르지 않은 단계에서는 인원을 묻지 않는다.
+    // phone 은 SIS-37 로 필수가 되면서 여기에 들어왔다.
+    expect(Object.keys(result.errors).sort()).toEqual(["agreed", "attend", "meal", "name", "phone", "side"].sort());
   });
 
   it("동의하지 않으면 페이로드를 만들지 않는다", () => {
@@ -201,15 +203,15 @@ describe("buildRsvpPayload", () => {
   });
 
   describe("미참석 회신", () => {
-    // 못 간다고 알려주려는 하객을 연락처에서 막으면 회신 자체를 포기한다.
-    const absent: RsvpForm = { ...attending, attend: "미참석", count: "", phone: "", meal: "미정" };
+    const absent: RsvpForm = { ...attending, attend: "미참석", count: "", phone: "000-0000-0000", meal: "미정" };
 
-    it("연락처가 없어도 통과하고 phone 은 null 이 된다", () => {
-      const result = buildRsvpPayload(absent);
+    // SIS-37 로 필수가 됐다. SIS-35 에서는 선택이었고, 그때는 빈 값이 null 로 저장됐다.
+    it("연락처가 없으면 거부한다", () => {
+      const result = buildRsvpPayload({ ...absent, phone: "" });
 
-      expect(result.ok).toBe(true);
-      if (!result.ok) return;
-      expect(result.payload.phone).toBeNull();
+      expect(result.ok).toBe(false);
+      if (result.ok) return;
+      expect(result.errors.phone).toBeTruthy();
     });
 
     it("인원을 묻지 않으므로 count 는 1 로 채운다", () => {
@@ -222,18 +224,18 @@ describe("buildRsvpPayload", () => {
       expect(result.payload.count).toBe(1);
     });
 
-    // 선택으로 받는다(SIS-35). 축의 대조·답례·회신 정정에 이 번호 말고는 창구가 없다.
-    it("연락처를 적었으면 버리지 않고 그대로 싣는다", () => {
-      const result = buildRsvpPayload({ ...absent, phone: "000-0000-0000" });
+    // 축의 대조·답례·회신 정정에 이 번호 말고는 창구가 없다.
+    it("적은 연락처를 숫자만 남겨 싣는다", () => {
+      const result = buildRsvpPayload(absent);
 
       expect(result.ok).toBe(true);
       if (!result.ok) return;
       expect(result.payload.phone).toBe("00000000000");
     });
 
-    // 선택이라고 검사까지 건너뛰면 잘못 적힌 번호가 그대로 저장되고, 예식 전에 걸어도
-    // 닿지 않는다. DB 의 rsvp_phone_format 도 미참석 회신의 phone 을 똑같이 본다.
-    it("적었는데 자릿수가 틀리면 거부한다", () => {
+    // 잘못 적힌 번호가 그대로 저장되면 예식 전에 걸어도 닿지 않는다. DB 의
+    // rsvp_phone_format 도 미참석 회신의 phone 을 똑같이 본다.
+    it("자릿수가 틀리면 거부한다", () => {
       const result = buildRsvpPayload({ ...absent, phone: "000-00" });
 
       expect(result.ok).toBe(false);
@@ -244,13 +246,13 @@ describe("buildRsvpPayload", () => {
     it("공백만 적은 것은 적지 않은 것으로 본다", () => {
       const result = buildRsvpPayload({ ...absent, phone: "   " });
 
-      expect(result.ok).toBe(true);
-      if (!result.ok) return;
-      expect(result.payload.phone).toBeNull();
+      expect(result.ok).toBe(false);
+      if (result.ok) return;
+      expect(result.errors.phone).toBeTruthy();
     });
 
     // 숫자가 하나도 없으면 normalizePhone 을 거쳐 빈 문자열이 되어 미입력과 구별되지
-    // 않는다. 그냥 통과시키면 하객은 번호를 남겼다고 믿지만 저장값은 null 이다.
+    // 않는다. 적어 넣은 하객에게는 「입력해 주세요」가 아니라 「다시 확인해 주세요」다.
     it("숫자가 하나도 없는 입력은 조용히 버리지 않고 지적한다", () => {
       const result = buildRsvpPayload({ ...absent, phone: "몰라요" });
 
@@ -261,8 +263,8 @@ describe("buildRsvpPayload", () => {
   });
 
   describe("참석 시 연락처", () => {
-    // 폼 검증이 DB 제약(rsvp_phone_required_for_attendees)보다 느슨하면 참석
-    // 회신만 23514 로 거부되는데, 화면에서는 원인이 보이지 않는다.
+    // 폼 검증이 DB 제약(phone not null)보다 느슨하면 회신이 23514 로 거부되는데,
+    // 화면에서는 원인이 보이지 않는다.
     it("비어 있으면 거부한다", () => {
       const result = buildRsvpPayload({ ...attending, phone: "" });
 

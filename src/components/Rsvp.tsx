@@ -31,10 +31,10 @@ import {
 // 카드가 화면 두 배 길이가 됐다. 처음에는 버튼 하나만 두고, 앞 항목을 채워야 다음
 // 항목이 나타나게 해 한 번에 한 가지만 묻는다.
 //
-// 미참석 회신은 인원·식사를 건너뛴다. 연락처는 묻되 **선택**이다(SIS-35) — 못 간다고
-// 알려주려는 하객을 연락처에서 막으면 회신 자체를 포기하고, 식수 파악이라는 본래
-// 목적을 놓친다. DB 도 같은 규칙을 본다 — supabase/schema.sql 의
-// rsvp_phone_required_for_attendees 는 미참석에 null 을 허용한다.
+// 미참석 회신은 인원·식사를 건너뛴다. 연락처는 **참석·미참석 모두 필수**다(SIS-37).
+// SIS-35 에서는 미참석만 선택이었다 — 못 간다고 알려주려는 하객을 연락처에서 막으면
+// 회신 자체를 포기한다고 보았기 때문인데, 고객이 그 판단을 뒤집었다. DB 도 같은 규칙을
+// 본다 — supabase/schema.sql 의 phone 은 not null 이다.
 
 const LEAD = "참석 여부를 알려주시면\n준비에 큰 도움이 됩니다.";
 const OPEN_LABEL = "참석 여부 알리기";
@@ -174,14 +174,13 @@ function RsvpFormFields({ onDone }: { onDone: () => void }) {
   const showName = showAttend && values.attend !== "";
   const filledName = showName && values.name.trim() !== "";
   const showCount = attending && filledName;
-  // 미참석의 연락처는 선택이라 「채워야 다음이 나온다」가 성립하지 않는다(SIS-35).
-  // 그래서 다음 단계인 동의를 연락처와 **함께** 내보낸다 — 적지 않고 그대로 내려가는
-  // 것이 곧 건너뛰는 방법이다. 별도의 건너뛰기 버튼을 두지 않은 것은, 안 적어도 되는
-  // 칸 하나를 넘기려고 버튼을 누르게 하면 반드시 채워야 하는 앞 칸들과 구분이 오히려
-  // 흐려지기 때문이다.
+  // 미참석은 인원을 건너뛰므로 성함 다음이 곧 연락처다.
   const showPhone = attending ? showCount && values.count.trim() !== "" : filledName;
-  const showMeal = attending && showPhone && values.phone.trim() !== "";
-  const showConsent = attending ? showMeal && values.meal !== "" : filledName;
+  // 연락처가 필수로 돌아오면서(SIS-37) 미참석도 「채워야 다음이 나온다」가 다시
+  // 성립한다. 참석은 식사가 한 단계 더 있고, 미참석은 여기서 바로 동의로 간다.
+  const filledPhone = showPhone && values.phone.trim() !== "";
+  const showMeal = attending && filledPhone;
+  const showConsent = attending ? showMeal && values.meal !== "" : filledPhone;
 
   const pickAttend = (value: string) => {
     setValue("attend", value, { shouldValidate: false });
@@ -190,7 +189,7 @@ function RsvpFormFields({ onDone }: { onDone: () => void }) {
     // 없는 값이 제출되므로 인원은 비우고, 식사 여부는 물을 자리가 없어 '식사안함'으로
     // 채운다 — DB 의 meal 은 not null 이다.
     //
-    // 연락처는 비우지 않는다. 미참석에서도 칸이 그대로 남으므로(SIS-35) 지워 버리면
+    // 연락처는 비우지 않는다. 미참석에서도 칸이 그대로 남으므로(SIS-37) 지워 버리면
     // 방금 적은 번호가 눈앞에서 사라진다.
     if (value === "미참석") {
       setValue("count", "");
@@ -257,9 +256,7 @@ function RsvpFormFields({ onDone }: { onDone: () => void }) {
 
       <Step show={showPhone}>
         <TextField
-          // 미참석은 선택 항목이다(SIS-35). 라벨에 적어 두지 않으면 하객은 이 칸도
-          // 채워야 다음이 나오는 줄 알고 멈춘다 — 앞의 네 칸이 모두 그랬기 때문이다.
-          label={attending ? "연락처" : "연락처 (선택)"}
+          label="연락처"
           // 하이픈 없이 숫자만 적어도 된다는 것을 보이는 자리다. 모두 같은 숫자로 적으면
           // 하객이 보고 「번호를 적는 칸」이라고 알아채지 못해, 진짜와 같은 모양을 쓴다.
           // 검토 게이트는 이 값을 예시 목록에 두어 통과시킨다(scripts/review-guard.mjs).
