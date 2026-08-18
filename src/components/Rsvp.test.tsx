@@ -5,9 +5,10 @@ import { renderWithMotion } from "../test/renderWithMotion";
 import Rsvp from "./Rsvp";
 import { submitRsvp } from "../lib/rsvp";
 
-// 전송은 SIS-20 의 몫이라 이 파일에서는 호출 여부와 인자만 본다. 실제 구현은
-// 연결 전이라 반드시 던지도록 되어 있어(lib/rsvp.ts), mock 없이는 성공 경로를
-// 확인할 수 없다.
+// 전송을 mock 으로 덮고 호출 여부와 인자만 본다. 이제 submitRsvp 는 실제로
+// Supabase 로 요청을 보내므로(SIS-20), 덮지 않으면 이 파일이 매번 네트워크를 탄다.
+// supabase-js 가 실제로 무엇을 어디로 보내는지는 유닛 테스트(lib/rsvp.test.ts)와
+// E2E(e2e/smoke.spec.ts)가 각각 본다.
 vi.mock("../lib/rsvp", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../lib/rsvp")>();
   return { ...actual, submitRsvp: vi.fn() };
@@ -225,6 +226,9 @@ describe("Rsvp", () => {
     // 실패를 삼키면 하객도 고객도 회신이 유실된 것을 알 수 없다 (SIS-33).
     it("전송이 실패하면 완료 카드로 넘어가지 않고 다시 시도할 수 있다", async () => {
       const user = userEvent.setup();
+      // 실패 원인은 콘솔로 나간다(Rsvp.tsx). 여기서는 일부러 실패시키는 것이라
+      // 테스트 출력에 섞이지 않게 덮되, 실제로 남는지는 확인한다.
+      const logged = vi.spyOn(console, "error").mockImplementation(() => {});
       sendMock.mockRejectedValue(new Error("network"));
       renderWithMotion(<Rsvp />);
       await openForm(user);
@@ -235,6 +239,9 @@ describe("Rsvp", () => {
       expect(await screen.findByRole("status")).toHaveTextContent(/실패/);
       expect(screen.queryByText(/참석 의사가 전달되었습니다/)).not.toBeInTheDocument();
       expect(screen.getByRole("button", { name: "참석 의사 전하기" })).toBeEnabled();
+      // 화면 안내는 무엇이 실패해도 같은 한 줄이다. 원인을 구분할 유일한 자리라
+      // 이 로그가 사라지면 원격에서 실패를 진단할 방법이 없어진다.
+      expect(logged).toHaveBeenCalled();
     });
 
     it("이미 회신한 브라우저에는 여는 버튼 대신 완료 카드를 보여준다", () => {

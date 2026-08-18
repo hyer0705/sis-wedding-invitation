@@ -1,5 +1,20 @@
-import { beforeEach, describe, expect, it } from "vitest";
-import { alreadySubmitted, buildRsvpPayload, isPastDeadline, normalizePhone, EMPTY_FORM, type RsvpForm } from "./rsvp";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  alreadySubmitted,
+  buildRsvpPayload,
+  isPastDeadline,
+  normalizePhone,
+  submitRsvp,
+  EMPTY_FORM,
+  type RsvpForm,
+  type RsvpPayload,
+} from "./rsvp";
+import { getSupabase } from "./supabase";
+
+// 실제 클라이언트를 만들면 환경변수가 필요하고, 통과하면 이번엔 진짜 프로젝트로
+// 요청이 나간다. 여기서 볼 것은 "어느 테이블에 무엇을 보내고 오류를 어떻게
+// 다루는가" 뿐이라 클라이언트째 대신 세운다.
+vi.mock("./supabase", () => ({ getSupabase: vi.fn() }));
 
 describe("alreadySubmitted", () => {
   beforeEach(() => {
@@ -229,5 +244,87 @@ describe("buildRsvpPayload", () => {
       if (!result.ok) return;
       expect(result.payload.phone).toBe("00000000000");
     });
+  });
+});
+
+describe("submitRsvp", () => {
+  const payload: RsvpPayload = {
+    side: "신랑측",
+    attend: "참석",
+    name: "홍길동",
+    count: 2,
+    meal: "식사",
+    phone: "00000000000",
+  };
+
+  /** PostgREST 오류의 모양. supabase-js 는 이것을 던지지 않고 돌려준다. */
+  type DbError = { code: string; message: string; details: string; hint: string };
+
+  let insert: ReturnType<typeof vi.fn>;
+  let from: ReturnType<typeof vi.fn>;
+
+  /**
+   * insert 한 번의 결과를 세운다.
+   *
+   * insert 가 돌려주는 것은 **`.select` 가 없는 Promise** 다. 그래서 코드가 뒤에
+   * select 를 붙이면 이 테스트가 통째로 터진다 — anon 에는 select 정책이 없어
+   * (RLS) 붙이는 순간 저장은 됐는데 실패로 보이는, 화면에서는 원인을 알 수 없는
+   * 종류의 버그가 된다. 그 경로를 여기서 닫아 둔다.
+   */
+  function respond(error: DbError | null) {
+    insert = vi.fn(() => Promise.resolve({ error }));
+    from = vi.fn(() => ({ insert }));
+    vi.mocked(getSupabase).mockReturnValue({ from } as never);
+  }
+
+  const dbError = (code: string, message: string, details = ""): DbError => ({ code, message, details, hint: "" });
+
+  it("rsvp 테이블에 페이로드를 그대로 넣는다", async () => {
+    respond(null);
+
+    await expect(submitRsvp(payload)).resolves.toBeUndefined();
+    // 테이블 이름이 어긋나면 PostgREST 는 42P01 로 거절한다. 컬럼 대응은
+    // supabase/schema.sql 이 기준이므로 페이로드는 손대지 않고 그대로 보낸다.
+    expect(from).toHaveBeenCalledWith("rsvp");
+    expect(insert).toHaveBeenCalledWith(payload);
+  });
+
+  // supabase-js 는 DB 오류를 던지지 않고 돌려준다. 확인하지 않으면 제약 위반도
+  // 성공으로 지나가 완료 카드가 뜨고, 회신은 어디에도 남지 않는다 (SIS-33).
+  it("오류가 돌아오면 던진다", async () => {
+    respond(dbError("23514", 'new row violates check constraint "rsvp_phone_format"'));
+
+    await expect(submitRsvp(payload)).rejects.toThrow(/23514/);
+  });
+
+  it("코드가 비어 있어도 던진다", async () => {
+    // 네트워크 실패는 code 가 빈 문자열로 온다. 여기서 통과시키면 끊긴 지하철
+    // 안에서 누른 제출이 성공으로 보인다.
+    respond(dbError("", "FetchError: Failed to fetch"));
+
+    await expect(submitRsvp(payload)).rejects.toThrow(/unknown/);
+  });
+
+  // Postgres 는 제약 위반에 「Failing row contains (…)」로 회신 내용을 통째로 실어
+  // 보낸다. 그대로 옮기면 하객의 이름과 연락처가 콘솔에 남는다.
+  it("오류 메시지에 회신 내용을 옮기지 않는다", async () => {
+    respond(
+      dbError(
+        "23514",
+        'new row for relation "rsvp" violates check constraint "rsvp_phone_format"',
+        "Failing row contains (홍길동, 00000000000).",
+      ),
+    );
+
+    const thrown = await submitRsvp(payload).then(
+      () => null,
+      (error: unknown) => error as Error,
+    );
+
+    expect(thrown).not.toBeNull();
+    expect(thrown?.message).not.toContain("홍길동");
+    expect(thrown?.message).not.toContain("00000000000");
+    // 원인을 좁히는 데 필요한 것은 남아 있어야 한다.
+    expect(thrown?.message).toContain("rsvp_phone_format");
   });
 });

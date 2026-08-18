@@ -16,6 +16,7 @@
 // 방명록(SIS-21)도 같은 방식으로 스키마를 세운다.
 import { z } from "zod";
 import { INVITE } from "../invite";
+import { getSupabase } from "./supabase";
 
 const DAY_MS = 86_400_000;
 
@@ -240,30 +241,35 @@ export function isRsvpClosed(now: number = Date.now()): boolean {
   return isPastDeadline(INVITE.rsvp.deadline, now);
 }
 
-/**
- * 전송이 아직 연결되지 않았다는 표식.
- *
- * **`scripts/verify-release.mjs` 가 이 이름을 찾아 배포를 막는다.** 미연결 상태는
- * 화면에 전혀 드러나지 않는 종류의 미완성이다 — 폼은 멀쩡히 그려지고 제출만 매번
- * 실패하므로, 하객은 자기 문제로 여기고 고객은 회신이 0건인 이유를 알 수 없다.
- * `.todo` 자리표시와 달리 눈으로는 잡히지 않아 게이트가 대신 본다.
- *
- * SIS-20 은 이 상수와 아래 throw 를 통째로 지우고 insert 를 넣는다.
- */
-export const RSVP_NOT_WIRED = "RSVP 전송이 아직 연결되지 않았습니다 (SIS-20)";
+/** 회신이 들어가는 테이블. supabase/schema.sql 의 이름과 같아야 한다. */
+const TABLE = "rsvp";
 
 /**
- * 회신을 Supabase 로 보낸다.
+ * 회신을 Supabase 로 보낸다 (SIS-20).
  *
- * ⚠ 아직 연결되지 않았다 — 전송은 SIS-20 의 범위이며, 이 함수의 몸통만
- * `getSupabase().from("rsvp").insert(payload)` 로 갈아끼우면 된다. 시그니처는
- * 그때 바뀌지 않도록 지금 모양으로 고정해 두었다.
+ * `insert` 뒤에 `select` 를 붙이지 않는다. anon 에는 select 정책이 없으므로(RLS)
+ * 붙이는 순간 **저장은 됐는데 되읽기에서 막혀 실패로 보인다** — 하객은 다시
+ * 제출하고 같은 회신이 두 번 쌓인다.
  *
- * 조용히 성공한 척하지 않는 것이 중요하다. 백엔드를 Supabase 로 옮긴 이유가
- * 바로 Apps Script 의 `no-cors` 가 실패를 삼켜 회신 유실을 알 수 없다는 것이었다
- * (SIS-33). 연결 전에는 반드시 던진다.
+ * supabase-js 는 DB 오류를 던지지 않고 `{ error }` 로 돌려준다. 네트워크 실패까지
+ * 같은 모양으로 감싸 오므로 여기서 확인하지 않으면 무엇이 실패해도 성공으로
+ * 지나가고, 완료 카드가 뜬 채 회신은 어디에도 남지 않는다 — Apps Script 를 버린
+ * 이유(실패의 조용한 유실, SIS-33)가 그대로 재현된다. 그래서 반드시 던진다.
+ *
+ * 던진 오류는 화면에 그대로 나가지 않는다. 하객에게는 Rsvp.tsx 가 다시 시도해
+ * 달라는 안내를 띄우고, 이 메시지는 원인을 좁히는 쪽에서 본다.
  */
 export async function submitRsvp(payload: RsvpPayload): Promise<void> {
-  void payload; // SIS-20 이 이 줄을 지우고 insert 를 넣는다
-  throw new Error(RSVP_NOT_WIRED);
+  const { error } = await getSupabase().from(TABLE).insert(payload);
+  if (!error) return;
+
+  // error.details 는 싣지 않는다. Postgres 는 제약 위반에 「Failing row contains
+  // (…)」로 회신 내용을 통째로 실어 보내므로, 그대로 두면 하객의 이름과 연락처가
+  // 콘솔에 남는다. 원인을 좁히는 데 필요한 것은 코드와 제약 이름뿐이다.
+  //
+  // 자주 보게 될 코드:
+  //   23514 check 제약 위반 — 폼 검증이 schema.sql 보다 느슨해졌다는 뜻이다
+  //   42501 RLS 거부 — 마감이 지났거나 insert 정책이 사라졌다
+  //   PGRST204 테이블에 없는 컬럼 — schema.sql 의 alter table 이 적용되지 않았다
+  throw new Error(`회신 저장 실패 (${error.code || "unknown"}): ${error.message}`);
 }

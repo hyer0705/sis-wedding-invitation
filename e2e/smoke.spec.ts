@@ -15,6 +15,49 @@ async function openRsvpForm(page: Page) {
   await expect(page.getByRole("button", { name: "신랑측 하객" })).toBeVisible();
 }
 
+/**
+ * 회신 저장 요청을 가로채 답을 대신 준다 (SIS-20).
+ *
+ * 진짜 Supabase 로 보내면 테스트를 돌릴 때마다 고객 테이블에 회신이 쌓이고, 지울
+ * 방법도 없다(anon 에는 delete 정책이 없다). 빌드에 박히는 주소는 해석되지 않는
+ * `.invalid` 라(playwright.config.ts) 여기서 잡지 않은 요청은 그냥 실패한다.
+ *
+ * @returns 가로챈 요청의 본문. 실제로 무엇이 나갔는지 확인하는 데 쓴다.
+ */
+async function stubRsvpInsert(page: Page, { status = 201 } = {}) {
+  const sent: unknown[] = [];
+
+  await page.route("**/rest/v1/rsvp*", async (route) => {
+    // 다른 출처로 가는 요청이라 브라우저가 preflight 를 먼저 보낸다. 여기에
+    // 답해 주지 않으면 본 요청이 CORS 에서 막혀 스텁까지 오지도 못한다.
+    //
+    // 허용 헤더는 와일드카드가 아니라 **요청이 물어본 목록을 그대로 되돌린다.**
+    // supabase-js 는 apikey·x-client-info 같은 커스텀 헤더를 실어 보내는데, 이
+    // 자리의 `*` 를 어떻게 대조하는지는 엔진마다 다르다. webkit 은 CI 에서만
+    // 도는지라(playwright.config.ts) 로컬에서 재현할 수 없는 실패가 되고,
+    // 되돌려 주는 쪽은 어느 엔진에서든 통한다.
+    const cors = {
+      "access-control-allow-origin": "*",
+      "access-control-allow-headers": route.request().headers()["access-control-request-headers"] ?? "*",
+      "access-control-allow-methods": "POST, OPTIONS",
+    };
+    if (route.request().method() === "OPTIONS") {
+      await route.fulfill({ status: 204, headers: cors });
+      return;
+    }
+
+    sent.push(JSON.parse(route.request().postData() ?? "null"));
+    await route.fulfill({
+      status,
+      headers: { ...cors, "content-type": "application/json" },
+      // select 를 붙이지 않으므로 PostgREST 는 성공에 빈 본문을 준다. 실패는 오류 객체다.
+      body: status < 400 ? "" : JSON.stringify({ code: "23514", message: "check 제약 위반", details: "", hint: "" }),
+    });
+  });
+
+  return sent;
+}
+
 /** 참석 회신을 동의 단계까지 채운다. 개인정보 안내는 그 단계에서야 나타난다. */
 async function fillRsvpToConsent(page: Page) {
   await openRsvpForm(page);
@@ -607,9 +650,11 @@ test.describe("청첩장 기본 동작", () => {
     });
   });
 
-  // RS-01·RS-03 (SIS-15). 전송은 아직 연결되지 않았으므로(SIS-20) 여기서는 제출
-  // 직전까지만 본다 — 제출 → 완료 카드 흐름은 컴포넌트 테스트(Rsvp.test.tsx)가
-  // mock 으로 덮고 있고, 실제 왕복은 전송이 붙은 뒤에 이 파일로 옮긴다.
+  // RS-01·RS-03 (SIS-15) + 전송(SIS-20).
+  //
+  // 컴포넌트 테스트(Rsvp.test.tsx)는 submitRsvp 자체를 mock 으로 덮으므로, supabase-js
+  // 가 실제로 어떤 주소에 어떤 본문을 보내는지는 여기서만 드러난다. 응답만 스텁으로
+  // 세우고 그 앞은 전부 진짜 코드가 돈다.
   test.describe("RSVP", () => {
     // 단계가 접혔다 펴지는 전환이 있어, 애니메이션을 끄고 최종 상태를 본다.
     test.use({ reducedMotion: "reduce" });
@@ -667,6 +712,51 @@ test.describe("청첩장 기본 동작", () => {
 
       await page.getByRole("checkbox").check();
       await expect(submit).toBeEnabled();
+    });
+
+    // 제출 → 완료 카드 왕복 (SIS-20).
+    test("참석 회신을 제출하면 저장 요청이 나가고 완료 카드로 바뀐다", async ({ page }) => {
+      const sent = await stubRsvpInsert(page);
+      await page.goto("/");
+      await fillRsvpToConsent(page);
+      await page.getByRole("checkbox").check();
+      await page.getByRole("button", { name: "참석 의사 전하기" }).click();
+
+      await expect(page.getByText(/참석 의사가 전달되었습니다/)).toBeVisible();
+      await expect(page.getByRole("button", { name: "참석 의사 전하기" })).toBeHidden();
+
+      // 컬럼 대응이 어긋나면 DB 가 23514·PGRST204 로 거절하는데, 화면에는 원인이
+      // 보이지 않는다. 나간 본문을 supabase/schema.sql 의 컬럼과 직접 맞춘다.
+      expect(sent).toHaveLength(1);
+      const row = Array.isArray(sent[0]) ? sent[0][0] : sent[0];
+      expect(row).toEqual({
+        side: "신랑측",
+        attend: "참석",
+        name: "홍길동",
+        count: 2,
+        meal: "식사",
+        // 하이픈은 폼이 걷어낸다 — 같은 번호가 두 모양으로 쌓이면 대조가 안 된다.
+        phone: "00000000000",
+      });
+
+      // 중복 제출 방지는 localStorage 에 남는다. jsdom 이 아니라 진짜 브라우저에서
+      // 새로고침을 넘겨 확인한다.
+      await page.reload();
+      await expect(page.getByText(/참석 의사가 전달되었습니다/)).toBeVisible();
+      await expect(page.getByRole("button", { name: "참석 여부 알리기" })).toBeHidden();
+    });
+
+    // 실패를 삼키면 하객도 고객도 회신이 유실된 것을 알 수 없다 (SIS-33).
+    test("저장이 실패하면 완료 카드로 넘어가지 않고 다시 시도할 수 있다", async ({ page }) => {
+      await stubRsvpInsert(page, { status: 500 });
+      await page.goto("/");
+      await fillRsvpToConsent(page);
+      await page.getByRole("checkbox").check();
+      await page.getByRole("button", { name: "참석 의사 전하기" }).click();
+
+      await expect(page.getByTestId("toast")).toContainText("실패");
+      await expect(page.getByText(/참석 의사가 전달되었습니다/)).toBeHidden();
+      await expect(page.getByRole("button", { name: "참석 의사 전하기" })).toBeEnabled();
     });
 
     // 고지한 수집 항목이 실제 수집과 어긋나면 고지가 효력을 잃는다(RS-03).
