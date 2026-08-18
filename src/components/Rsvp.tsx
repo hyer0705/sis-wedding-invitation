@@ -198,9 +198,17 @@ function RsvpFormFields({ onDone }: { onDone: () => void }) {
       await submitRsvp(toRsvpPayload(data));
       markSubmitted();
       onDone();
-    } catch {
+    } catch (error) {
       // 실패를 삼키지 않는다. Apps Script 를 버린 이유가 실패가 조용히 유실되는
       // 것이었다(SIS-33) — 하객이 다시 시도할 수 있어야 회신이 남는다.
+      //
+      // 원인은 콘솔에 남긴다. 화면에 띄우는 안내는 무엇이 실패해도 같은 한 줄이라,
+      // 이 줄이 없으면 고객이 「회신이 안 된다」고 알려와도 컬럼 누락(PGRST204)·
+      // 마감/RLS 거부(42501)·네트워크 장애를 구분할 방법이 없다. 실기기에서는
+      // 원격 디버깅으로 이 줄을 본다(docs/manual-qa.md).
+      //
+      // 회신 내용은 이 메시지에 들어 있지 않다 — lib/rsvp.ts 가 걷어낸다.
+      console.error(error);
       showToast(SEND_FAILED);
     }
   };

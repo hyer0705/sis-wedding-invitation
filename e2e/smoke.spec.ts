@@ -30,9 +30,15 @@ async function stubRsvpInsert(page: Page, { status = 201 } = {}) {
   await page.route("**/rest/v1/rsvp*", async (route) => {
     // 다른 출처로 가는 요청이라 브라우저가 preflight 를 먼저 보낸다. 여기에
     // 답해 주지 않으면 본 요청이 CORS 에서 막혀 스텁까지 오지도 못한다.
+    //
+    // 허용 헤더는 와일드카드가 아니라 **요청이 물어본 목록을 그대로 되돌린다.**
+    // supabase-js 는 apikey·x-client-info 같은 커스텀 헤더를 실어 보내는데, 이
+    // 자리의 `*` 를 어떻게 대조하는지는 엔진마다 다르다. webkit 은 CI 에서만
+    // 도는지라(playwright.config.ts) 로컬에서 재현할 수 없는 실패가 되고,
+    // 되돌려 주는 쪽은 어느 엔진에서든 통한다.
     const cors = {
       "access-control-allow-origin": "*",
-      "access-control-allow-headers": "*",
+      "access-control-allow-headers": route.request().headers()["access-control-request-headers"] ?? "*",
       "access-control-allow-methods": "POST, OPTIONS",
     };
     if (route.request().method() === "OPTIONS") {
