@@ -6,6 +6,7 @@ import {
   normalizePhone,
   submitRsvp,
   EMPTY_FORM,
+  MEAL_OPTIONS,
   type RsvpForm,
   type RsvpPayload,
 } from "./rsvp";
@@ -28,6 +29,18 @@ describe("alreadySubmitted", () => {
   it("제출 기록이 있으면 true를 반환한다", () => {
     localStorage.setItem("rsvp-submitted", "1");
     expect(alreadySubmitted()).toBe(true);
+  });
+});
+
+describe("MEAL_OPTIONS", () => {
+  // SIS-35. 명세서 시트에는 화면에 보이는 문구가 적히는데, 그것이 저장값과 다르면
+  // 다음 사람이 시트를 보고 schema.sql 의 check 제약을 화면 문구로 고친다 —
+  // 「시트가 유일한 기준」이므로 그 착각은 정상적인 판단이다. 그 순간 참석 회신만
+  // 23514 로 거부되고, 화면에는 원인이 보이지 않는 안내 한 줄만 뜬다.
+  it("화면 라벨과 저장값이 같다", () => {
+    for (const option of MEAL_OPTIONS) {
+      expect(option.label).toBe(option.value);
+    }
   });
 });
 
@@ -92,7 +105,7 @@ describe("buildRsvpPayload", () => {
     attend: "참석",
     name: "홍길동",
     count: "2",
-    meal: "식사",
+    meal: "식사함",
     phone: "000-0000-0000",
     agreed: true,
   };
@@ -107,7 +120,7 @@ describe("buildRsvpPayload", () => {
       attend: "참석",
       name: "홍길동",
       count: 2,
-      meal: "식사",
+      meal: "식사함",
       phone: "00000000000",
     });
   });
@@ -208,6 +221,43 @@ describe("buildRsvpPayload", () => {
       if (!result.ok) return;
       expect(result.payload.count).toBe(1);
     });
+
+    // 선택으로 받는다(SIS-35). 축의 대조·답례·회신 정정에 이 번호 말고는 창구가 없다.
+    it("연락처를 적었으면 버리지 않고 그대로 싣는다", () => {
+      const result = buildRsvpPayload({ ...absent, phone: "000-0000-0000" });
+
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      expect(result.payload.phone).toBe("00000000000");
+    });
+
+    // 선택이라고 검사까지 건너뛰면 잘못 적힌 번호가 그대로 저장되고, 예식 전에 걸어도
+    // 닿지 않는다. DB 의 rsvp_phone_format 도 미참석 회신의 phone 을 똑같이 본다.
+    it("적었는데 자릿수가 틀리면 거부한다", () => {
+      const result = buildRsvpPayload({ ...absent, phone: "000-00" });
+
+      expect(result.ok).toBe(false);
+      if (result.ok) return;
+      expect(result.errors.phone).toBeTruthy();
+    });
+
+    it("공백만 적은 것은 적지 않은 것으로 본다", () => {
+      const result = buildRsvpPayload({ ...absent, phone: "   " });
+
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      expect(result.payload.phone).toBeNull();
+    });
+
+    // 숫자가 하나도 없으면 normalizePhone 을 거쳐 빈 문자열이 되어 미입력과 구별되지
+    // 않는다. 그냥 통과시키면 하객은 번호를 남겼다고 믿지만 저장값은 null 이다.
+    it("숫자가 하나도 없는 입력은 조용히 버리지 않고 지적한다", () => {
+      const result = buildRsvpPayload({ ...absent, phone: "몰라요" });
+
+      expect(result.ok).toBe(false);
+      if (result.ok) return;
+      expect(result.errors.phone).toBeTruthy();
+    });
   });
 
   describe("참석 시 연락처", () => {
@@ -253,7 +303,7 @@ describe("submitRsvp", () => {
     attend: "참석",
     name: "홍길동",
     count: 2,
-    meal: "식사",
+    meal: "식사함",
     phone: "00000000000",
   };
 

@@ -8,7 +8,7 @@
 // 대응 관계:
 //   name    char_length 1~20
 //   count   1~20 (not null — 미참석 회신은 1 로 채운다)
-//   meal    '식사' | '식사안함' | '미정'
+//   meal    '식사함' | '식사안함' | '미정'
 //   phone   숫자·하이픈 9~13자 + attend = '미참석' or phone is not null
 //
 // 규칙은 zod 스키마 하나(rsvpSchema)에만 적는다. 화면(react-hook-form)과 테스트가
@@ -22,13 +22,17 @@ const DAY_MS = 86_400_000;
 
 export const SIDES = ["신랑측", "신부측"] as const;
 export const ATTENDS = ["참석", "미참석"] as const;
-export const MEALS = ["식사", "식사안함", "미정"] as const;
+export const MEALS = ["식사함", "식사안함", "미정"] as const;
 
 export type Side = (typeof SIDES)[number];
 export type Attend = (typeof ATTENDS)[number];
 export type Meal = (typeof MEALS)[number];
 
-/** 화면 라벨과 저장값의 대응. 저장값은 DB check 제약이 고정하므로 라벨만 바꾼다. */
+/**
+ * 화면 라벨과 저장값의 대응. 저장값은 DB check 제약이 고정하므로 라벨만 바꾼다.
+ *
+ * 식사 여부만은 예외로 **둘을 같은 값으로 맞춰 두었다**(SIS-35) — 아래 MEAL_OPTIONS.
+ */
 export const SIDE_OPTIONS = [
   { value: "신랑측", label: "신랑측 하객" },
   { value: "신부측", label: "신부측 하객" },
@@ -40,9 +44,15 @@ export const ATTEND_OPTIONS = [
 ] as const satisfies readonly { value: Attend; label: string }[];
 
 // 3택 확정(2026-08-18, B안). 세 버튼이 375px 한 줄에 들어가야 해 라벨을 짧게 잡았다.
+//
+// 라벨과 저장값이 같다. 일부러 그렇게 맞췄다(SIS-35) — 명세서 시트에는 화면에 보이는
+// 문구가 적히는데, 그것이 저장값과 다르면 다음 사람이 시트를 보고 schema.sql 의 check
+// 제약을 화면 문구로 고친다. 「시트가 유일한 기준」이므로 그 착각은 정상적인 판단이다.
+// 그 순간 폼은 여전히 옛 값을 보내 **참석 회신만** 23514 로 거부되고, 화면에는 원인이
+// 보이지 않는 「회신 전송에 실패했어요」만 뜬다. 두 값을 하나로 두면 어긋날 자리가 없다.
 export const MEAL_OPTIONS = [
-  { value: "식사", label: "식사합니다" },
-  { value: "식사안함", label: "안 합니다" },
+  { value: "식사함", label: "식사함" },
+  { value: "식사안함", label: "식사안함" },
   { value: "미정", label: "미정" },
 ] as const satisfies readonly { value: Meal; label: string }[];
 
@@ -53,7 +63,7 @@ export interface RsvpPayload {
   name: string;
   count: number;
   meal: Meal;
-  /** 미참석 회신은 받지 않으므로 null 이다. */
+  /** 미참석 회신에서는 선택이므로, 적지 않으면 null 이다. */
   phone: string | null;
 }
 
@@ -79,9 +89,12 @@ function pick<T extends string>(values: readonly T[], message: string) {
 /**
  * RS-01 회신 폼의 검증 규칙. **이 스키마가 유일한 기준이다.**
  *
- * 조건부 규칙(참석일 때만 인원·연락처를 묻는다)은 superRefine 으로 둔다. 미참석
- * 회신에서 두 칸은 화면에 아예 없으므로 비어 있는 것이 정상이고, 이를 오류로 잡으면
- * 회신 자체가 막힌다.
+ * 조건부 규칙(참석일 때만 인원을 묻는다)은 superRefine 으로 둔다. 미참석 회신에서
+ * 인원 칸은 화면에 아예 없으므로 비어 있는 것이 정상이고, 이를 오류로 잡으면 회신
+ * 자체가 막힌다.
+ *
+ * 연락처는 참석에서 필수, 미참석에서 선택이다(SIS-35). 선택이라고 검사까지 건너뛰지는
+ * 않는다 — 적었는데 자릿수가 틀리면 그대로 저장되어 예식 전에 걸어도 닿지 않는다.
  */
 export const rsvpSchema = z
   .object({
@@ -100,25 +113,44 @@ export const rsvpSchema = z
     agreed: z.boolean().refine((value) => value, { error: "개인정보 수집·이용에 동의해 주세요" }),
   })
   .superRefine((data, ctx) => {
-    if (data.attend !== "참석") return;
+    const attending = data.attend === "참석";
 
-    const count = data.count.trim();
-    if (!/^\d+$/.test(count)) {
-      ctx.addIssue({ code: "custom", path: ["count"], message: "참석 인원을 숫자로 입력해 주세요" });
-    } else if (Number(count) < COUNT_MIN || Number(count) > COUNT_MAX) {
-      ctx.addIssue({
-        code: "custom",
-        path: ["count"],
-        message: `참석 인원은 ${COUNT_MIN}~${COUNT_MAX}명까지 입력할 수 있어요`,
-      });
+    if (attending) {
+      const count = data.count.trim();
+      if (!/^\d+$/.test(count)) {
+        ctx.addIssue({ code: "custom", path: ["count"], message: "참석 인원을 숫자로 입력해 주세요" });
+      } else if (Number(count) < COUNT_MIN || Number(count) > COUNT_MAX) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["count"],
+          message: `참석 인원은 ${COUNT_MIN}~${COUNT_MAX}명까지 입력할 수 있어요`,
+        });
+      }
     }
 
-    // 폼 검증이 DB 제약(rsvp_phone_required_for_attendees)보다 느슨하면 참석 회신만
-    // 23514 로 거부되는데, 화면에서는 원인이 보이지 않는다.
+    // 적기는 했는지를 자릿수와 따로 본다. 「몰라요」·「-」처럼 숫자가 하나도 없는
+    // 입력은 normalizePhone 을 거치면 빈 문자열이 되어 미입력과 구별되지 않는데,
+    // 미참석에서 그것을 그냥 통과시키면 하객은 번호를 남겼다고 믿지만 저장되는 값은
+    // null 이다 — 축의 대조·답례에 쓸 것이 남지 않는다.
+    const typed = data.phone.trim() !== "";
     const digits = normalizePhone(data.phone);
+
     if (!digits) {
-      ctx.addIssue({ code: "custom", path: ["phone"], message: "연락처를 입력해 주세요" });
-    } else if (digits.length < PHONE_MIN || digits.length > PHONE_MAX) {
+      // 미참석은 **비워 두는 것만** 허용한다(SIS-35). 참석은 다르다 — 폼 검증이 DB
+      // 제약(rsvp_phone_required_for_attendees)보다 느슨하면 참석 회신만 23514 로
+      // 거부되는데, 화면에서는 원인이 보이지 않는다.
+      if (attending) {
+        ctx.addIssue({ code: "custom", path: ["phone"], message: "연락처를 입력해 주세요" });
+      } else if (typed) {
+        ctx.addIssue({ code: "custom", path: ["phone"], message: "연락처를 다시 확인해 주세요" });
+      }
+      return;
+    }
+
+    // 적었다면 참석·미참석을 가리지 않고 자릿수를 본다. 선택 항목이라고 검사를 건너뛰면
+    // 잘못 적힌 번호가 그대로 저장되고, 예식 전에 걸어도 닿지 않는다. DB 의
+    // rsvp_phone_format 도 미참석 회신의 phone 을 똑같이 본다.
+    if (digits.length < PHONE_MIN || digits.length > PHONE_MAX) {
       ctx.addIssue({ code: "custom", path: ["phone"], message: "연락처를 다시 확인해 주세요" });
     }
   });
@@ -182,12 +214,16 @@ export function isPastDeadline(deadline: string, now: number): boolean {
 /**
  * 검증을 통과한 값을 DB 페이로드로 옮긴다.
  *
- * 미참석 회신은 인원과 연락처를 묻지 않으므로 여기서 채운다. count 를 1 로 두는 것은
- * DB 의 count 가 not null 이고 1 이상이어야 하기 때문이며, 집계는 attend 로 거르므로
- * 이 값이 미참석 인원으로 새지 않는다.
+ * 미참석 회신은 인원을 묻지 않으므로 여기서 채운다. count 를 1 로 두는 것은 DB 의
+ * count 가 not null 이고 1 이상이어야 하기 때문이며, 집계는 attend 로 거르므로 이 값이
+ * 미참석 인원으로 새지 않는다.
+ *
+ * 연락처는 attend 로 가르지 않고 **적혔는지로만** 가른다(SIS-35). 미참석에서도 받게
+ * 되면서 attend 로 판단하면 방금 적어 넣은 번호를 도로 버리게 된다.
  */
 export function toRsvpPayload(values: RsvpValues): RsvpPayload {
   const attending = values.attend === "참석";
+  const phone = normalizePhone(values.phone);
 
   return {
     side: values.side,
@@ -195,7 +231,9 @@ export function toRsvpPayload(values: RsvpValues): RsvpPayload {
     name: values.name,
     count: attending ? Number(values.count) : 1,
     meal: values.meal,
-    phone: attending ? normalizePhone(values.phone) : null,
+    // 빈 문자열이 아니라 null 로 보낸다. ''는 rsvp_phone_format 에 걸려 23514 가 되고,
+    // 참석 회신이라면 rsvp_phone_required_for_attendees 를 빈 값으로 통과해 버린다.
+    phone: phone || null,
   };
 }
 
