@@ -23,15 +23,33 @@ create table if not exists rsvp (
   -- 식사 여부 3택 (고객 확정 2026-08-18 — B안). 화면 문구는 SIS-15 가 정하지만
   -- 저장값은 이 세 가지여야 한다. 문구를 바꾸려면 이 제약을 함께 고친다.
   meal text not null check (meal in ('식사', '식사안함', '미정')),
+  -- 연락처 (고객 요청 2026-08-18). 제출자 대표 연락처 한 개를 받는다.
+  --
+  -- DB 는 nullable 로 둔다. 화면에서 필수로 받을지는 SIS-15 가 정하는데, 여기서
+  -- not null 로 박아 두면 그 결정이 DB 마이그레이션 없이는 못 바뀐다. 반대 방향
+  -- (선택 → 필수)은 UI 에서 언제든 조일 수 있다.
+  --
+  -- 형식 제약은 아래 rsvp_phone_format 에 이름을 붙여 따로 건다. 여기 인라인으로
+  -- 적으면 새로 만든 경우에만 이름 없는 제약이 하나 더 생겨 둘이 겹친다.
+  phone text,
   created_at timestamptz not null default now()
 );
 
 -- 「전하고 싶은 말」 컬럼은 두지 않는다. 방명록(SIS-21)이 같은 역할을 하므로
 -- 받지 않기로 고객이 확정했다(2026-08-18).
 --
--- 연락처 컬럼도 아직 없다. 수집하기로 방향은 정해졌으나 항목(대표 1개 / 참석자별,
--- 필수 여부)이 확정되지 않았고, 수집 항목이 개인정보 동의 문구(RS-03)와 맞물린다.
--- 확정되면 SIS-15 에서 alter table 로 추가하고 이 파일에 반영한다.
+-- ★ 연락처를 받기로 하면서 이 테이블은 개인정보를 담게 됐다. 두 가지가 따라온다.
+--   1. 개인정보 동의 문구(RS-03)의 수집 항목에 연락처가 반드시 들어가야 한다.
+--      법적 요구사항이라 문구는 고객 확정본을 쓴다 — 지어 넣지 않는다.
+--   2. 명세서(RS-01)는 「연락처 미수집」으로 되어 있다. 시트를 갱신해야 코드와
+--      단일 기준이 맞는다.
+--
+-- ── 이미 rsvp 를 만든 뒤라면 ────────────────────────────────────────────────
+-- 위 create table 은 테이블이 있으면 통째로 건너뛴다. 아래 두 줄이 그 경우를
+-- 메운다. 새로 만든 경우에도 그냥 통과하므로 항상 함께 실행하면 된다.
+alter table rsvp add column if not exists phone text;
+alter table rsvp drop constraint if exists rsvp_phone_format;
+alter table rsvp add constraint rsvp_phone_format check (phone is null or phone ~ '^[0-9-]{9,13}$');
 
 alter table rsvp enable row level security;
 

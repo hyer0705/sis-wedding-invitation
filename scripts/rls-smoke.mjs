@@ -70,16 +70,26 @@ const isMissingTable = (error) => error?.code === "42P01" || error?.code === "PG
 {
   // meal 만 제약을 위반시킨다. 나머지는 정상값이라, 23514 가 왔다는 것은
   // "여기까지 왔다"는 뜻이 된다.
+  //
+  // phone 을 굳이 실어 보내는 이유는 컬럼 누락을 잡기 위해서다. 옛 SQL 로 만든
+  // 테이블에는 phone 이 없고, 그 상태로는 회신의 연락처가 통째로 버려진다.
+  // 없는 컬럼을 보내면 PostgREST 가 PGRST204 로 알려 준다.
+  //
+  // 값이 전부 0 인 것은 검토 게이트 때문이다. 진짜 형식의 번호를 적으면 개인정보
+  // 패턴에 걸려 커밋이 막힌다(scripts/review-guard.mjs).
   const { error } = await supabase.from("rsvp").insert({
     side: "신랑측",
     attend: "참석",
     name: "RLS스모크",
     count: 1,
     meal: "__제약위반__",
+    phone: "00000000000",
   });
 
   if (!error) {
     failures.push("제약을 위반한 행이 저장되었습니다 — check 제약이 빠져 있습니다. 테이블에서 해당 행을 지우세요");
+  } else if (error.code === "PGRST204") {
+    failures.push(`테이블에 없는 컬럼이 있습니다 (${error.message}) — supabase/schema.sql 의 alter table 부분을 실행하세요`);
   } else if (error.code === "23514") {
     console.log("② 쓰기 허용 — 통과 (insert 정책 통과 후 check 위반 23514, 행은 남지 않음)");
   } else if (error.code === "42501") {
