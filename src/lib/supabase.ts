@@ -69,3 +69,32 @@ export function getSupabase(): SupabaseClient {
   });
   return client;
 }
+
+let adminClient: SupabaseClient | null = null;
+
+/**
+ * 관리자 페이지(/admin)용 클라이언트 (SIS-22).
+ *
+ * 하객용과 나누는 이유는 **세션 때문이다.** 위 클라이언트는 `persistSession: false`
+ * 라 새로고침 한 번에 로그인이 풀린다. 관리자는 로그인 상태가 유지돼야 하므로
+ * 저장을 켜는데, 그 설정을 하객 쪽에 적용하면 회신만 하고 갈 하객의 브라우저에도
+ * 저장소를 건드리게 된다.
+ *
+ * 키는 같은 publishable 키다. **관리자 권한은 키가 아니라 로그인 세션에서 나온다** —
+ * RLS 정책이 `is_admin()` 으로 판정하므로(supabase/schema.sql), 로그인하지 않은
+ * 이 클라이언트는 하객용과 똑같이 아무것도 읽지 못한다.
+ *
+ * `storageKey` 를 따로 주어 하객용 저장 항목과 섞이지 않게 한다. 두 클라이언트가
+ * 한 화면에 동시에 살지는 않는다 — /admin 에서는 청첩장이 마운트되지 않는다.
+ */
+export function getAdminSupabase(): SupabaseClient {
+  if (adminClient) return adminClient;
+
+  const error = supabaseEnvError(envUrl, envKey);
+  if (error) throw new Error(error);
+
+  adminClient = createClient(envUrl as string, envKey as string, {
+    auth: { persistSession: true, autoRefreshToken: true, storageKey: "sis-admin-auth" },
+  });
+  return adminClient;
+}
