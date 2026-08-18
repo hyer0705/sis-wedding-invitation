@@ -70,6 +70,23 @@ async function fillRsvpToConsent(page: Page) {
   await expect(page.getByRole("checkbox")).toBeVisible();
 }
 
+/**
+ * 제출 버튼을 눌러 확인 팝업까지 연다 (SIS-36).
+ *
+ * 「참석 의사 전하기」는 이제 전송이 아니라 팝업 열기다 — 검증을 통과해야 열린다.
+ */
+async function openRsvpConfirm(page: Page) {
+  await page.getByRole("button", { name: "참석 의사 전하기" }).click();
+  const dialog = page.getByRole("dialog");
+  await expect(dialog).toBeVisible();
+  // 페이드가 끝나기를 기다린다. toBeVisible 은 opacity 를 보지 않아 전환 도중에도
+  // 통과하는데, 그때 색상 대비를 검사하면 axe 가 반투명이 합성된 중간 색을 읽어
+  // (--text #3a3631 을 옅은 회색으로) 팝업 전체를 오탐한다 — reducedMotion 을 켜도
+  // transform 만 줄고 opacity 페이드는 남는다(Motion 사양).
+  await expect(page.locator(".rsvp-confirm-overlay")).toHaveCSS("opacity", "1");
+  return dialog;
+}
+
 test.describe("청첩장 기본 동작", () => {
   test("페이지가 열리고 신랑·신부 이름과 예식 일시가 보인다", async ({ page }) => {
     await page.goto("/");
@@ -717,7 +734,12 @@ test.describe("청첩장 기본 동작", () => {
       await page.getByLabel("성함").fill("김하객");
       await page.getByLabel("연락처").fill("000-0000-0000");
       await page.getByRole("checkbox").check();
-      await page.getByRole("button", { name: "참석 의사 전하기" }).click();
+
+      // 미참석의 인원 1·식사안함은 DB 의 not null 을 채우려고 넣은 값이라 팝업에
+      // 싣지 않는다 — 화면에서 확인한 것과 저장되는 것이 여기서만 갈린다.
+      const dialog = await openRsvpConfirm(page);
+      await expect(dialog.getByRole("term")).toHaveText(["하객 구분", "참석 여부", "성함", "연락처"]);
+      await dialog.getByRole("button", { name: "확인" }).click();
 
       await expect(page.getByText(/참석 의사가 전달되었습니다/)).toBeVisible();
       expect(sent).toHaveLength(1);
@@ -742,7 +764,10 @@ test.describe("청첩장 기본 동작", () => {
       await page.goto("/");
       await fillRsvpToConsent(page);
       await page.getByRole("checkbox").check();
-      await page.getByRole("button", { name: "참석 의사 전하기" }).click();
+      const dialog = await openRsvpConfirm(page);
+      // 팝업에 보인 값이 그대로 나간다. 연락처는 저장되는 모양(하이픈 없음)으로 보인다.
+      await expect(dialog.getByText("00000000000")).toBeVisible();
+      await dialog.getByRole("button", { name: "확인" }).click();
 
       await expect(page.getByText(/참석 의사가 전달되었습니다/)).toBeVisible();
       await expect(page.getByRole("button", { name: "참석 의사 전하기" })).toBeHidden();
@@ -774,11 +799,67 @@ test.describe("청첩장 기본 동작", () => {
       await page.goto("/");
       await fillRsvpToConsent(page);
       await page.getByRole("checkbox").check();
-      await page.getByRole("button", { name: "참석 의사 전하기" }).click();
+      const dialog = await openRsvpConfirm(page);
+      await dialog.getByRole("button", { name: "확인" }).click();
 
       await expect(page.getByTestId("toast")).toContainText("실패");
       await expect(page.getByText(/참석 의사가 전달되었습니다/)).toBeHidden();
-      await expect(page.getByRole("button", { name: "참석 의사 전하기" })).toBeEnabled();
+      // 팝업은 열린 채로 둔다 — 닫으면 여섯 항목을 처음부터 다시 확인해야 한다.
+      // 토스트가 팝업 위(z-index 95 > 90)에 떠야 안내가 가려지지 않는다.
+      await expect(dialog).toBeVisible();
+      await expect(dialog.getByRole("button", { name: "확인" })).toBeEnabled();
+    });
+
+    // 검증 시점이 「전송 직전」에서 「팝업 열기 직전」으로 옮겨 왔다 (SIS-36).
+    test("검증에 걸리면 팝업이 뜨지 않고 한 줄로 알린다", async ({ page }) => {
+      const sent = await stubRsvpInsert(page);
+      await page.goto("/");
+      await fillRsvpToConsent(page);
+      await page.getByLabel("참석 인원 (본인 포함)").fill("0");
+      await page.getByRole("checkbox").check();
+      await page.getByRole("button", { name: "참석 의사 전하기" }).click();
+
+      await expect(page.getByTestId("toast")).toContainText("입력을 확인해 주세요");
+      await expect(page.getByRole("dialog")).toBeHidden();
+      // 무엇이 틀렸는지는 칸 옆의 인라인 오류가 말한다.
+      await expect(page.getByText(/참석 인원은 1~20명/)).toBeVisible();
+      await expect(page.getByLabel("참석 인원 (본인 포함)")).toBeFocused();
+      expect(sent).toHaveLength(0);
+    });
+
+    // 틀린 값을 보고 되돌아왔는데 폼이 비어 있으면 여섯 항목을 다시 적어야 한다.
+    test("팝업을 닫으면 폼이 채운 그대로 남는다", async ({ page }) => {
+      await page.goto("/");
+      await fillRsvpToConsent(page);
+      await page.getByRole("checkbox").check();
+      const dialog = await openRsvpConfirm(page);
+
+      await dialog.getByRole("button", { name: "뒤로" }).click();
+
+      await expect(page.getByRole("dialog")).toBeHidden();
+      await expect(page.getByLabel("성함")).toHaveValue("홍길동");
+      await expect(page.getByLabel("연락처")).toHaveValue("000-0000-0000");
+      await expect(page.getByRole("checkbox")).toBeChecked();
+      // 닫으면 눌렀던 버튼으로 초점이 돌아온다 — 키보드로 훑던 사람이 폼을 다시
+      // 찾아 내려오지 않아도 된다.
+      await expect(page.getByRole("button", { name: "참석 의사 전하기" })).toBeFocused();
+    });
+
+    // 여러 명이 와도 번호는 하나만 받는다. 미참석은 인원 개념이 없어 붙이지 않는다.
+    test("연락처 안내는 참석에만 붙고 형식 예시는 그대로 남는다", async ({ page }) => {
+      await page.goto("/");
+      await openRsvpForm(page);
+      await page.getByRole("button", { name: "신랑측 하객" }).click();
+      await page.getByRole("button", { name: "참석합니다" }).click();
+      await page.getByLabel("성함").fill("홍길동");
+      await page.getByLabel("참석 인원 (본인 포함)").fill("2");
+
+      await expect(page.getByText(/대표 한 분의 연락처만 남겨주세요/)).toBeVisible();
+      // 하이픈 없이 적어도 된다는 정보가 안내에 밀려 사라지면 안 된다.
+      await expect(page.getByLabel("연락처")).toHaveAttribute("placeholder", /^ex\)/);
+
+      await page.getByRole("button", { name: "참석 어려워요" }).click();
+      await expect(page.getByText(/대표 한 분의 연락처만 남겨주세요/)).toBeHidden();
     });
 
     // 고지한 수집 항목이 실제 수집과 어긋나면 고지가 효력을 잃는다(RS-03).
@@ -876,13 +957,17 @@ test.describe("청첩장 기본 동작", () => {
         ["--muted", "--bg", SMALL, "커버 날짜 캡션 11px·푸터 날짜 12px"],
         ["--muted", "--card", SMALL, "갤러리 안내 문구 12.5px"],
         ["--muted-2", "--surface", SMALL, "D-Day 일·시·분 라벨 10.5px"],
-        ["--muted-2", "--card", SMALL, "갤러리 카운터 18px"],
+        ["--muted-2", "--card", SMALL, "갤러리 카운터 18px·연락처 안내 문구 12.5px"],
+        ["--muted", "--surface-3", SMALL, "확인 팝업 항목 라벨 13px"],
         ["--primary", "--bg", LARGE, "커버 30px·푸터 34px — 전부 큰 글씨"],
         ["--primary", "--card", SMALL, "교통 안내 라벨 12.5px·혼주 관계 13px·D-Day 일수 14px 굵게"],
         ["--on-surface", "--surface-2", SMALL, "공유 버튼 13px"],
         ["--on-surface", "--surface", SMALL, "RSVP 미선택 버튼 14px·잠긴 제출 버튼 15px"],
         ["--on-surface", "--surface-3", SMALL, "개인정보 처리방침 펼치기 12.5px"],
-        ["--text", "--surface-3", SMALL, "개인정보 안내 제목 13.5px·동의 문구 13px"],
+        ["--text", "--surface-3", SMALL, "개인정보 안내 제목 13.5px·동의 문구 13px·확인 팝업 항목 값 14px"],
+        // 새로 들인 오류색 (SIS-36). 카드 위 5.96:1 로, 그전까지 오류를 표시하던
+        // --primary(4.81)보다 여유가 있다.
+        ["--error", "--card", SMALL, "오류 메시지 12.5px·오류 칸 테두리·초점 링"],
         ["--on-primary", "--primary", SMALL, "달력 예식일 원 14.5px 굵게·지도 앱 버튼 13px"],
         ["--on-primary-sub", "--primary", SMALL, "D-Day 「초」 라벨 10.5px"],
         ["--on-primary-title", "--primary", SMALL, "그린 배경 위 제목"],
@@ -975,6 +1060,24 @@ test.describe("청첩장 기본 동작", () => {
       const results = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa"]).analyze();
       // 위반 객체를 통째로 비교하면 실패 출력이 노드 하나에 수십 줄이라 무엇이 걸렸는지 안 보인다.
       // 규칙·요소·사유 한 줄로 눌러서 비교한다.
+      const blocking = results.violations
+        .filter((v) => v.impact === "critical" || v.impact === "serious")
+        .flatMap((v) =>
+          v.nodes.map((n) => `${v.id} · ${n.target.join(" ")} · ${n.failureSummary?.split("\n")[1]?.trim() ?? ""}`),
+        );
+      expect(blocking).toEqual([]);
+    });
+
+    // 확인 팝업은 버튼 뒤에 있어 위 감사가 닿지 못한다. 페이지 전체를 다시 훑는 대신
+    // 팝업만 범위로 잡는다 — 열면 오버레이가 화면을 덮어, 같이 감사하면 뒤쪽 요소의
+    // 판정이 이 팝업과 무관하게 흔들린다 (SIS-36).
+    test("확인 팝업에 critical/serious 위반이 없다", async ({ page }) => {
+      await page.goto("/");
+      await fillRsvpToConsent(page);
+      await page.getByRole("checkbox").check();
+      await openRsvpConfirm(page);
+
+      const results = await new AxeBuilder({ page }).include('[role="dialog"]').withTags(["wcag2a", "wcag2aa"]).analyze();
       const blocking = results.violations
         .filter((v) => v.impact === "critical" || v.impact === "serious")
         .flatMap((v) =>

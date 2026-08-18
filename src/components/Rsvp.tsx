@@ -1,4 +1,5 @@
-import { useEffect, useId, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { AnimatePresence, m } from "motion/react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -17,6 +18,7 @@ import {
   submitRsvp,
   toRsvpPayload,
   type RsvpForm,
+  type RsvpPayload,
   type RsvpValues,
 } from "../lib/rsvp";
 
@@ -35,12 +37,33 @@ import {
 // SIS-35 에서는 미참석만 선택이었다 — 못 간다고 알려주려는 하객을 연락처에서 막으면
 // 회신 자체를 포기한다고 보았기 때문인데, 고객이 그 판단을 뒤집었다. DB 도 같은 규칙을
 // 본다 — supabase/schema.sql 의 phone 은 not null 이다.
+//
+// 제출은 **두 단계다**(SIS-36). 「참석 의사 전하기」는 검증만 하고 확인 팝업을 열며,
+// 실제 전송은 팝업의 「확인」이 부른다. 회신은 고치는 창구가 따로 없어(전송하면 끝이다)
+// 나가기 전에 한 번 되짚어 볼 자리를 둔다.
 
 const LEAD = "참석 여부를 알려주시면\n준비에 큰 도움이 됩니다.";
 const OPEN_LABEL = "참석 여부 알리기";
 const DONE_MESSAGE = "참석 의사가 전달되었습니다.\n당일 따뜻하게 맞이하겠습니다.";
 const CLOSED_MESSAGE = `참석 회신이 마감되었습니다.\n(${INVITE.rsvp.deadlineText})`;
 const SEND_FAILED = "회신 전송에 실패했어요\n잠시 후 다시 시도해 주세요";
+
+// 검증에 걸린 이유는 각 칸의 인라인 오류가 말한다. 이 한 줄은 「왜 팝업이 안 떴는지」만
+// 알린다 — 같은 문장을 요약과 인라인에 두 번 두면 스크린리더가 두 번 읽는다.
+const INVALID_MESSAGE = "입력을 확인해 주세요";
+
+const CONFIRM_TITLE = "내용 확인";
+const CONFIRM_LEAD = "이대로 전해도 괜찮으실까요?";
+const CONFIRM_SEND = "확인";
+const CONFIRM_BACK = "뒤로";
+const CONFIRM_CLOSE = "닫기";
+
+// 참석에만 붙는다. 미참석은 연락처가 필수가 되면서(SIS-37) 안내할 것이 없어졌고,
+// 인원 개념이 없는 자리에서 「대표 한 분」은 말이 되지 않는다.
+//
+// 「연락드리겠습니다」처럼 목적을 넓히지 않는다 — 개인정보 처리방침이 고지한 수집 목적
+// (INVITE.rsvp.privacy)과 어긋나 방침 본문까지 함께 고쳐야 한다.
+const PHONE_HELP = "함께 오시는 분이 있어도 대표 한 분의 연락처만 남겨주세요";
 
 export default function Rsvp() {
   // 마감 판정은 그릴 때 한 번만 한다. 하객이 페이지를 열어 둔 채 자정을 넘기는 일은
@@ -151,12 +174,21 @@ function Step({ show, children }: { show: boolean; children: React.ReactNode }) 
 
 function RsvpFormFields({ onDone }: { onDone: () => void }) {
   const showToast = useToast();
+  // 확인을 기다리는 회신. **화면에 보인 값이 그대로 나가도록 페이로드째 들고 있는다** —
+  // 팝업에서 다시 만들면 보여준 것과 보내는 것이 어긋날 자리가 생긴다.
+  const [pending, setPending] = useState<RsvpPayload | null>(null);
+  // 전송 중 잠금이 폼의 isSubmitting 에서 이리로 옮겨 왔다(SIS-36). handleSubmit 은
+  // 이제 팝업을 여는 것으로 끝나 곧바로 반환하므로, isSubmitting 은 전송을 덮지 못한다.
+  const [sending, setSending] = useState(false);
+  // 팝업의 초점 관리 effect 가 이 함수를 의존한다. 렌더마다 새로 만들면 팝업이 열려
+  // 있는 내내 effect 가 다시 돌아, 초점이 팝업과 제출 버튼 사이를 오간다.
+  const closeConfirm = useCallback(() => setPending(null), []);
   const {
     handleSubmit,
     register,
     setValue,
     watch,
-    formState: { errors, isSubmitting },
+    formState: { errors },
   } = useForm<RsvpForm, unknown, RsvpValues>({
     resolver: zodResolver(rsvpSchema),
     defaultValues: EMPTY_FORM,
@@ -200,10 +232,25 @@ function RsvpFormFields({ onDone }: { onDone: () => void }) {
     setValue("meal", "");
   };
 
-  const onSubmit = async (data: RsvpValues) => {
+  // 검증을 통과해야 팝업이 열린다. 즉 검증 시점이 「전송 직전」에서 「팝업 열기
+  // 직전」으로 옮겨 왔다(SIS-36).
+  const openConfirm = (data: RsvpValues) => setPending(toRsvpPayload(data));
+
+  // 걸린 칸이 여럿이면 첫 칸으로 초점이 간다 — react-hook-form 의 shouldFocusError
+  // 가 기본으로 해 주는 일이라 여기서 따로 옮기지 않는다. 다만 그것은 register 로
+  // ref 가 물린 입력에만 닿는다. 선택 버튼 묶음(하객 구분·참석 여부·식사)과 동의는
+  // ref 가 없지만, 비어 있으면 뒷 단계가 통째로 접혀 제출 버튼까지 사라지므로
+  // (showCount~showConsent 연쇄) 이 자리에 그 상태로 도달하지 않는다.
+  const onInvalid = () => showToast(INVALID_MESSAGE);
+
+  const send = async () => {
+    if (!pending) return;
+    setSending(true);
     try {
-      await submitRsvp(toRsvpPayload(data));
+      await submitRsvp(pending);
       markSubmitted();
+      // 완료 카드로 넘어가며 이 폼이 통째로 사라진다. sending 을 되돌리지 않는 것은
+      // 그 사이 확인 버튼이 다시 눌리지 않게 하려는 것이다.
       onDone();
     } catch (error) {
       // 실패를 삼키지 않는다. Apps Script 를 버린 이유가 실패가 조용히 유실되는
@@ -217,11 +264,14 @@ function RsvpFormFields({ onDone }: { onDone: () => void }) {
       // 회신 내용은 이 메시지에 들어 있지 않다 — lib/rsvp.ts 가 걷어낸다.
       console.error(error);
       showToast(SEND_FAILED);
+      // 팝업은 닫지 않는다. 닫아 버리면 하객이 여섯 항목을 처음부터 다시 확인해야
+      // 한다 — 토스트가 팝업 위(z-index 95)에 뜨고, 그 자리에서 다시 누르면 된다.
+      setSending(false);
     }
   };
 
   return (
-    <form className="rsvp-form" onSubmit={handleSubmit(onSubmit)} noValidate>
+    <form className="rsvp-form" onSubmit={handleSubmit(openConfirm, onInvalid)} noValidate>
       <PickGroup
         legend="하객 구분"
         options={SIDE_OPTIONS}
@@ -257,6 +307,8 @@ function RsvpFormFields({ onDone }: { onDone: () => void }) {
       <Step show={showPhone}>
         <TextField
           label="연락처"
+          // 참석에만 붙는다. 미참석으로 바꾸면 이 줄이 사라진다.
+          help={attending ? PHONE_HELP : undefined}
           // 하이픈 없이 숫자만 적어도 된다는 것을 보이는 자리다. 모두 같은 숫자로 적으면
           // 하객이 보고 「번호를 적는 칸」이라고 알아채지 못해, 진짜와 같은 모양을 쓴다.
           // 검토 게이트는 이 값을 예시 목록에 두어 통과시킨다(scripts/review-guard.mjs).
@@ -286,12 +338,169 @@ function RsvpFormFields({ onDone }: { onDone: () => void }) {
         />
 
         {/* 동의 전에는 누를 수 없다(RS-03). 잠긴 이유가 바로 위에 보이므로 별도
-            안내를 덧붙이지 않는다. */}
-        <button type="submit" className="rsvp-submit" style={{ width: "100%" }} disabled={!values.agreed || isSubmitting}>
-          {isSubmitting ? "전하는 중…" : "참석 의사 전하기"}
+            안내를 덧붙이지 않는다.
+
+            이 버튼은 이제 전송이 아니라 확인 팝업을 연다(SIS-36). 문구는 그대로
+            두었다 — 팝업 버튼을 「확인」으로 줄여 둘이 같아 보이지 않고, 무엇을
+            하는 자리인지는 팝업 제목 「내용 확인」이 말한다. */}
+        <button type="submit" className="rsvp-submit" style={{ width: "100%" }} disabled={!values.agreed}>
+          참석 의사 전하기
         </button>
       </Step>
+
+      <AnimatePresence>
+        {pending && <ConfirmDialog payload={pending} sending={sending} onBack={closeConfirm} onConfirm={send} />}
+      </AnimatePresence>
     </form>
+  );
+}
+
+/**
+ * 팝업에 싣는 항목. **채운 것만 싣는다.**
+ *
+ * 미참석의 인원(1)·식사(식사안함)는 DB 의 not null 을 채우려고 toRsvpPayload 가 넣은
+ * 값이라 화면에 내보내지 않는다 — 고르지도 않은 답을 확인하게 되고, 「1명이 안 온다」로
+ * 읽힐 수도 있다. 남는 넷은 참석·미참석 모두 필수라 빈 줄이 생기지 않는다.
+ */
+function confirmRows(payload: RsvpPayload): { label: string; value: string }[] {
+  const attending = payload.attend === "참석";
+
+  return [
+    { label: "하객 구분", value: payload.side },
+    { label: "참석 여부", value: payload.attend },
+    { label: "성함", value: payload.name },
+    ...(attending ? [{ label: "참석 인원", value: `${payload.count}명` }] : []),
+    // 저장되는 모양 그대로 보인다(하이픈 없는 숫자). 국가번호를 붙여 적으면
+    // normalizePhone 이 국내 표기로 되돌리는데, 그 결과를 확인할 자리이기도 하다.
+    { label: "연락처", value: payload.phone },
+    ...(attending ? [{ label: "식사 여부", value: payload.meal }] : []),
+  ];
+}
+
+/**
+ * 제출 확인 팝업 (SIS-36). 회신은 전송하면 고칠 창구가 없어, 나가기 전에 한 번 되짚는다.
+ *
+ * body 에 직접 그린다. 토스트와 같은 이유다 — 섹션 안에 두면 스크롤 리빌이 조상에 건
+ * transform 이 position:fixed 의 기준이 되어, 팝업이 화면이 아니라 카드 어딘가에 뜬다.
+ *
+ * 「뒤로」·X·Esc 어느 쪽으로 닫아도 **폼은 채운 그대로 남는다** — 이 컴포넌트는 값을
+ * 들고만 있고 폼 상태를 건드리지 않는다.
+ */
+function ConfirmDialog({
+  payload,
+  sending,
+  onBack,
+  onConfirm,
+}: {
+  payload: RsvpPayload;
+  sending: boolean;
+  onBack: () => void;
+  onConfirm: () => void;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  const titleId = useId();
+  const leadId = useId();
+
+  useEffect(() => {
+    const node = ref.current;
+    if (!node) return;
+
+    // 팝업 밖으로 돌아갈 자리를 기억해 둔다. 닫으면 눌렀던 제출 버튼으로 되돌린다 —
+    // 그러지 않으면 초점이 문서 맨 앞으로 떨어져, 키보드로 훑던 사람이 폼을 다시
+    // 찾아 내려와야 한다.
+    const opener = document.activeElement;
+
+    // 상자 자체에 초점을 준다. 「확인」에 바로 주면 엔터 한 번에 전송되고, 스크린리더도
+    // 제목보다 버튼 이름을 먼저 읽는다.
+    node.focus();
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        onBack();
+        return;
+      }
+      if (event.key !== "Tab") return;
+
+      // 초점을 팝업 안에 가둔다. 뒤에 폼이 그대로 살아 있어, 막지 않으면 탭이 가려진
+      // 입력 칸으로 빠져나가 어디에 있는지 알 수 없게 된다.
+      // 이 팝업에 초점을 받는 것은 버튼뿐이고, 전송 중에는 「확인」이 빠진다.
+      const targets = node.querySelectorAll<HTMLElement>("button:not(:disabled)");
+      if (targets.length === 0) return;
+
+      const first = targets[0];
+      const last = targets[targets.length - 1];
+      const active = document.activeElement;
+
+      if (event.shiftKey && (active === first || active === node)) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && active === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+
+    node.addEventListener("keydown", onKeyDown);
+    return () => {
+      node.removeEventListener("keydown", onKeyDown);
+      if (opener instanceof HTMLElement) opener.focus();
+    };
+  }, [onBack]);
+
+  return createPortal(
+    <m.div
+      className="rsvp-confirm-overlay"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.2 }}
+    >
+      {/* 배경을 눌러도 닫지 않는다. 되돌아가는 길은 「뒤로」와 X 둘로 정해져 있고
+          (2026-08-18 확정), 화면을 꽉 채운 팝업에서는 배경을 누를 자리가 손가락이
+          미끄러진 자리와 구분되지 않는다. */}
+      <div
+        ref={ref}
+        className="rsvp-confirm"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        aria-describedby={leadId}
+        tabIndex={-1}
+      >
+        <button type="button" className="rsvp-confirm-close" onClick={onBack} aria-label={CONFIRM_CLOSE}>
+          ✕
+        </button>
+
+        <h3 id={titleId} className="rsvp-confirm-title">
+          {CONFIRM_TITLE}
+        </h3>
+        <p id={leadId} className="rsvp-confirm-lead">
+          {CONFIRM_LEAD}
+        </p>
+
+        <dl className="rsvp-confirm-summary">
+          {confirmRows(payload).map((row) => (
+            <div key={row.label} style={{ display: "contents" }}>
+              <dt>{row.label}</dt>
+              <dd>{row.value}</dd>
+            </div>
+          ))}
+        </dl>
+
+        <div className="rsvp-confirm-actions">
+          {/* 보내는 중에도 닫을 수 있게 둔다. 「확인」만 잠근다 — 요청에 시간 제한이
+              없어, 셋 다 잠그면 응답이 늦는 동안 팝업에 갇힌다. 닫고 나가도 요청은
+              그대로 끝나 성공이면 완료 카드가, 실패면 토스트가 뜬다. */}
+          <button type="button" className="rsvp-confirm-btn rsvp-confirm-back" onClick={onBack}>
+            {CONFIRM_BACK}
+          </button>
+          <button type="button" className="rsvp-confirm-btn rsvp-confirm-send" onClick={onConfirm} disabled={sending}>
+            {sending ? "전하는 중…" : CONFIRM_SEND}
+          </button>
+        </div>
+      </div>
+    </m.div>,
+    document.body,
   );
 }
 
@@ -342,6 +551,7 @@ function PickGroup({
  */
 function TextField({
   label,
+  help,
   hint,
   error,
   inputMode,
@@ -350,6 +560,14 @@ function TextField({
   ...field
 }: {
   label: string;
+  /**
+   * 라벨 아래에 남는 안내 문구 (SIS-36).
+   *
+   * hint 를 넓혀 쓰지 않은 이유가 둘이다. placeholder 는 글자를 적는 순간 사라져
+   * 정작 적는 동안에는 보이지 않고, 그 문자열은 review-guard.mjs 의 예시 번호
+   * 목록에 등록되어 검토 게이트를 통과한다 — 바꾸면 가드까지 함께 봐야 한다.
+   */
+  help?: string;
   /** 형식 예시. placeholder 는 이것만 담는다. */
   hint?: string;
   error?: string;
@@ -357,7 +575,12 @@ function TextField({
   autoComplete?: string;
 } & React.ComponentPropsWithRef<"input">) {
   const inputId = useId();
+  const helpId = useId();
   const errorId = useId();
+
+  // 안내와 오류가 함께 있으면 둘 다 읽힌다. 안내를 먼저 두어 「무엇을 적는 칸인지」가
+  // 「무엇이 틀렸는지」보다 앞에 오게 한다.
+  const describedBy = [help ? helpId : null, error ? errorId : null].filter(Boolean).join(" ");
 
   return (
     <div>
@@ -367,6 +590,11 @@ function TextField({
       <label className="rsvp-label" htmlFor={inputId}>
         {label}
       </label>
+      {help && (
+        <span id={helpId} className="rsvp-help">
+          {help}
+        </span>
+      )}
       <input
         {...field}
         ref={ref}
@@ -376,7 +604,7 @@ function TextField({
         inputMode={inputMode}
         autoComplete={autoComplete}
         aria-invalid={error ? true : undefined}
-        aria-describedby={error ? errorId : undefined}
+        aria-describedby={describedBy || undefined}
       />
       {error && <FieldError id={errorId} message={error} />}
     </div>
