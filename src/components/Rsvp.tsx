@@ -216,20 +216,26 @@ function RsvpFormFields({ onDone }: { onDone: () => void }) {
       </Step>
 
       <Step show={showName}>
-        <TextField label="성함" error={errors.name?.message} autoComplete="name" {...register("name")} />
+        <TextField label="성함" hint="ex) 정원이" error={errors.name?.message} autoComplete="name" {...register("name")} />
       </Step>
 
       <Step show={showCount}>
-        <TextField label="참석 인원 (본인 포함)" error={errors.count?.message} inputMode="numeric" {...register("count")} />
+        <TextField
+          label="참석 인원 (본인 포함)"
+          hint="ex) 2"
+          error={errors.count?.message}
+          inputMode="numeric"
+          {...register("count")}
+        />
       </Step>
 
       <Step show={showPhone}>
         <TextField
           label="연락처"
-          // 하이픈 없이 숫자만 적어도 된다는 것을 보이는 자리다. 진짜처럼 보이는 번호로
-          // 적으면 검토 게이트가 개인정보로 보고 커밋을 막는다 — 예시는 모든 자리를 같은
-          // 숫자로 적는 것이 이 리포의 관례다(.env.example 의 계좌 예시와 같다).
-          hint="ex) 00000000000"
+          // 하이픈 없이 숫자만 적어도 된다는 것을 보이는 자리다. 모두 같은 숫자로 적으면
+          // 하객이 보고 「번호를 적는 칸」이라고 알아채지 못해, 진짜와 같은 모양을 쓴다.
+          // 검토 게이트는 이 값을 예시 목록에 두어 통과시킨다(scripts/review-guard.mjs).
+          hint="ex) 01012345678"
           error={errors.phone?.message}
           inputMode="tel"
           autoComplete="tel"
