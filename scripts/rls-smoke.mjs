@@ -71,6 +71,17 @@ const isMissingTable = (error) => error?.code === "42P01" || error?.code === "PG
   // meal 만 제약을 위반시킨다. 나머지는 정상값이라, 23514 가 왔다는 것은
   // "여기까지 왔다"는 뜻이 된다.
   //
+  // 위반값으로 **옛 저장값 '식사'** 를 쓴다(SIS-35). 아무 문자열이나 넣어도 insert
+  // 정책 확인은 되지만, 그러면 이 검사가 meal 마이그레이션 적용 여부와 무관하게
+  // 늘 똑같이 통과한다 — schema.sql 의 meal alter 블록은 대시보드에서 손으로
+  // 돌려야 하는 단계라 빠뜨리기 쉽고, 빠뜨리면 폼이 보내는 '식사함' 이 옛 제약에
+  // 걸려 **참석 회신만** 전부 23514 로 거부된다. 미참석은 '식사안함' 이라 양쪽
+  // 제약을 모두 통과하므로 대시보드에 행이 쌓이는 것만 봐서는 알아채지 못한다.
+  //
+  // '식사' 를 쓰면 두 경우가 갈린다.
+  //   새 제약이 걸려 있다 → 거부(23514). 행은 남지 않고, alter 가 적용된 것이다
+  //   옛 제약이거나 제약이 없다 → 저장됨. 아래 !error 가지가 잡는다
+  //
   // phone 을 굳이 실어 보내는 이유는 컬럼 누락을 잡기 위해서다. 옛 SQL 로 만든
   // 테이블에는 phone 이 없고, 그 상태로는 회신의 연락처가 통째로 버려진다.
   // 없는 컬럼을 보내면 PostgREST 가 PGRST204 로 알려 준다.
@@ -82,16 +93,20 @@ const isMissingTable = (error) => error?.code === "42P01" || error?.code === "PG
     attend: "참석",
     name: "RLS스모크",
     count: 1,
-    meal: "__제약위반__",
+    meal: "식사",
     phone: "00000000000",
   });
 
   if (!error) {
-    failures.push("제약을 위반한 행이 저장되었습니다 — check 제약이 빠져 있습니다. 테이블에서 해당 행을 지우세요");
+    failures.push(
+      "옛 저장값 '식사' 가 그대로 저장되었습니다 — meal 제약이 없거나 옛 상태입니다. " +
+        "supabase/schema.sql 의 meal alter 블록(SIS-35)을 실행하고, 방금 저장된 RLS스모크 행을 지우세요. " +
+        "이대로 두면 참석 회신만 전부 23514 로 거부됩니다",
+    );
   } else if (error.code === "PGRST204") {
     failures.push(`테이블에 없는 컬럼이 있습니다 (${error.message}) — supabase/schema.sql 의 alter table 부분을 실행하세요`);
   } else if (error.code === "23514") {
-    console.log("② 쓰기 허용 — 통과 (insert 정책 통과 후 check 위반 23514, 행은 남지 않음)");
+    console.log("② 쓰기 허용 — 통과 (insert 정책 통과 후 check 위반 23514, 행은 남지 않음. meal 제약도 새 값 기준)");
   } else if (error.code === "42501") {
     failures.push("insert 가 RLS 에 막힙니다(42501) — rsvp_insert_only 정책이 없거나 마감일 조건이 이미 지났습니다");
   } else {

@@ -248,6 +248,16 @@ describe("buildRsvpPayload", () => {
       if (!result.ok) return;
       expect(result.payload.phone).toBeNull();
     });
+
+    // 숫자가 하나도 없으면 normalizePhone 을 거쳐 빈 문자열이 되어 미입력과 구별되지
+    // 않는다. 그냥 통과시키면 하객은 번호를 남겼다고 믿지만 저장값은 null 이다.
+    it("숫자가 하나도 없는 입력은 조용히 버리지 않고 지적한다", () => {
+      const result = buildRsvpPayload({ ...absent, phone: "몰라요" });
+
+      expect(result.ok).toBe(false);
+      if (result.ok) return;
+      expect(result.errors.phone).toBeTruthy();
+    });
   });
 
   describe("참석 시 연락처", () => {

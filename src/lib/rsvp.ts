@@ -128,13 +128,21 @@ export const rsvpSchema = z
       }
     }
 
+    // 적기는 했는지를 자릿수와 따로 본다. 「몰라요」·「-」처럼 숫자가 하나도 없는
+    // 입력은 normalizePhone 을 거치면 빈 문자열이 되어 미입력과 구별되지 않는데,
+    // 미참석에서 그것을 그냥 통과시키면 하객은 번호를 남겼다고 믿지만 저장되는 값은
+    // null 이다 — 축의 대조·답례에 쓸 것이 남지 않는다.
+    const typed = data.phone.trim() !== "";
     const digits = normalizePhone(data.phone);
+
     if (!digits) {
-      // 미참석은 비워 두어도 된다(SIS-35). 참석은 다르다 — 폼 검증이 DB 제약
-      // (rsvp_phone_required_for_attendees)보다 느슨하면 참석 회신만 23514 로
+      // 미참석은 **비워 두는 것만** 허용한다(SIS-35). 참석은 다르다 — 폼 검증이 DB
+      // 제약(rsvp_phone_required_for_attendees)보다 느슨하면 참석 회신만 23514 로
       // 거부되는데, 화면에서는 원인이 보이지 않는다.
       if (attending) {
         ctx.addIssue({ code: "custom", path: ["phone"], message: "연락처를 입력해 주세요" });
+      } else if (typed) {
+        ctx.addIssue({ code: "custom", path: ["phone"], message: "연락처를 다시 확인해 주세요" });
       }
       return;
     }
