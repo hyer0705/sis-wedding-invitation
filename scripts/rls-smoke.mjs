@@ -155,8 +155,10 @@ const isMissingTable = (error) => error?.code === "42P01" || error?.code === "PG
   const { data, error } = await supabase.rpc("is_admin");
   if (error) {
     if (error.code === "42501" || error.code === "PGRST202") {
-      // PGRST202 는 「함수를 찾을 수 없음」이기도 하다. ③ 이 통과했다면 스키마는
-      // 적용된 것이므로 권한이 걷힌 상태로 본다.
+      // PGRST202 는 「함수를 찾을 수 없음」이기도 해서 권한 차단과 구별되지 않는다.
+      // 다만 **함수가 없으면 정책이 애초에 만들어지지 않는다** — rsvp_admin_select 가
+      // using (is_admin()) 으로 그 함수를 참조하므로, 함수가 빠진 채 정책만 남는
+      // 상태는 생길 수 없다. 그래서 차단으로 본다.
       console.log("④ is_admin() 차단 — 통과 (anon 은 호출할 수 없음)");
     } else {
       failures.push(`is_admin() 호출에서 예상 못한 오류: ${error.code} ${error.message}`);
@@ -165,7 +167,8 @@ const isMissingTable = (error) => error?.code === "42P01" || error?.code === "PG
     failures.push("is_admin() 이 로그인 없이 true 를 돌려줍니다 — 관리자 정책이 통째로 무력합니다");
   } else {
     failures.push(
-      "is_admin() 을 anon 이 호출할 수 있습니다 — supabase/schema.sql 의 `revoke execute on function is_admin() from anon` 을 실행하세요",
+      "is_admin() 을 anon 이 호출할 수 있습니다 — supabase/schema.sql 의 " +
+        "`revoke execute on function is_admin() from public` 을 실행하세요 (from anon 으로는 걷히지 않습니다)",
     );
   }
 }

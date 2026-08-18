@@ -172,9 +172,13 @@ as $$
   select exists (select 1 from admin_users where user_id = auth.uid());
 $$;
 
+-- **`from public` 이어야 한다.** Postgres 는 함수를 만들 때 PUBLIC 에 EXECUTE 를
+-- 자동으로 준다. anon 은 PUBLIC 의 멤버라 `revoke … from anon` 만으로는 그 권한이
+-- 그대로 남아 여전히 호출된다 — 걷어낸 줄 알고 넘어가기 쉬운 자리다.
+--
+-- 걷어낸 뒤 필요한 롤에만 다시 준다. 순서가 뒤바뀌면 방금 준 권한을 도로 뺏는다.
+revoke execute on function is_admin() from public;
 grant execute on function is_admin() to authenticated;
--- anon 이 부를 일은 없다. 부르더라도 auth.uid() 가 null 이라 false 다.
-revoke execute on function is_admin() from anon;
 
 -- 조회 — 관리자 페이지의 목록·CSV 가 쓴다.
 drop policy if exists rsvp_admin_select on rsvp;

@@ -75,6 +75,26 @@ describe("toRsvpCsv", () => {
     expect(line).toContain('"홍,길""동"');
   });
 
+  // 이름은 하객이 자유롭게 적는 칸이다. `=…` 로 시작하면 엑셀이 수식으로 실행해
+  // 이름 자리에 계산 결과나 링크가 그려진다.
+  it("수식으로 읽힐 이름 앞에 작은따옴표를 붙인다", () => {
+    const [, line] = toRsvpCsv([row({ name: "=1+1" })]).split("\r\n");
+    expect(line).toContain("'=1+1");
+  });
+
+  it("다른 수식 시작 문자도 막는다", () => {
+    for (const name of ["+82", "-1", "@sum"]) {
+      const [, line] = toRsvpCsv([row({ name })]).split("\r\n");
+      expect(line).toContain(`'${name}`);
+    }
+  });
+
+  // 정상 값까지 건드리면 명단이 지저분해진다.
+  it("평범한 이름은 그대로 둔다", () => {
+    const [, line] = toRsvpCsv([row({ name: "홍길동" })]).split("\r\n");
+    expect(line).toContain(",홍길동,");
+  });
+
   it("줄바꿈은 CRLF 다", () => {
     expect(toRsvpCsv([row()])).toContain("\r\n");
   });

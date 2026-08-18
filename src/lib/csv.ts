@@ -61,13 +61,29 @@ export function formatKst(iso: string): string {
 }
 
 /**
+ * 엑셀·구글 시트가 **수식으로 해석하는 시작 문자**.
+ *
+ * 이름은 하객이 자유롭게 적는 칸이고 DB 제약도 길이(1~20자)뿐이라, `=…` 로 적어
+ * 보내면 그대로 CSV 에 실린다. 앞에 작은따옴표를 붙이면 그 칸은 글자로만 읽힌다.
+ */
+const FORMULA_LEAD = /^[=+\-@\t\r]/;
+
+/**
  * CSV 한 칸을 안전하게 감싼다.
  *
  * 이름에 쉼표가 들어갈 일은 드물지만, 한 건이라도 섞이면 그 행부터 열이 통째로
  * 밀려 명단 전체를 손으로 맞춰야 한다. 큰따옴표는 두 번 적어 escape 한다.
+ *
+ * 수식 방어를 함께 한다. `=1+1` 이 이름 자리에 들어오면 엑셀에서는 `2` 로 그려져
+ * 원래 무엇이 적혀 있었는지 파일만 봐서는 알 수 없고, `=HYPERLINK(…)` 면 이름이
+ * 클릭 가능한 링크가 된다.
+ *
+ * 인원·시각·연락처는 이 문자로 시작할 일이 없어 영향을 받지 않는다.
  */
 function cell(value: string | number): string {
-  const text = String(value);
+  const raw = String(value);
+  const text = FORMULA_LEAD.test(raw) ? `'${raw}` : raw;
+
   return /[",\r\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
 }
 
