@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { screen, waitFor } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { renderWithMotion } from "../test/renderWithMotion";
 import Rsvp from "./Rsvp";
@@ -55,6 +55,37 @@ async function fillAttending(user: User, { count = "2", phone = "000-0000-0000" 
   await user.type(await screen.findByLabelText("참석 인원 (본인 포함)"), count);
   await user.type(await screen.findByLabelText("연락처"), phone);
   await user.click(await screen.findByRole("button", { name: "식사함" }));
+}
+
+/** 미참석 회신을 동의 직전까지 채운다. 인원·식사를 건너뛴다. */
+async function fillDeclining(user: User, { phone = "000-0000-0000" } = {}) {
+  await user.click(screen.getByRole("button", { name: "신부측 하객" }));
+  await user.click(await screen.findByRole("button", { name: "참석 어려워요" }));
+  await user.type(await screen.findByLabelText("성함"), "김하객");
+  await user.type(await screen.findByLabelText("연락처"), phone);
+}
+
+/**
+ * 폼의 제출 버튼을 누른다. 이제 전송이 아니라 확인 팝업을 여는 자리다 (SIS-36).
+ * 검증에 걸리면 팝업이 뜨지 않는다.
+ */
+async function pressSubmit(user: User) {
+  await user.click(await screen.findByRole("button", { name: "참석 의사 전하기" }));
+}
+
+/** 확인 팝업의 「확인」을 눌러 실제로 전송한다 (SIS-36). */
+async function confirmSend(user: User) {
+  const dialog = await screen.findByRole("dialog");
+  await user.click(within(dialog).getByRole("button", { name: "확인" }));
+}
+
+/** 동의까지 마치고 확인 팝업을 연다. 제출을 보는 테스트가 여기서 시작한다. */
+async function openConfirm(user: User, fill: (user: User) => Promise<void> = fillAttending) {
+  await openForm(user);
+  await fill(user);
+  await user.click(await screen.findByRole("checkbox"));
+  await pressSubmit(user);
+  return screen.findByRole("dialog");
 }
 
 describe("Rsvp", () => {
@@ -162,7 +193,7 @@ describe("Rsvp", () => {
       await fillAttending(user, { count: "0" });
 
       await user.click(await screen.findByRole("checkbox"));
-      await user.click(screen.getByRole("button", { name: "참석 의사 전하기" }));
+      await pressSubmit(user);
 
       expect(await screen.findByText(/참석 인원은 1~20명/)).toBeInTheDocument();
       expect(sendMock).not.toHaveBeenCalled();
@@ -177,10 +208,170 @@ describe("Rsvp", () => {
       await fillAttending(user, { phone: "000-00" });
 
       await user.click(await screen.findByRole("checkbox"));
-      await user.click(screen.getByRole("button", { name: "참석 의사 전하기" }));
+      await pressSubmit(user);
 
       expect(await screen.findByText(/연락처를 다시 확인해 주세요/)).toBeInTheDocument();
       expect(sendMock).not.toHaveBeenCalled();
+    });
+
+    // 검증 시점이 「전송 직전」에서 「팝업 열기 직전」으로 옮겨 왔다 (SIS-36).
+    // 검증에 걸리면 팝업이 아예 뜨지 않으므로, 왜 아무 일도 없는지 알려 줄 자리가 필요하다.
+    it("검증에 걸리면 팝업이 뜨지 않고 한 줄로 알린다", async () => {
+      const user = userEvent.setup();
+      renderWithMotion(<Rsvp />);
+      await openForm(user);
+      await fillAttending(user, { count: "0" });
+
+      await user.click(await screen.findByRole("checkbox"));
+      await pressSubmit(user);
+
+      expect(screen.getByTestId("toast")).toHaveTextContent("입력을 확인해 주세요");
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    });
+
+    // 무엇이 틀렸는지는 각 칸의 인라인 오류가 말한다. 토스트가 그 문장을 되풀이하면
+    // 스크린리더가 같은 내용을 두 번 읽는다.
+    it("검증 실패 알림은 상세를 되풀이하지 않는다", async () => {
+      const user = userEvent.setup();
+      renderWithMotion(<Rsvp />);
+      await openForm(user);
+      await fillAttending(user, { phone: "000-00" });
+
+      await user.click(await screen.findByRole("checkbox"));
+      await pressSubmit(user);
+
+      await screen.findByText(/연락처를 다시 확인해 주세요/);
+      expect(screen.getByTestId("toast")).not.toHaveTextContent("연락처");
+    });
+
+    // 걸린 칸이 여럿이어도 첫 칸으로 초점이 간다. 화면 밖 칸이 틀렸으면 어디를
+    // 고쳐야 하는지 알 수 없다.
+    it("검증에 걸리면 첫 오류 칸으로 초점이 간다", async () => {
+      const user = userEvent.setup();
+      renderWithMotion(<Rsvp />);
+      await openForm(user);
+      await fillAttending(user, { count: "0", phone: "000-00" });
+
+      await user.click(await screen.findByRole("checkbox"));
+      await pressSubmit(user);
+
+      await waitFor(() => expect(screen.getByLabelText("참석 인원 (본인 포함)")).toHaveFocus());
+    });
+  });
+
+  // 여러 명이 와도 번호는 하나만 받는다 (SIS-36). placeholder 는 형식 예시를 그대로
+  // 들고 있어야 해서(review-guard.mjs 의 예시 목록) 라벨 아래 자리를 따로 두었다.
+  describe("연락처 안내 문구", () => {
+    it("참석이면 대표 한 분만 남기라고 알린다", async () => {
+      const user = userEvent.setup();
+      renderWithMotion(<Rsvp />);
+      await openForm(user);
+      await fillAttending(user);
+
+      const help = screen.getByText(/대표 한 분의 연락처만 남겨주세요/);
+      expect(help).toBeInTheDocument();
+      // 안내가 칸에 묶여 있어야 스크린리더가 함께 읽는다.
+      expect(screen.getByLabelText("연락처")).toHaveAttribute("aria-describedby", expect.stringContaining(help.id));
+    });
+
+    it("형식 예시는 안내와 별개로 남는다", async () => {
+      const user = userEvent.setup();
+      renderWithMotion(<Rsvp />);
+      await openForm(user);
+      await fillAttending(user);
+
+      // 하이픈 없이 적어도 된다는 정보가 안내 문구에 밀려 사라지면 안 된다.
+      expect(screen.getByLabelText("연락처")).toHaveAttribute("placeholder", expect.stringContaining("ex)"));
+    });
+
+    // 인원 개념이 없는 자리에서 「대표 한 분」은 말이 되지 않는다. 미참석은 연락처가
+    // 필수가 되면서(SIS-37) 안내할 것 자체가 없어졌다.
+    it("미참석이면 안내 문구가 붙지 않는다", async () => {
+      const user = userEvent.setup();
+      renderWithMotion(<Rsvp />);
+      await openForm(user);
+      await fillDeclining(user);
+
+      expect(await screen.findByLabelText("연락처")).toBeInTheDocument();
+      expect(screen.queryByText(/대표 한 분의 연락처만 남겨주세요/)).not.toBeInTheDocument();
+    });
+  });
+
+  // 회신은 보내고 나면 고칠 창구가 없다. 나가기 전에 한 번 되짚는 자리다 (SIS-36).
+  describe("확인 팝업", () => {
+    it("제출 버튼은 전송하지 않고 팝업을 연다", async () => {
+      const user = userEvent.setup();
+      renderWithMotion(<Rsvp />);
+      const dialog = await openConfirm(user);
+
+      expect(within(dialog).getByRole("heading", { name: "내용 확인" })).toBeInTheDocument();
+      expect(sendMock).not.toHaveBeenCalled();
+    });
+
+    it("참석 회신은 채운 여섯 항목을 모두 보여준다", async () => {
+      const user = userEvent.setup();
+      renderWithMotion(<Rsvp />);
+      const dialog = await openConfirm(user);
+
+      const rows = within(dialog)
+        .getAllByRole("term")
+        .map((dt) => dt.textContent);
+      expect(rows).toEqual(["하객 구분", "참석 여부", "성함", "참석 인원", "연락처", "식사 여부"]);
+      // 보이는 값이 곧 저장되는 값이다 — 연락처는 하이픈이 걷힌 모양으로 보인다.
+      expect(within(dialog).getByText("00000000000")).toBeInTheDocument();
+      expect(within(dialog).getByText("2명")).toBeInTheDocument();
+    });
+
+    // 미참석의 인원 1·식사안함은 DB 의 not null 을 채우려고 넣은 값이라 화면에
+    // 내보내면 고르지도 않은 답을 확인하게 된다.
+    it("미참석 회신에서는 인원·식사를 싣지 않는다", async () => {
+      const user = userEvent.setup();
+      renderWithMotion(<Rsvp />);
+      const dialog = await openConfirm(user, fillDeclining);
+
+      const rows = within(dialog)
+        .getAllByRole("term")
+        .map((dt) => dt.textContent);
+      expect(rows).toEqual(["하객 구분", "참석 여부", "성함", "연락처"]);
+      expect(within(dialog).queryByText("식사안함")).not.toBeInTheDocument();
+    });
+
+    it("「뒤로」로 닫으면 폼이 채운 그대로 남는다", async () => {
+      const user = userEvent.setup();
+      renderWithMotion(<Rsvp />);
+      const dialog = await openConfirm(user);
+
+      await user.click(within(dialog).getByRole("button", { name: "뒤로" }));
+
+      await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+      expect(screen.getByLabelText("성함")).toHaveValue("홍길동");
+      expect(screen.getByLabelText("연락처")).toHaveValue("000-0000-0000");
+      expect(screen.getByRole("checkbox")).toBeChecked();
+      expect(sendMock).not.toHaveBeenCalled();
+    });
+
+    it("우상단 X 로도 값을 지키며 닫힌다", async () => {
+      const user = userEvent.setup();
+      renderWithMotion(<Rsvp />);
+      const dialog = await openConfirm(user);
+
+      await user.click(within(dialog).getByRole("button", { name: "닫기" }));
+
+      await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+      expect(screen.getByLabelText("참석 인원 (본인 포함)")).toHaveValue("2");
+      expect(sendMock).not.toHaveBeenCalled();
+    });
+
+    // 닫은 뒤 초점이 문서 맨 앞으로 떨어지면, 키보드로 훑던 사람이 폼을 다시 찾아
+    // 내려와야 한다.
+    it("닫으면 눌렀던 제출 버튼으로 초점이 돌아온다", async () => {
+      const user = userEvent.setup();
+      renderWithMotion(<Rsvp />);
+      const dialog = await openConfirm(user);
+
+      await user.click(within(dialog).getByRole("button", { name: "뒤로" }));
+
+      await waitFor(() => expect(screen.getByRole("button", { name: "참석 의사 전하기" })).toHaveFocus());
     });
   });
 
@@ -188,10 +379,8 @@ describe("Rsvp", () => {
     it("정상 입력이면 스키마에 맞는 값을 보내고 완료 카드로 바뀐다", async () => {
       const user = userEvent.setup();
       renderWithMotion(<Rsvp />);
-      await openForm(user);
-      await fillAttending(user);
-      await user.click(await screen.findByRole("checkbox"));
-      await user.click(screen.getByRole("button", { name: "참석 의사 전하기" }));
+      await openConfirm(user);
+      await confirmSend(user);
 
       await waitFor(() => expect(sendMock).toHaveBeenCalledTimes(1));
       expect(sendMock).toHaveBeenCalledWith({
@@ -206,20 +395,17 @@ describe("Rsvp", () => {
 
       expect(await screen.findByText(/참석 의사가 전달되었습니다/)).toBeInTheDocument();
       expect(screen.queryByRole("button", { name: "참석 의사 전하기" })).not.toBeInTheDocument();
+      // 팝업은 폼 안에 그려지고 폼은 완료 카드로 갈릴 때 통째로 사라진다. 여기서
+      // 오버레이가 남으면 완료 카드가 그 뒤에 가려진 채 화면이 잠긴다.
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     });
 
     // 축의 대조·답례·회신 정정에 이 번호 말고는 창구가 없다 (SIS-37).
     it("미참석 회신도 연락처를 실어 보낸다", async () => {
       const user = userEvent.setup();
       renderWithMotion(<Rsvp />);
-      await openForm(user);
-
-      await user.click(screen.getByRole("button", { name: "신부측 하객" }));
-      await user.click(await screen.findByRole("button", { name: "참석 어려워요" }));
-      await user.type(await screen.findByLabelText("성함"), "김하객");
-      await user.type(await screen.findByLabelText("연락처"), "000-0000-0000");
-      await user.click(await screen.findByRole("checkbox"));
-      await user.click(screen.getByRole("button", { name: "참석 의사 전하기" }));
+      await openConfirm(user, fillDeclining);
+      await confirmSend(user);
 
       await waitFor(() => expect(sendMock).toHaveBeenCalledTimes(1));
       expect(sendMock).toHaveBeenCalledWith({
@@ -238,15 +424,13 @@ describe("Rsvp", () => {
       const user = userEvent.setup();
       renderWithMotion(<Rsvp />);
       await openForm(user);
+      await fillDeclining(user, { phone: "000-00" });
 
-      await user.click(screen.getByRole("button", { name: "신부측 하객" }));
-      await user.click(await screen.findByRole("button", { name: "참석 어려워요" }));
-      await user.type(await screen.findByLabelText("성함"), "김하객");
-      await user.type(await screen.findByLabelText("연락처"), "000-00");
       await user.click(await screen.findByRole("checkbox"));
-      await user.click(screen.getByRole("button", { name: "참석 의사 전하기" }));
+      await pressSubmit(user);
 
       expect(await screen.findByText(/연락처를 다시 확인해 주세요/)).toBeInTheDocument();
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
       expect(sendMock).not.toHaveBeenCalled();
     });
 
@@ -258,14 +442,17 @@ describe("Rsvp", () => {
       const logged = vi.spyOn(console, "error").mockImplementation(() => {});
       sendMock.mockRejectedValue(new Error("network"));
       renderWithMotion(<Rsvp />);
-      await openForm(user);
-      await fillAttending(user);
-      await user.click(await screen.findByRole("checkbox"));
-      await user.click(screen.getByRole("button", { name: "참석 의사 전하기" }));
+      const dialog = await openConfirm(user);
+      await confirmSend(user);
 
-      expect(await screen.findByRole("status")).toHaveTextContent(/실패/);
+      expect(await screen.findByTestId("toast")).toHaveTextContent(/실패/);
       expect(screen.queryByText(/참석 의사가 전달되었습니다/)).not.toBeInTheDocument();
-      expect(screen.getByRole("button", { name: "참석 의사 전하기" })).toBeEnabled();
+      // 팝업을 닫아 버리면 하객이 여섯 항목을 처음부터 다시 확인해야 한다 (SIS-36).
+      expect(dialog).toBeInTheDocument();
+      await waitFor(() => expect(within(dialog).getByRole("button", { name: "확인" })).toBeEnabled());
+      // 그 자리에서 다시 누를 수 있다.
+      await confirmSend(user);
+      expect(sendMock).toHaveBeenCalledTimes(2);
       // 화면 안내는 무엇이 실패해도 같은 한 줄이다. 원인을 구분할 유일한 자리라
       // 이 로그가 사라지면 원격에서 실패를 진단할 방법이 없어진다.
       expect(logged).toHaveBeenCalled();

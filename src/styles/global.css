@@ -284,9 +284,11 @@ body {
    c안 §8(drafts/c.dc.html 565~666행)을 옮기면서 색을 현행 토큰으로 치환했다 —
    §8 은 구 primary(#7e9079) 기준이라 그대로 쓰면 지금 화면과 어긋난다.
 
-   ★ 오류 표시에 빨강을 쓰지 않는다. 토큰에 경고색이 없고, 이 하나 때문에 새 색을
-   들이면 색 체계가 청첩장 밖으로 새어 나간다. 대신 테두리를 --primary 로 세우고
-   메시지를 글로 붙인다 — 색만으로 오류를 전달하지 않는 편이 접근성에도 맞다. */
+   ★ 오류 표시는 --error 로 간다 (SIS-36, 2026-08-18). 처음에는 「빨강을 쓰지 않는다」로
+   두고 테두리를 --primary 로 세웠는데, 그러면 오류난 칸과 멀쩡한 칸이 같은 초록 계열이라
+   훑어서는 어디가 틀렸는지 잡히지 않았다. 새 색을 들인 근거는 tokens.css 의 --error 참고.
+   색만으로 오류를 전달하지 않는다는 원칙은 그대로다 — .rsvp-error 의 메시지가 늘 함께 붙고,
+   테두리도 굵기(1.5px)로 한 번 더 구분한다. */
 /* 항목이 한 번에 하나씩 나타나므로 gap 을 두지 않는다 — 접힌 단계에도 간격이 남아
    빈자리가 생긴다. 여백은 각 단계가 자기 안쪽에 준다(Rsvp.tsx 의 Step). */
 .rsvp-form {
@@ -347,16 +349,38 @@ body {
   color: var(--text-sub);
 }
 
-/* 오류가 난 자리만 테두리를 세운다. 메시지는 .rsvp-error 가 따로 읽힌다. */
+/* 라벨 아래 보조 문구 (SIS-36). placeholder(hint)는 형식 예시 전용이라 여기에 안내를
+   겹쳐 적을 수 없다 — 글자를 적는 순간 사라지고, 그 값은 review-guard.mjs 의 예시
+   목록에도 걸려 있다. keep-all 은 저절로 접히는 줄이 낱말 중간에서 갈라지지 않게 한다
+   (초대글 카드와 같은 이유). */
+.rsvp-help {
+  display: block;
+  margin: 0 0 7px 2px;
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: var(--muted-2);
+  word-break: keep-all;
+}
+
+/* 오류가 난 자리만 테두리를 세운다. 메시지는 .rsvp-error 가 따로 읽힌다.
+   굵기를 함께 올리는 것은 색을 구분하지 못하는 눈에도 차이가 남게 하려는 것이다. */
 .rsvp-invalid {
-  border-color: var(--primary);
+  border-color: var(--error);
+  border-width: 1.5px;
+}
+
+/* 초점 링도 오류색으로 간다. 검증에 걸리면 첫 오류 칸으로 초점이 옮겨 가므로(Rsvp.tsx),
+   이 자리가 하객이 가장 먼저 보게 되는 곳이다. */
+.rsvp-invalid:focus-visible {
+  outline: 2px solid var(--error);
+  outline-offset: 2px;
 }
 
 .rsvp-error {
   margin: 6px 2px 0;
   font-size: 12.5px;
   line-height: 1.6;
-  color: var(--text);
+  color: var(--error);
 }
 
 .rsvp-submit {
@@ -538,6 +562,137 @@ body {
 .privacy-policy .privacy-label {
   margin-top: 6px;
   color: var(--text);
+}
+
+/* ── 제출 확인 팝업 (SIS-36) ─────────────────────────────────────────────
+   화면을 덮는 세 번째 오버레이다(토스트 · 완료 카드 · 이것). 쌓임 순서는
+   지도 덮개 < 이 팝업(90) < 토스트(95) < 로딩(100) 이다 — 전송이 실패하면
+   토스트가 팝업을 닫지 않은 채 그 위에 떠야 한다. */
+.rsvp-confirm-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* 카드 좌우 마진 20 과 같은 값. 430px 컬럼 안에서 카드 폭이 390 으로 떨어진다. */
+  padding: 20px;
+  background: var(--overlay);
+}
+
+.rsvp-confirm {
+  position: relative;
+  width: 100%;
+  max-width: 390px;
+  /* 작은 화면에서 항목이 여섯 줄이면 버튼이 화면 밖으로 밀린다. 팝업 안에서만
+     넘기게 해 「확인」이 늘 닿는 자리에 있게 한다. */
+  max-height: 100%;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 26px 22px 22px;
+  border-radius: var(--radius-card);
+  background: var(--card);
+  box-shadow: var(--shadow-card);
+  text-align: left;
+}
+
+/* 초점이 팝업 안에 갇히므로(Rsvp.tsx) 이 상자 자체도 초점을 받는다. 열릴 때
+   제목이 먼저 읽히도록 버튼이 아니라 여기로 초점을 준다 — 「확인」에 바로 주면
+   엔터 한 번에 전송된다. */
+.rsvp-confirm:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+.rsvp-confirm-close {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  width: 32px;
+  height: 32px;
+  border: 0;
+  background: none;
+  color: var(--text-sub);
+  font-family: var(--font-serif);
+  font-size: 17px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.rsvp-confirm-title {
+  margin: 0 0 4px;
+  font-size: 17px;
+  color: var(--text);
+  text-align: center;
+}
+
+.rsvp-confirm-lead {
+  margin: 0 0 18px;
+  font-size: 13px;
+  line-height: 1.7;
+  color: var(--text-sub);
+  text-align: center;
+}
+
+/* 항목표는 개인정보 요약과 같은 dl 이되, 라벨 폭을 고정해 값이 세로로 맞는다 —
+   그쪽은 문장으로 흐르고 이쪽은 대조해 읽는 표다. */
+.rsvp-confirm-summary {
+  display: grid;
+  grid-template-columns: 78px 1fr;
+  gap: 9px 12px;
+  margin: 0 0 20px;
+  padding: 16px;
+  border-radius: 16px;
+  background: var(--surface-3);
+}
+
+.rsvp-confirm-summary dt {
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--muted);
+}
+
+.rsvp-confirm-summary dd {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--text);
+  /* 연락처처럼 긴 값이 좁은 화면에서 상자를 밀어내지 않게 한다 */
+  word-break: break-all;
+}
+
+/* 공유 섹션의 가로 2분할과 같은 배치 */
+.rsvp-confirm-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.rsvp-confirm-btn {
+  flex: 1;
+  padding: 15px 0;
+  border: none;
+  border-radius: var(--radius-control);
+  font-family: var(--font-serif);
+  font-size: 15px;
+  cursor: pointer;
+}
+
+.rsvp-confirm-back {
+  border: 1px solid var(--input-border);
+  background: var(--surface-2);
+  color: var(--on-surface);
+}
+
+.rsvp-confirm-send {
+  background: var(--primary);
+  color: var(--on-primary);
+}
+
+/* 보내는 동안 잠근다. 잠긴 제출 버튼과 같은 면·같은 글자색을 쓴다. */
+.rsvp-confirm-send:disabled {
+  background: var(--surface);
+  color: var(--on-surface);
+  cursor: not-allowed;
 }
 
 /* ── 제출 완료 · 마감 안내 ──────────────────────────────────────────────── */
