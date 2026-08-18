@@ -6,6 +6,7 @@
 // 가짜 계좌번호가 그대로 배포될 수 있다.
 import { readdir, readFile, stat } from "node:fs/promises";
 import path from "node:path";
+import { readEnvFile, envValue } from "./read-env.mjs";
 
 const PLACEHOLDERS = ["○○", "000-000-000000", "MAP PREVIEW"];
 const errors = [];
@@ -86,24 +87,38 @@ const REQUIRED_ENV = [
   "VITE_ACCOUNTS_BRIDE",
 ];
 
-async function readEnvFile() {
-  const values = {};
-  try {
-    const text = await readFile(".env", "utf8");
-    for (const line of text.split("\n")) {
-      const m = /^\s*([A-Z0-9_]+)\s*=\s*(.*)$/.exec(line);
-      if (m) values[m[1]] = m[2].trim();
-    }
-  } catch {
-    // .env 가 없는 것은 정상이다 — Vercel 에서는 process.env 로 들어온다.
-  }
-  return values;
-}
-
 const envFile = await readEnvFile();
-const missingEnv = REQUIRED_ENV.filter((key) => !(process.env[key] || envFile[key]));
+const missingEnv = REQUIRED_ENV.filter((key) => !envValue(key, envFile));
 if (missingEnv.length > 0) {
   errors.push(`개인정보 환경변수 미설정: ${missingEnv.join(", ")} — mock 값이 그대로 배포됩니다`);
+}
+
+// Supabase(SIS-33) — RSVP 수신처다. 값이 없거나 형식이 어긋나면 폼은 정상으로
+// 보이는데 회신만 조용히 실패한다. 하객도 고객도 알 수 없는 실패라 게이트에서 막는다.
+//
+// 형식 판정은 src/lib/supabase.ts 의 supabaseEnvError 와 같은 규칙이다. 그쪽은
+// 브라우저용 TS 라 여기서 import 할 수 없어(이 스크립트는 빌드 없이 도는 순수
+// node 다) 규칙만 옮겨 적었다 — 한쪽을 고치면 다른 쪽도 고친다.
+const supabaseUrl = envValue("VITE_SUPABASE_URL", envFile);
+const supabaseKey = envValue("VITE_SUPABASE_PUBLISHABLE_KEY", envFile);
+if (!supabaseUrl || !supabaseKey) {
+  const missing = [!supabaseUrl && "VITE_SUPABASE_URL", !supabaseKey && "VITE_SUPABASE_PUBLISHABLE_KEY"].filter(Boolean);
+  errors.push(`Supabase 환경변수 미설정: ${missing.join(", ")} — RSVP 회신이 저장되지 않습니다`);
+} else {
+  if (!/^https:\/\/[^/\s]+$/.test(supabaseUrl.replace(/\/+$/, ""))) {
+    errors.push(
+      "VITE_SUPABASE_URL 이 https 절대 URL 이 아닙니다 — Project ID 가 아니라 https://<project-ref>.supabase.co 형식이어야 합니다",
+    );
+  }
+  if (supabaseKey.startsWith("sb_secret_")) {
+    errors.push(
+      "VITE_SUPABASE_PUBLISHABLE_KEY 에 secret 키가 들어 있습니다 — 청첩장 JS 에 박혀 RLS 가 무력화됩니다. 즉시 교체하세요",
+    );
+  } else if (!supabaseKey.startsWith("sb_publishable_")) {
+    errors.push(
+      "VITE_SUPABASE_PUBLISHABLE_KEY 형식이 아닙니다 — sb_publishable_ 로 시작하는 값이어야 합니다 (레거시 anon 키는 2026년 말 지원 종료)",
+    );
+  }
 }
 
 // 계좌는 "값이 있는가"만으로는 부족하다. parseAccounts 는 `역할|은행|계좌번호|예금주`
@@ -116,7 +131,7 @@ if (missingEnv.length > 0) {
 const EXPECTED_ACCOUNTS = { VITE_ACCOUNTS_GROOM: 2, VITE_ACCOUNTS_BRIDE: 2 };
 
 for (const [key, expected] of Object.entries(EXPECTED_ACCOUNTS)) {
-  const raw = (process.env[key] || envFile[key] || "").trim();
+  const raw = envValue(key, envFile);
   if (!raw) continue; // 미설정은 위에서 이미 보고했다
 
   const entries = raw.split(";").filter((entry) => entry.trim());
@@ -140,7 +155,7 @@ for (const [key, expected] of Object.entries(EXPECTED_ACCOUNTS)) {
 // 사진은 Cloudflare R2 에서 온다(SIS-28). public/images/ 는 optimize 산출물을
 // 잠시 두는 로컬 작업 폴더일 뿐 배포물에 들어가지 않으므로, 여기서 볼 것은
 // 파일 용량이 아니라 "배포된 사이트가 사진을 실제로 받아올 수 있는가"다.
-const imageBase = (process.env.VITE_IMAGE_BASE_URL || envFile.VITE_IMAGE_BASE_URL || "").trim();
+const imageBase = envValue("VITE_IMAGE_BASE_URL", envFile);
 if (!imageBase) {
   errors.push("VITE_IMAGE_BASE_URL 미설정 — 사진이 로컬 폴백(/images)을 가리켜 배포본에서 전부 깨집니다");
 } else if (!/^https:\/\//.test(imageBase)) {
