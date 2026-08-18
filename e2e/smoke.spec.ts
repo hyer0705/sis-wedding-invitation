@@ -246,20 +246,47 @@ test.describe("청첩장 기본 동작", () => {
   test.describe("커버 패럴랙스", () => {
     const coverTransform = (page: Page) => page.locator("header img").evaluate((el) => getComputedStyle(el).transform);
 
-    test("스크롤하면 커버 사진이 따라 내려온다", async ({ page }) => {
-      await page.goto("/");
+    /**
+     * 패럴랙스를 재기 전에 화면이 준비되기를 기다린다.
+     *
+     * goto 는 load 에서 풀리는데 그 시점에는 로딩 오버레이(CM-04)가 아직 덮고 있고,
+     * 스크롤 구독은 Cover 의 effect 가 마운트된 뒤에야 걸린다(Cover.tsx — useScroll 을
+     * 쓰지 않고 직접 구독한다). 그 사이에 재면 스크롤을 흘려보낸다.
+     *
+     * **스크롤이 실제로 먹었는지도 확인한다.** 이것이 없으면 실패했을 때
+     * 「스크롤이 안 됐다」와 「패럴랙스가 깨졌다」를 구분할 수 없다 — 2026-08-18 에
+     * ios-safari 에서 이 테스트가 흔들렸을 때 로그만으로는 원인을 좁히지 못했다.
+     */
+    async function scrollPastCover(page: Page) {
+      // 기본 5초로는 모자란다. 로딩 화면은 커버 사진 도착 또는 **상한 4초**(Loading.tsx 의
+      // MAX_VISIBLE_MS) 중 먼저 오는 쪽에 걷히는데, CI 에는 사진이 없어(리포에 커밋하지
+      // 않는다) 매번 상한을 꽉 채운다. 거기에 페이드가 더해져 여유가 1초도 남지 않고,
+      // 워커들이 CPU 를 나눠 쓰면 그대로 넘어간다 — 실제로 넘어갔다(2026-08-18).
+      await expect(page.getByTestId("loading")).toBeHidden({ timeout: 15_000 });
       const before = await coverTransform(page);
 
       await page.evaluate(() => window.scrollTo(0, 400));
-      await expect.poll(() => coverTransform(page)).not.toBe(before);
+      await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(0);
+
+      return before;
+    }
+
+    test("스크롤하면 커버 사진이 따라 내려온다", async ({ page }) => {
+      await page.goto("/");
+      const before = await scrollPastCover(page);
+
+      // 기본 5초는 여유가 없다. 스크롤 값에 물린 갱신이 한 프레임 늦게 커밋되는 일이
+      // 있어(webkit) 여기서 시간을 조금 더 준다 — 늦게라도 따라오면 통과다.
+      await expect.poll(() => coverTransform(page), { timeout: 10_000 }).not.toBe(before);
     });
 
     test("모션을 줄인 설정에서는 사진이 움직이지 않는다", async ({ page }) => {
       await page.emulateMedia({ reducedMotion: "reduce" });
       await page.goto("/");
-      const before = await coverTransform(page);
+      // 「안 움직였다」를 보는 테스트라 준비 대기가 더 중요하다. 화면이 아직 스크롤될
+      // 상태가 아니면 아무것도 안 한 채로 통과해 버린다.
+      const before = await scrollPastCover(page);
 
-      await page.evaluate(() => window.scrollTo(0, 400));
       await page.waitForTimeout(300);
       expect(await coverTransform(page)).toBe(before);
     });
@@ -1008,7 +1035,9 @@ test.describe("청첩장 기본 동작", () => {
       // 1인 것을 확인하는 것으로 오버레이가 걷혔음까지 함께 본다.
       await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
       await page.evaluate(() => document.fonts.ready);
-      await expect(page.getByTestId("loading")).toBeHidden();
+      // 기본 5초를 쓰지 않는 이유는 커버 패럴랙스 쪽 scrollPastCover 의 주석 참고 —
+      // CI 에서 로딩은 늘 상한 4초를 채우므로 여유가 1초도 남지 않는다.
+      await expect(page.getByTestId("loading")).toBeHidden({ timeout: 15_000 });
       await expect(page.locator("header")).toHaveCSS("opacity", "1");
 
       // 아코디언은 기본이 접힘이고 닫힌 패널은 DOM 에서 빠진다. 열어 두지 않으면 계좌 행과
@@ -1041,11 +1070,18 @@ test.describe("청첩장 기본 동작", () => {
       });
       // 리빌 대상은 Reveal 이 그리는 <section> 뿐이라 그것만 본다. 인라인 opacity 를 통째로
       // 훑으면 갤러리의 잠긴 화살표(0.35)와 커버의 「scroll ↓」(무한 왕복)에 영영 걸린다.
+      //
+      // 기본 5초로는 모자란다. 마지막 섹션들은 훑기가 끝날 무렵에야 뷰에 들어와 그때부터
+      // 0.9초 페이드를 시작하고, 워커들이 CPU 를 나눠 쓰면 그 페이드들이 서로 밀린다 —
+      // ios-safari 에서 「3개가 아직 1이 아니다」로 흔들렸다(2026-08-18). 조건 대기라
+      // 정상일 때는 곧바로 풀리고, 늘린 시간을 실제로 쓰지 않는다.
       await expect
-        .poll(() =>
-          page.evaluate(
-            () => [...document.querySelectorAll("section")].filter((el) => getComputedStyle(el).opacity !== "1").length,
-          ),
+        .poll(
+          () =>
+            page.evaluate(
+              () => [...document.querySelectorAll("section")].filter((el) => getComputedStyle(el).opacity !== "1").length,
+            ),
+          { timeout: 20_000 },
         )
         .toBe(0);
 

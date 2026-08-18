@@ -6,6 +6,15 @@ on:
   push:
     branches: [develop]
 
+# 연속으로 푸시하면 옛 커밋의 실행이 러너를 계속 잡고 있었다 (SIS-34). 같은 브랜치의
+# 앞선 실행을 취소해 새 커밋이 곧바로 돌게 한다.
+#
+# PR 에서 github.ref 는 refs/pull/{번호}/merge 라 PR 마다 group 이 갈리고, develop 푸시는
+# refs/heads/develop 하나로 묶인다 — 어느 쪽도 남의 실행을 끊지 않는다.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   # 유출 게이트. 로컬 pre-commit 훅은 --no-verify로 우회되므로 이 잡이 최종 방어선이다.
   # 이 리포는 프라이빗 + 무료 플랜이라 브랜치 보호·시크릿 스캐닝 푸시 차단을 못 쓴다.
@@ -31,6 +40,9 @@ jobs:
       - name: 의존성 취약점 검사
         run: npm audit --audit-level=high --omit=dev
 
+  # E2E 를 여기서 뺐다 (SIS-34). 포맷·린트·타입·유닛·빌드는 1분 안에 끝나므로 대부분의
+  # 실패를 곧바로 받는다. 두 잡은 서로 기다리지 않고 나란히 돈다 — 전체 벽시계 시간은
+  # 그대로지만 「빠른 실패」가 E2E 뒤에 줄 서지 않는다.
   check:
     runs-on: ubuntu-latest
     env:
@@ -55,10 +67,44 @@ jobs:
       - name: 포맷·린트·타입·유닛테스트·빌드
         run: npm run check
 
-      - name: Playwright 브라우저 설치
-        # webkit은 iOS Safari(CM-09) 엔진 검증용이라 함께 설치한다
-        run: npx playwright install --with-deps chromium webkit
+  e2e:
+    runs-on: ubuntu-latest
+    # Playwright 공식 이미지. 브라우저와 **webkit 이 요구하는 OS 라이브러리가 이미 들어
+    # 있어** `playwright install --with-deps` 가 통째로 없어진다 — 그 한 단계가 18분 44초로
+    # 옛 check 잡의 81% 였다 (SIS-34). apt 로 매번 새로 까는 것이라 브라우저 캐시로는
+    # 줄지 않아, 이미지를 통째로 가져오는 것 말고 방법이 없었다.
+    #
+    # ★ 태그의 버전은 package.json 의 @playwright/test 와 **정확히 같아야 한다.**
+    #   어긋나면 번들 브라우저를 찾지 못해
+    #   "Executable doesn't exist at /ms-playwright/…" 로 실패한다.
+    #   **Playwright 를 올릴 때 이 줄도 함께 올린다.**
+    container:
+      image: mcr.microsoft.com/playwright:v1.62.1-noble
+      # 러너 사용자(uid 1001)로 맞춘다. 이미지의 기본은 root 인데, 워크스페이스는
+      # uid 1001 소유로 마운트된다 — 그대로 두면 설치·빌드 산출물이 root 소유로 쌓여
+      # setup-node 의 캐시 저장(post 단계)이 권한에서 막힌다. Playwright 공식
+      # GitHub Actions 예시도 같은 값을 지정한다.
+      options: --user 1001
+    env:
+      # 빌드·서버 쪽도 같은 시간대에 두어 check 잡과 조건을 맞춘다. 브라우저 안쪽은
+      # playwright.config.ts 의 timezoneId 가 따로 고정한다.
+      TZ: Asia/Seoul
+    steps:
+      - uses: actions/checkout@v4
 
+      # 이미지에 들어 있는 Node 를 그대로 쓰지 않고 고정한다 — 이미지가 올라갈 때 Node 가
+      # 함께 바뀌면 다른 잡과 런타임이 갈린다.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: 의존성 설치
+        # npm ci 를 쓰지 못하는 이유는 check 잡의 같은 단계 주석 참고.
+        run: npm install --no-audit --no-fund
+
+      # 브라우저 설치 단계가 없다 — 이미지가 들고 있다. 빌드와 preview 서버는
+      # playwright.config.ts 의 webServer 가 띄운다.
       - name: E2E 테스트
         run: npm run test:e2e
 

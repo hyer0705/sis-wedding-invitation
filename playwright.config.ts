@@ -8,7 +8,14 @@ export default defineConfig({
   fullyParallel: true,
   forbidOnly: isCI,
   retries: isCI ? 1 : 0,
-  workers: isCI ? 1 : undefined,
+  // CI 러너는 4 vCPU 인데 오래 워커 1개로 직렬 실행했다(M1 세팅부터, 근거는 남아 있지
+  // 않다). 브라우저 설치를 걷어내고 나니 이 직렬 실행이 E2E 잡의 80%(5분 55초)였다 —
+  // 로컬 4워커 1분 6초를 직렬 환산한 값과 거의 정확히 맞는다 (SIS-34).
+  //
+  // 정적 파일을 내주는 preview 서버 하나를 워커들이 함께 쓰므로 서버 쪽은 병목이 아니다.
+  // 병렬로 흔들리는 테스트가 나오면 workers 를 줄이기 전에 그 테스트를 고친다 — 워커를
+  // 되돌리면 원인은 그대로 남고 시간만 다시 늘어난다.
+  workers: isCI ? 4 : undefined,
   reporter: isCI ? "github" : "list",
   timeout: 30_000,
   expect: {
