@@ -54,7 +54,7 @@ async function fillAttending(user: User, { count = "2", phone = "000-0000-0000" 
   await user.type(await screen.findByLabelText("성함"), "홍길동");
   await user.type(await screen.findByLabelText("참석 인원 (본인 포함)"), count);
   await user.type(await screen.findByLabelText("연락처"), phone);
-  await user.click(await screen.findByRole("button", { name: "식사합니다" }));
+  await user.click(await screen.findByRole("button", { name: "식사함" }));
 }
 
 describe("Rsvp", () => {
@@ -92,18 +92,20 @@ describe("Rsvp", () => {
 
       await user.type(screen.getByLabelText("참석 인원 (본인 포함)"), "2");
       expect(await screen.findByLabelText("연락처")).toBeInTheDocument();
-      expect(screen.queryByRole("button", { name: "식사합니다" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "식사함" })).not.toBeInTheDocument();
 
       await user.type(screen.getByLabelText("연락처"), "000-0000-0000");
-      expect(await screen.findByRole("button", { name: "식사합니다" })).toBeInTheDocument();
+      expect(await screen.findByRole("button", { name: "식사함" })).toBeInTheDocument();
       expect(screen.queryByRole("checkbox")).not.toBeInTheDocument();
 
-      await user.click(screen.getByRole("button", { name: "식사합니다" }));
+      await user.click(screen.getByRole("button", { name: "식사함" }));
       expect(await screen.findByRole("checkbox")).toBeInTheDocument();
     });
 
-    // 못 간다고 알려주려는 하객을 연락처에서 막으면 회신 자체를 포기한다.
-    it("미참석이면 성함 다음이 바로 동의다", async () => {
+    // 못 간다고 알려주려는 하객을 연락처에서 막으면 회신 자체를 포기한다. 그래서
+    // 묻되 선택으로 두고(SIS-35), 채워야 다음이 나오는 규칙을 여기서만 풀어
+    // 동의를 함께 내보낸다 — 적지 않고 내려가는 것이 곧 건너뛰는 방법이다.
+    it("미참석이면 성함 다음에 연락처(선택)와 동의가 함께 나온다", async () => {
       const user = userEvent.setup();
       renderWithMotion(<Rsvp />);
       await openForm(user);
@@ -112,13 +114,15 @@ describe("Rsvp", () => {
       await user.click(await screen.findByRole("button", { name: "참석 어려워요" }));
       await user.type(await screen.findByLabelText("성함"), "김하객");
 
+      // 연락처를 비워 둔 채로 동의와 제출 버튼까지 닿는다.
+      expect(await screen.findByLabelText("연락처 (선택)")).toHaveValue("");
       expect(await screen.findByRole("checkbox")).toBeInTheDocument();
+
       expect(screen.queryByLabelText("참석 인원 (본인 포함)")).not.toBeInTheDocument();
-      expect(screen.queryByLabelText("연락처")).not.toBeInTheDocument();
-      expect(screen.queryByRole("button", { name: "식사합니다" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "식사함" })).not.toBeInTheDocument();
     });
 
-    it("참석에서 미참석으로 바꾸면 인원·연락처가 사라진다", async () => {
+    it("참석에서 미참석으로 바꾸면 인원은 사라지고 연락처는 남는다", async () => {
       const user = userEvent.setup();
       renderWithMotion(<Rsvp />);
       await openForm(user);
@@ -128,8 +132,9 @@ describe("Rsvp", () => {
 
       await user.click(screen.getByRole("button", { name: "참석 어려워요" }));
 
-      await waitFor(() => expect(screen.queryByLabelText("연락처")).not.toBeInTheDocument());
-      expect(screen.queryByLabelText("참석 인원 (본인 포함)")).not.toBeInTheDocument();
+      await waitFor(() => expect(screen.queryByLabelText("참석 인원 (본인 포함)")).not.toBeInTheDocument());
+      // 지워 버리면 방금 적은 번호가 눈앞에서 사라진다. 미참석에서도 쓰는 칸이다.
+      expect(screen.getByLabelText("연락처 (선택)")).toHaveValue("000-0000-0000");
     });
   });
 
@@ -191,7 +196,7 @@ describe("Rsvp", () => {
         attend: "참석",
         name: "홍길동",
         count: 2,
-        meal: "식사",
+        meal: "식사함",
         // 하이픈은 폼이 걷어낸다.
         phone: "00000000000",
       });
@@ -221,6 +226,42 @@ describe("Rsvp", () => {
         meal: "식사안함",
         phone: null,
       });
+    });
+
+    // 선택이지만 적으면 반드시 실려야 한다. 축의 대조·답례·회신 정정에 이 번호
+    // 말고는 창구가 없다 (SIS-35).
+    it("미참석이 연락처를 적으면 그대로 실어 보낸다", async () => {
+      const user = userEvent.setup();
+      renderWithMotion(<Rsvp />);
+      await openForm(user);
+
+      await user.click(screen.getByRole("button", { name: "신부측 하객" }));
+      await user.click(await screen.findByRole("button", { name: "참석 어려워요" }));
+      await user.type(await screen.findByLabelText("성함"), "김하객");
+      await user.type(await screen.findByLabelText("연락처 (선택)"), "000-0000-0000");
+      await user.click(await screen.findByRole("checkbox"));
+      await user.click(screen.getByRole("button", { name: "참석 의사 전하기" }));
+
+      await waitFor(() => expect(sendMock).toHaveBeenCalledTimes(1));
+      expect(sendMock).toHaveBeenCalledWith(expect.objectContaining({ attend: "미참석", phone: "00000000000" }));
+    });
+
+    // 선택이라고 검사까지 건너뛰면 잘못 적힌 번호가 그대로 저장되고, 예식 전에 걸어도
+    // 닿지 않는다.
+    it("미참석이 적은 연락처도 자릿수가 틀리면 제출하지 않고 알린다", async () => {
+      const user = userEvent.setup();
+      renderWithMotion(<Rsvp />);
+      await openForm(user);
+
+      await user.click(screen.getByRole("button", { name: "신부측 하객" }));
+      await user.click(await screen.findByRole("button", { name: "참석 어려워요" }));
+      await user.type(await screen.findByLabelText("성함"), "김하객");
+      await user.type(await screen.findByLabelText("연락처 (선택)"), "000-00");
+      await user.click(await screen.findByRole("checkbox"));
+      await user.click(screen.getByRole("button", { name: "참석 의사 전하기" }));
+
+      expect(await screen.findByText(/연락처를 다시 확인해 주세요/)).toBeInTheDocument();
+      expect(sendMock).not.toHaveBeenCalled();
     });
 
     // 실패를 삼키면 하객도 고객도 회신이 유실된 것을 알 수 없다 (SIS-33).

@@ -20,16 +20,20 @@ create table if not exists rsvp (
   attend text not null check (attend in ('참석', '미참석')),
   name text not null check (char_length(name) between 1 and 20),
   count int not null check (count between 1 and 20),
-  -- 식사 여부 3택 (고객 확정 2026-08-18 — B안). 화면 문구는 SIS-15 가 정하지만
-  -- 저장값은 이 세 가지여야 한다. 문구를 바꾸려면 이 제약을 함께 고친다.
-  meal text not null check (meal in ('식사', '식사안함', '미정')),
+  -- 식사 여부 3택 (고객 확정 2026-08-18 — B안).
+  --
+  -- 허용값 제약은 이름을 붙여 아래에 따로 건다(SIS-35). 여기 인라인으로 적으면
+  -- Postgres 가 rsvp_meal_check 로 자동 명명하는데, 이름을 우리가 모르면 나중에
+  -- drop constraint 로 갈아끼울 수가 없다. phone 이 같은 이유로 이미 밖에 나가 있다.
+  meal text not null,
   -- 연락처 (고객 요청 2026-08-18). 제출자 대표 연락처 한 개를 받는다.
   --
   -- 컬럼 자체는 nullable 이지만 비워 둘 수 있다는 뜻이 아니다. **참석 회신에는
   -- 반드시 있어야 하고**, 그 강제는 아래 rsvp_phone_required_for_attendees 가
-  -- 한다. not null 을 쓰지 않은 것은 미참석 회신에는 연락처를 받지 않기 때문이다
-  -- (2026-08-18 결정) — 못 간다고 알려주려는 하객을 연락처에서 막으면 회신 자체를
-  -- 포기하고, 식수 파악이라는 본래 목적을 놓친다.
+  -- 한다. not null 을 쓰지 않은 것은 미참석 회신에서는 연락처가 **선택**이기
+  -- 때문이다 (SIS-35) — 못 간다고 알려주려는 하객을 연락처에서 막으면 회신 자체를
+  -- 포기하고, 식수 파악이라는 본래 목적을 놓친다. 그래도 묻기는 하는 것은 축의
+  -- 대조·답례·회신 정정에 그 번호 말고는 창구가 없기 때문이다.
   --
   -- 형식 제약도 이름을 붙여 아래에 따로 건다. 여기 인라인으로 적으면 새로 만든
   -- 경우에만 이름 없는 제약이 하나 더 생겨 둘이 겹친다.
@@ -50,6 +54,20 @@ create table if not exists rsvp (
 -- 위 create table 은 테이블이 있으면 통째로 건너뛴다. 아래 구문들이 그 경우를
 -- 메운다. 새로 만든 경우에도 그냥 통과하므로 항상 함께 실행하면 된다.
 alter table rsvp add column if not exists phone text;
+
+-- 식사 여부의 저장값을 화면 라벨과 같게 맞춘다 (SIS-35). '식사' → '식사함'.
+--
+-- **세 구문의 순서가 중요하다.** 옛 제약을 먼저 걷어내지 않으면 update 가 그 제약에
+-- 걸려(23514) 통째로 실패한다 — '식사함' 은 옛 허용값 목록에 없다. 반대로 새 제약을
+-- 먼저 걸어도 남아 있는 '식사' 행 때문에 add constraint 자체가 거부된다.
+--   1) 옛 이름 없는 제약을 뗀다 (Postgres 가 rsvp_meal_check 로 자동 명명해 두었다)
+--   2) 남아 있는 행의 값을 옮긴다
+--   3) 이름 붙인 새 제약을 건다
+-- 테이블을 처음 만드는 경우에는 1) 이 그냥 통과하고 2) 가 0건이라 그대로 이어진다.
+alter table rsvp drop constraint if exists rsvp_meal_check;
+update rsvp set meal = '식사함' where meal = '식사';
+alter table rsvp drop constraint if exists rsvp_meal_allowed;
+alter table rsvp add constraint rsvp_meal_allowed check (meal in ('식사함', '식사안함', '미정'));
 
 -- 형식: 숫자와 하이픈만 9~13자. 휴대폰·집전화·하이픈 유무가 섞여 들어오므로
 -- 넓게 잡았고, 정규화는 SIS-15 의 폼이 한다.
