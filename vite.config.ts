@@ -100,6 +100,10 @@ export default defineConfig(({ mode }) => ({
       VITE_ACCOUNTS_BRIDE: "",
       VITE_IMAGE_BASE_URL: "",
       VITE_KAKAO_JS_KEY: "",
+      // Supabase 도 같은 이유로 비운다. 로컬 .env 에는 실값이 있어서, 비우지 않으면
+      // isSupabaseConfigured() 가 로컬에서만 true 가 된다(SIS-33).
+      VITE_SUPABASE_URL: "",
+      VITE_SUPABASE_PUBLISHABLE_KEY: "",
     },
     // scripts/의 검토 게이트는 .mjs다. tsconfig·eslint 대상(src)이 아니므로
     // 확장자를 그대로 두고 테스트만 여기서 잡는다.

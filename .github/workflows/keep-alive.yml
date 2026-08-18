@@ -1,0 +1,43 @@
+# 무료 티어 Supabase 프로젝트는 DB 활동이 7일 없으면 일시정지된다. 일시정지되면
+# 하객의 참석 회신이 통째로 실패하고, 되살리려면 사람이 대시보드에서 눌러야 한다.
+#
+# 예식(2027년 1월)까지 응답이 뜸한 기간이 반드시 생기므로 하루 한 번 가벼운
+# 읽기 요청으로 활동을 만든다. RLS 때문에 결과는 항상 0건이지만 쿼리 자체는
+# DB 에 닿으므로 활동으로 잡힌다.
+#
+# 주의: GitHub 는 60일 동안 리포에 활동이 없으면 예약 워크플로를 자동 비활성화한다.
+# 커밋이 뜸해지는 시기(예식 직전 동결 기간)에는 Actions 탭에서 활성 상태를 확인한다.
+name: keep-alive
+
+# 「Run workflow」 버튼과 예약 실행 둘 다 **이 파일이 기본 브랜치(main)에 있어야**
+# 나타난다. feature 브랜치나 develop 에만 있는 동안에는 Actions 탭에 이 워크플로가
+# 보이지 않고 gh workflow run 도 받지 않는다 — GitHub 의 제약이다. 그래서 수동 1회
+# 검증은 main 릴리스 이후에 한다(docs/manual-qa.md).
+on:
+  schedule:
+    # 매일 12:17 KST (03:17 UTC). 정각을 피한 것은 그 시각에 작업이 몰려
+    # 예약 실행이 밀리기 때문이다.
+    - cron: "17 3 * * *"
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Supabase 깨우기
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
+        run: |
+          set -euo pipefail
+          if [ -z "${SUPABASE_URL}" ] || [ -z "${SUPABASE_PUBLISHABLE_KEY}" ]; then
+            echo "리포 시크릿 SUPABASE_URL·SUPABASE_PUBLISHABLE_KEY 가 없습니다 (Settings → Secrets → Actions)"
+            exit 1
+          fi
+          # -f 로 4xx·5xx 를 실패로 만든다. 응답 본문은 버린다 — 어차피 빈 배열이고,
+          # 로그에 남겨서 좋을 것이 없다.
+          code=$(curl -fsS -o /dev/null -w '%{http_code}' \
+            "${SUPABASE_URL%/}/rest/v1/rsvp?select=id&limit=1" \
+            -H "apikey: ${SUPABASE_PUBLISHABLE_KEY}" \
+            -H "Authorization: Bearer ${SUPABASE_PUBLISHABLE_KEY}")
+          echo "Supabase 응답 ${code}"

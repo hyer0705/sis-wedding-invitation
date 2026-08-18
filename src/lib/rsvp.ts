@@ -1,3 +1,7 @@
+// ⚠ 이 모듈은 SIS-20 에서 Supabase insert(`src/lib/supabase.ts`)로 통째로 교체된다.
+// 백엔드를 Supabase 로 확정하면서(SIS-33) `VITE_RSVP_ENDPOINT` 는 `.env.example`
+// 에서 이미 뺐다 — 지금 이 코드는 값이 없어 동작하지 않는다. 호출부(Rsvp.tsx)가
+// 스텁이고 App.tsx 가 그리지 않으므로 화면에는 영향이 없다.
 export interface RsvpPayload {
   side: "신랑측" | "신부측" | "";
   attend: "참석" | "미참석" | "";
