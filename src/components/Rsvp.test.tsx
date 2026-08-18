@@ -395,6 +395,9 @@ describe("Rsvp", () => {
 
       expect(await screen.findByText(/참석 의사가 전달되었습니다/)).toBeInTheDocument();
       expect(screen.queryByRole("button", { name: "참석 의사 전하기" })).not.toBeInTheDocument();
+      // 팝업은 폼 안에 그려지고 폼은 완료 카드로 갈릴 때 통째로 사라진다. 여기서
+      // 오버레이가 남으면 완료 카드가 그 뒤에 가려진 채 화면이 잠긴다.
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     });
 
     // 축의 대조·답례·회신 정정에 이 번호 말고는 창구가 없다 (SIS-37).
