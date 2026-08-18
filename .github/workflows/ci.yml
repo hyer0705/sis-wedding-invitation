@@ -78,7 +78,13 @@ jobs:
     #   어긋나면 번들 브라우저를 찾지 못해
     #   "Executable doesn't exist at /ms-playwright/…" 로 실패한다.
     #   **Playwright 를 올릴 때 이 줄도 함께 올린다.**
-    container: mcr.microsoft.com/playwright:v1.62.1-noble
+    container:
+      image: mcr.microsoft.com/playwright:v1.62.1-noble
+      # 러너 사용자(uid 1001)로 맞춘다. 이미지의 기본은 root 인데, 워크스페이스는
+      # uid 1001 소유로 마운트된다 — 그대로 두면 설치·빌드 산출물이 root 소유로 쌓여
+      # setup-node 의 캐시 저장(post 단계)이 권한에서 막힌다. Playwright 공식
+      # GitHub Actions 예시도 같은 값을 지정한다.
+      options: --user 1001
     env:
       # 빌드·서버 쪽도 같은 시간대에 두어 check 잡과 조건을 맞춘다. 브라우저 안쪽은
       # playwright.config.ts 의 timezoneId 가 따로 고정한다.
