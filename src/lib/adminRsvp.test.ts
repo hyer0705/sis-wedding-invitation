@@ -95,6 +95,29 @@ describe("summarize", () => {
     expect(summary.absent).toBe(1);
     expect(summary.headcount).toBe(3);
     expect(summary.side).toEqual({ 신랑측: 2, 신부측: 1 });
+    expect(summary.sideHeadcount).toEqual({ 신랑측: 2, 신부측: 1 });
+  });
+
+  // side 는 건수, sideHeadcount 는 사람 수다. 한 건에 여럿이 실리므로 둘은 다르다.
+  it("측별 인원은 건수가 아니라 사람 수를 센다", () => {
+    const summary = summarize([
+      row({ attend: "참석", count: 4, side: "신랑측" }),
+      row({ attend: "참석", count: 3, side: "신랑측" }),
+      row({ attend: "참석", count: 2, side: "신부측" }),
+    ]);
+
+    expect(summary.side).toEqual({ 신랑측: 2, 신부측: 1 });
+    expect(summary.sideHeadcount).toEqual({ 신랑측: 7, 신부측: 2 });
+  });
+
+  it("미참석 회신은 측별 인원에도 넣지 않는다", () => {
+    const summary = summarize([
+      row({ attend: "참석", count: 2, side: "신랑측" }),
+      row({ attend: "미참석", count: 1, side: "신랑측" }),
+    ]);
+
+    expect(summary.side).toEqual({ 신랑측: 2, 신부측: 0 });
+    expect(summary.sideHeadcount).toEqual({ 신랑측: 2, 신부측: 0 });
   });
 
   // 미참석 회신의 count(1)는 자리표시 값이다. 식수에 더하면 그만큼 더 주문한다.
@@ -116,6 +139,7 @@ describe("summarize", () => {
       headcount: 0,
       meals: { 식사함: 0, 식사안함: 0, 미정: 0 },
       side: { 신랑측: 0, 신부측: 0 },
+      sideHeadcount: { 신랑측: 0, 신부측: 0 },
     });
   });
 });

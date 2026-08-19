@@ -65,7 +65,10 @@ export interface RsvpSummary {
   headcount: number;
   /** 참석자 중 식사 여부별 인원 합계 */
   meals: Record<Meal, number>;
+  /** 측별 **회신 건수** (사람 수가 아니다) */
   side: Record<Side, number>;
+  /** 측별 참석 인원 합계 (SIS-38). headcount 와 같은 이유로 참석 회신만 센다 */
+  sideHeadcount: Record<Side, number>;
 }
 
 /**
@@ -83,6 +86,7 @@ export function summarize(rows: readonly RsvpRow[]): RsvpSummary {
     headcount: 0,
     meals: { 식사함: 0, 식사안함: 0, 미정: 0 },
     side: { 신랑측: 0, 신부측: 0 },
+    sideHeadcount: { 신랑측: 0, 신부측: 0 },
   };
 
   for (const row of rows) {
@@ -95,6 +99,7 @@ export function summarize(rows: readonly RsvpRow[]): RsvpSummary {
     summary.attending += 1;
     summary.headcount += row.count;
     summary.meals[row.meal] += row.count;
+    summary.sideHeadcount[row.side] += row.count;
   }
   return summary;
 }
