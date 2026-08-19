@@ -1,0 +1,637 @@
+/* SIS-38 — 관리자 화면(/admin). AD-01 · RS-04. 시안 확정 2026-08-19.
+ *
+ * **이 파일은 global.css 가 아니라 여기 따로 있다.** 관리자 화면은 lazy 로 갈라져
+ * 있어(main.tsx) 하객은 이 화면을 평생 열지 않는데, global.css 에 섞으면 이 스타일도
+ * 하객이 함께 내려받는다. Admin.tsx 에서만 import 해 admin 청크에 실린다.
+ *
+ * 색·폰트·radius 는 tokens.css 의 기존 토큰만 쓴다. 새로 들인 값은 없다.
+ *
+ * 폭은 청첩장과 같은 430px 다. 예식장에서 휴대폰으로 볼 화면이고, 표로 훑을 일은
+ * CSV 를 엑셀에서 여는 쪽이 낫다 — 좁은 화면에 열 일곱 개를 밀어 넣으면 어느 쪽도
+ * 읽히지 않는다. .page 는 global.css 것을 그대로 쓴다.
+ */
+
+.admin {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 16px 20px 40px;
+}
+
+/* ── 머리 ─────────────────────────────────────────────────────────────── */
+.admin-top {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  padding: 6px 4px 2px;
+}
+
+.admin-title {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+/* 로그아웃. 버튼이지만 글자 링크로 보이게 둔다 — 이 화면에서 누를 일이 가장 적다. */
+.admin-linkish {
+  padding: 4px;
+  border: 0;
+  background: none;
+  color: var(--text-sub);
+  font-family: var(--font-serif);
+  font-size: 13px;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+/* ── 탭 ───────────────────────────────────────────────────────────────── */
+.admin-tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  padding: 4px;
+  border-radius: var(--radius-control);
+  background: var(--surface-2);
+}
+
+.admin-tab {
+  padding: 9px 0;
+  border: 0;
+  border-radius: 10px;
+  background: none;
+  color: var(--muted);
+  font-family: var(--font-serif);
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.admin-tab[aria-selected="true"] {
+  background: var(--card);
+  color: var(--text);
+  font-weight: 700;
+  box-shadow: 0 1px 3px rgba(80, 95, 75, 0.12);
+}
+
+.admin-tab-count {
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--text-sub);
+}
+
+.admin-tab[aria-selected="true"] .admin-tab-count {
+  color: var(--on-surface);
+}
+
+/* ── 카드 ─────────────────────────────────────────────────────────────── */
+.admin-card {
+  padding: 20px 18px;
+  border-radius: var(--radius-card);
+  background: var(--card);
+  box-shadow: var(--shadow-card);
+}
+
+/* ── 집계 ─────────────────────────────────────────────────────────────── */
+.admin-sum-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+
+.admin-sum-head h2 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.admin-stamp {
+  font-family: var(--font-caption);
+  font-size: 11px;
+  color: var(--text-sub);
+}
+
+.admin-headcount {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  padding: 14px 16px;
+  border-radius: var(--radius-control);
+  background: var(--surface);
+}
+
+.admin-headcount dt {
+  font-size: 13px;
+  color: var(--on-surface);
+}
+
+.admin-headcount dd {
+  margin: 0;
+  font-size: 26px;
+  font-weight: 700;
+  color: var(--on-surface);
+  font-variant-numeric: tabular-nums;
+}
+
+.admin-headcount dd small {
+  font-size: 14px;
+  font-weight: 400;
+}
+
+/* 양가 — F안 확정(2026-08-19). **색으로 가르지 않는다.**
+   쓸 수 있는 색이 초록 한 계열뿐이라 신랑측·신부측을 색으로 세우면 명도만 다른 두
+   덩어리가 되어 어느 쪽도 또렷하지 않았다(A·B안 반려). 가운데 선 하나로 갈라
+   마주 세우면 색이 필요 없고, 양가가 마주 선 형태 자체가 이 청첩장에 어울린다. */
+.admin-facing {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  align-items: center;
+  margin: 14px 0 16px;
+}
+
+/* 가운데 선은 요소가 아니라 왼쪽 칸의 테두리다. dl 의 자식으로 빈 div 를 끼우면
+   dt·dd 짝을 담지 않은 div 가 되어 구조가 어긋난다. */
+.admin-facing-side {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 4px 0;
+  text-align: center;
+}
+
+.admin-facing-side:first-child {
+  border-right: 1px solid var(--input-border);
+}
+
+.admin-facing-side dt {
+  font-size: 12px;
+  color: var(--muted-2);
+}
+
+.admin-facing-side dd {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+.admin-facing-side dd small {
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--text-sub);
+}
+
+.admin-facing-sub {
+  display: block;
+  font-size: 11.5px;
+  color: var(--text-sub);
+  font-variant-numeric: tabular-nums;
+}
+
+.admin-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.admin-stat {
+  padding: 10px 8px;
+  border-radius: 10px;
+  background: var(--surface-3);
+  text-align: center;
+}
+
+.admin-stat dt {
+  font-size: 11.5px;
+  color: var(--muted-2);
+}
+
+.admin-stat dd {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+.admin-rule {
+  margin: 12px 0;
+  border: 0;
+  border-top: 1px solid var(--input-border);
+}
+
+.admin-tally {
+  display: flex;
+  justify-content: space-between;
+  font-size: 13px;
+  color: var(--text-sub);
+  font-variant-numeric: tabular-nums;
+}
+
+/* 참석·미참석을 간격으로만 가른다 — 사이에 기호를 끼우지 않는다. */
+.admin-tally em {
+  margin-left: 14px;
+  font-style: normal;
+}
+
+/* ── 버튼 ─────────────────────────────────────────────────────────────── */
+.admin-btn {
+  width: 100%;
+  padding: 13px 0;
+  border: 0;
+  border-radius: var(--radius-control);
+  font-family: var(--font-serif);
+  font-size: 14.5px;
+  cursor: pointer;
+}
+
+.admin-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.admin-btn-primary {
+  background: var(--primary);
+  color: var(--on-primary);
+  font-weight: 700;
+}
+
+.admin-btn-soft {
+  background: var(--surface-2);
+  color: var(--on-surface);
+}
+
+.admin-btn-ghost {
+  border: 1px solid var(--input-border);
+  background: var(--card);
+  color: var(--text-sub);
+}
+
+/* 되돌릴 수 없는 동작 전용 — 삭제 확인 팝업의 확정 버튼 하나뿐이다.
+   --error 사용처를 「오류 칸 테두리·메시지·초점 링」에서 여기까지 넓힌 것은
+   2026-08-19 확정이다(tokens.css 의 --error 주석 참고). */
+.admin-btn-danger {
+  background: var(--error);
+  color: var(--on-primary);
+  font-weight: 700;
+}
+
+/* 내려받기 묶음. 버튼과 개인정보 안내가 한 덩어리로 읽혀야 한다. */
+.admin-download {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+/* 이 파일에 무엇이 들었는지 누르기 전에 알린다. 내려받은 CSV 에는 하객의 이름과
+   연락처가 그대로 실린다 — 카톡으로 넘기거나 공용 PC 에 두면 그대로 새어 나간다. */
+.admin-privacy-note {
+  margin: 0;
+  padding: 0 4px;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--muted-2);
+  word-break: keep-all;
+}
+
+/* ── 필터 ─────────────────────────────────────────────────────────────── */
+.admin-filters {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.admin-seg {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  gap: 5px;
+  padding: 3px;
+  border-radius: 11px;
+  background: var(--surface-2);
+}
+
+.admin-seg-btn {
+  padding: 7px 0;
+  border: 0;
+  border-radius: 8px;
+  background: none;
+  color: var(--muted);
+  font-family: var(--font-serif);
+  font-size: 13px;
+  cursor: pointer;
+  font-variant-numeric: tabular-nums;
+}
+
+.admin-seg-btn[aria-pressed="true"] {
+  background: var(--primary);
+  color: var(--on-primary);
+  font-weight: 700;
+}
+
+/* 16px 아래로 내리지 말 것 — iOS Safari 가 페이지를 확대한다(.rsvp-input 과 같은 이유). */
+.admin-search {
+  width: 100%;
+  padding: 11px 14px;
+  border: 1px solid var(--input-border);
+  border-radius: var(--radius-control);
+  background: var(--input-bg);
+  color: var(--text);
+  font-family: var(--font-serif);
+  font-size: 16px;
+}
+
+.admin-search::placeholder {
+  color: var(--text-sub);
+}
+
+.admin-result {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  padding: 2px 4px;
+  font-size: 12.5px;
+  color: var(--text-sub);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── 회신 목록 ────────────────────────────────────────────────────────── */
+.admin-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.admin-row {
+  display: flex;
+  gap: 11px;
+  align-items: stretch;
+  padding: 14px 16px;
+  border-radius: 16px;
+  background: var(--card);
+  box-shadow: var(--shadow-card);
+}
+
+/* 양가를 가르는 띠 — D안 확정(2026-08-19). 섞인 목록을 훑을 때 띠만 따라가면 된다.
+   **띠는 거들 뿐이다.** 「신랑측」 글자가 늘 함께 있어 색만으로 알리지 않는다 —
+   두 색이 명도만 다른 초록이라 더더욱 글자 없이는 갈리지 않는다. */
+.admin-rail {
+  width: 3px;
+  flex: none;
+  border-radius: 999px;
+  background: var(--primary);
+}
+
+.admin-rail-bride {
+  background: var(--surface);
+  box-shadow: inset 0 0 0 1px var(--input-border);
+}
+
+.admin-row-body {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 1;
+  min-width: 0;
+}
+
+.admin-row-top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.admin-row-name {
+  font-size: 15.5px;
+  font-weight: 700;
+  color: var(--text);
+  word-break: break-all;
+}
+
+.admin-badge {
+  padding: 3px 9px;
+  border-radius: 999px;
+  font-family: var(--font-caption);
+  font-size: 11.5px;
+  white-space: nowrap;
+}
+
+.admin-badge-yes {
+  background: var(--primary);
+  color: var(--on-primary);
+}
+
+.admin-badge-no {
+  border: 1px solid var(--input-border);
+  background: var(--surface-2);
+  color: var(--muted);
+}
+
+/* 항목 사이는 구분 기호 없이 간격으로만 가른다. 값이 붙어 보이지 않을 만큼 넉넉히 준다. */
+.admin-row-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-body);
+  font-variant-numeric: tabular-nums;
+}
+
+.admin-row-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-family: var(--font-caption);
+  font-size: 11.5px;
+  color: var(--text-sub);
+  font-variant-numeric: tabular-nums;
+}
+
+.admin-row-del {
+  padding: 2px 4px;
+  border: 0;
+  background: none;
+  color: var(--text-sub);
+  font-family: var(--font-serif);
+  font-size: 12.5px;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+/* ── 로그인 ───────────────────────────────────────────────────────────── */
+.admin-login {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 34px 22px 26px;
+  text-align: center;
+}
+
+.admin-login h1,
+.admin-login h2 {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.admin-login p {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.8;
+  color: var(--text-sub);
+}
+
+.admin-field {
+  text-align: left;
+}
+
+.admin-label {
+  display: block;
+  margin: 0 0 6px 2px;
+  font-size: 13px;
+  color: var(--text-sub);
+}
+
+.admin-input {
+  width: 100%;
+  padding: 12px 14px;
+  border: 1px solid var(--input-border);
+  border-radius: var(--radius-control);
+  background: var(--input-bg);
+  color: var(--text);
+  font-family: var(--font-serif);
+  font-size: 16px;
+}
+
+/* ── 오류 ─────────────────────────────────────────────────────────────── */
+/* 색만으로 오류를 알리지 않는다 — 메시지 글이 늘 함께 붙는다(.rsvp-error 와 같은 원칙). */
+.admin-error {
+  margin: 0;
+  padding: 0 2px;
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: var(--error);
+  text-align: left;
+  word-break: keep-all;
+}
+
+.admin-invalid {
+  border-color: var(--error);
+  border-width: 1.5px;
+}
+
+.admin-invalid:focus-visible {
+  outline: 2px solid var(--error);
+  outline-offset: 2px;
+}
+
+/* ── 빈 상태 ──────────────────────────────────────────────────────────── */
+.admin-empty {
+  padding: 34px 20px;
+  font-size: 14px;
+  line-height: 1.9;
+  color: var(--text-sub);
+  text-align: center;
+}
+
+.admin-empty strong {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 15px;
+  color: var(--text);
+}
+
+/* ── 삭제 확인 팝업 ───────────────────────────────────────────────────── */
+/* 제출 확인 팝업(.rsvp-confirm, SIS-36)과 같은 꼴이다. 이 화면에는 토스트도 로딩도
+   없어 쌓임을 다툴 상대가 없지만, 청첩장 쪽과 같은 90 을 그대로 쓴다. */
+.admin-dialog-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: var(--overlay);
+}
+
+.admin-dialog {
+  width: 100%;
+  max-width: 300px;
+  max-height: 100%;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 24px 20px 18px;
+  border-radius: var(--radius-card);
+  background: var(--card);
+  box-shadow: var(--shadow-card);
+  text-align: center;
+}
+
+.admin-dialog:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+.admin-dialog h2 {
+  margin: 0 0 8px;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.admin-dialog p {
+  margin: 0;
+  font-size: 13.5px;
+  line-height: 1.8;
+  color: var(--text-sub);
+}
+
+/* 누구를 지우는지 다시 적는다. 목록에서 누른 자리와 팝업이 어긋나면 엉뚱한 회신이
+   지워지고, 되돌릴 방법이 없다. */
+.admin-dialog-who {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 12px 0;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--surface-3);
+  color: var(--text-body);
+  word-break: break-all;
+}
+
+.admin-dialog-who strong {
+  font-size: 14.5px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.admin-dialog-who span {
+  font-size: 12.5px;
+  color: var(--text-sub);
+}
+
+.admin-dialog-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.admin-dialog-actions .admin-btn {
+  padding: 11px 0;
+  font-size: 14px;
+}
