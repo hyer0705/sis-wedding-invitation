@@ -172,12 +172,24 @@ as $$
   select exists (select 1 from admin_users where user_id = auth.uid());
 $$;
 
--- **`from public` 이어야 한다.** Postgres 는 함수를 만들 때 PUBLIC 에 EXECUTE 를
--- 자동으로 준다. anon 은 PUBLIC 의 멤버라 `revoke … from anon` 만으로는 그 권한이
--- 그대로 남아 여전히 호출된다 — 걷어낸 줄 알고 넘어가기 쉬운 자리다.
+-- **`from anon, public` 이어야 한다.** 권한이 두 갈래로 들어오기 때문이다 (SIS-39).
+--
+--   1. Postgres 는 함수를 만들 때 **PUBLIC** 에 EXECUTE 를 자동으로 준다
+--   2. Supabase 는 그 위에, public 스키마의 새 함수에 **anon·authenticated·
+--      service_role 로 EXECUTE 를 직접 주는** default privileges 를 걸어 둔다
+--
+-- 그래서 한쪽만 걷으면 다른 쪽이 남는다. 실제로 두 번 틀렸다 — `from anon` 은
+-- PUBLIC 몫을 남겼고, 그것을 고친 `from public` 은 anon 직접 부여분을 남겼다.
+-- 둘 다 적어야 막힌다.
 --
 -- 걷어낸 뒤 필요한 롤에만 다시 준다. 순서가 뒤바뀌면 방금 준 권한을 도로 뺏는다.
-revoke execute on function is_admin() from public;
+--
+-- 확인: select has_function_privilege('anon', 'is_admin()', 'execute'); → false
+--
+-- ⚠ 바꾼 **직후**에는 여전히 true 가 나오고 `npm run smoke:rls` 의 ④ 도 실패한다.
+-- PostgREST 가 스키마 캐시를 갱신하는 데 몇 초 걸리기 때문이다. 잠시 뒤 다시
+-- 확인한다 — 모르면 권한이 안 걷힌 줄 알고 같은 구문을 반복하게 된다.
+revoke execute on function is_admin() from anon, public;
 grant execute on function is_admin() to authenticated;
 
 -- 조회 — 관리자 페이지의 목록·CSV 가 쓴다.

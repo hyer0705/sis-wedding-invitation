@@ -167,8 +167,10 @@ const isMissingTable = (error) => error?.code === "42P01" || error?.code === "PG
     failures.push("is_admin() 이 로그인 없이 true 를 돌려줍니다 — 관리자 정책이 통째로 무력합니다");
   } else {
     failures.push(
-      "is_admin() 을 anon 이 호출할 수 있습니다 — supabase/schema.sql 의 " +
-        "`revoke execute on function is_admin() from public` 을 실행하세요 (from anon 으로는 걷히지 않습니다)",
+      "is_admin() 을 anon 이 호출할 수 있습니다 — `revoke execute on function is_admin() from anon, public` 을 실행하세요. " +
+        "**두 롤을 모두 적어야 합니다**(SIS-39): Postgres 가 PUBLIC 에, Supabase 의 default privileges 가 anon 에 각각 " +
+        "EXECUTE 를 주므로 한쪽만 걷으면 다른 쪽이 남습니다. " +
+        "방금 실행했다면 PostgREST 의 스키마 캐시가 갱신되도록 몇 초 뒤 다시 돌려 보세요",
     );
   }
 }
