@@ -1,11 +1,3 @@
-// SIS-38 — 관리자 화면의 회신 탭. AD-01 · RS-04. 시안 확정 2026-08-19.
-//
-// 이 화면에는 하객의 **이름과 연락처**가 실린다. 두 가지를 지킨다.
-//   1. 내려받기 버튼 옆에 무엇이 든 파일인지 적는다
-//   2. 오류 메시지·로그에 회신 내용을 싣지 않는다 (rsvp.ts 의 submitRsvp 와 같은 이유)
-//
-// **필터는 목록만 좁힌다.** 집계와 CSV 는 늘 전체를 본다 — 거른 상태로 내려받은
-// 파일을 전체로 착각하면 식수를 잘못 주문한다(rsvpFilter.ts 머리말).
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { deleteRsvp, listRsvp, summarize, type RsvpRow } from "../lib/adminRsvp";
@@ -41,7 +33,6 @@ export default function AdminRsvp({ onCount }: { onCount?: (count: number) => vo
         if (!alive) return;
         setRows(data);
         setLoadedAt(new Date().toISOString());
-        onCount?.(data.length);
       } catch (cause) {
         if (!alive) return;
         setLoadError(cause instanceof Error ? cause.message : "회신을 불러오지 못했습니다");
@@ -51,7 +42,11 @@ export default function AdminRsvp({ onCount }: { onCount?: (count: number) => vo
     return () => {
       alive = false;
     };
-  }, [onCount]);
+  }, []);
+
+  useEffect(() => {
+    if (rows) onCount?.(rows.length);
+  }, [rows, onCount]);
 
   const visible = useMemo(() => (rows ? filterRsvp(rows, filter) : []), [rows, filter]);
   const total = useMemo(() => (rows ? summarize(rows) : undefined), [rows]);
@@ -59,16 +54,9 @@ export default function AdminRsvp({ onCount }: { onCount?: (count: number) => vo
   const attendCounts = useMemo(() => (rows ? countByAttend(rows) : undefined), [rows]);
   const sideCounts = useMemo(() => (rows ? countBySide(rows) : undefined), [rows]);
 
-  const removeRow = useCallback(
-    (id: string) => {
-      setRows((current) => {
-        const next = current?.filter((row) => row.id !== id);
-        if (next) onCount?.(next.length);
-        return next;
-      });
-    },
-    [onCount],
-  );
+  const removeRow = useCallback((id: string) => {
+    setRows((current) => current?.filter((row) => row.id !== id));
+  }, []);
 
   if (loadError) {
     return (
@@ -140,7 +128,6 @@ export default function AdminRsvp({ onCount }: { onCount?: (count: number) => vo
   );
 }
 
-/** 집계 (RS-04). 식수 조율이 이 화면의 첫 용도라 목록보다 위에 둔다. */
 function Summary({ summary, loadedAt }: { summary: ReturnType<typeof summarize>; loadedAt: string }) {
   return (
     <section className="admin-card" aria-labelledby="admin-summary-title">
@@ -157,7 +144,6 @@ function Summary({ summary, loadedAt }: { summary: ReturnType<typeof summarize>;
         </dd>
       </dl>
 
-      {/* 양가는 색이 아니라 가운데 선으로 가른다 — 이유는 admin.css 의 .admin-facing 참고 */}
       <dl className="admin-facing">
         <div className="admin-facing-side">
           <dt>신랑측</dt>
@@ -205,12 +191,6 @@ function Summary({ summary, loadedAt }: { summary: ReturnType<typeof summarize>;
   );
 }
 
-/**
- * CSV 내려받기 (RS-04).
- *
- * **거른 목록이 아니라 전체를 싣는다.** 화면에서 참석만 보고 있다가 내려받은 파일에
- * 미참석이 빠져 있으면, 그 파일을 명단으로 쓰는 쪽은 알아챌 방법이 없다.
- */
 function Download({ rows }: { rows: readonly RsvpRow[] }) {
   const [error, setError] = useState("");
   const noteId = useId();
@@ -221,11 +201,12 @@ function Download({ rows }: { rows: readonly RsvpRow[] }) {
       const link = document.createElement("a");
       link.href = url;
       link.download = rsvpCsvFileName();
+
+      document.body.appendChild(link);
       link.click();
-      // 곧바로 걷으면 사파리에서 저장이 시작되기 전에 주소가 사라진다.
-      setTimeout(() => URL.revokeObjectURL(url), 0);
+      document.body.removeChild(link);
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
     } catch (cause) {
-      // 회신 내용은 싣지 않는다 — 실패한 것은 파일을 만드는 일이다.
       setError(cause instanceof Error ? cause.message : "내려받기에 실패했습니다");
     }
   }
@@ -349,7 +330,6 @@ function RsvpList({
     <ul className="admin-rows">
       {rows.map((row) => (
         <li key={row.id} className="admin-row">
-          {/* 띠는 거들 뿐이다 — 「신랑측」 글자가 아래 줄에 늘 함께 있다 */}
           <span className={`admin-rail${row.side === "신부측" ? " admin-rail-bride" : ""}`} aria-hidden="true" />
           <div className="admin-row-body">
             <div className="admin-row-top">
@@ -359,8 +339,6 @@ function RsvpList({
 
             <p className="admin-row-meta">
               <span>{row.side}</span>
-              {/* 미참석 회신의 인원·식사는 자리표시 값이라 보여 주지 않는다
-                  (adminRsvp.ts 의 summarize 주석) */}
               {row.attend === "참석" && (
                 <>
                   <span>{row.count}명</span>
@@ -383,12 +361,6 @@ function RsvpList({
   );
 }
 
-/**
- * 삭제 확인 팝업. 제출 확인 팝업(.rsvp-confirm, SIS-36)과 같은 꼴로 만든다.
- *
- * body 에 직접 그린다 — 조상에 걸린 transform 이 position:fixed 의 기준이 되는 것을
- * 피하기 위해서다(Rsvp.tsx 의 ConfirmDialog 와 같은 이유).
- */
 function ConfirmDelete({
   row,
   onClose,
@@ -408,8 +380,6 @@ function ConfirmDelete({
     const node = ref.current;
     if (!node) return;
 
-    // 닫으면 눌렀던 「삭제」로 초점을 되돌린다. 그러지 않으면 문서 맨 앞으로 떨어져
-    // 키보드로 훑던 사람이 목록을 다시 내려와야 한다.
     const opener = document.activeElement;
     node.focus();
 
@@ -420,8 +390,6 @@ function ConfirmDelete({
       }
       if (event.key !== "Tab") return;
 
-      // 초점을 팝업 안에 가둔다. 뒤에 목록이 그대로 살아 있어, 막지 않으면 탭이
-      // 가려진 삭제 버튼으로 빠져나간다.
       const targets = node.querySelectorAll<HTMLElement>("button:not(:disabled)");
       if (targets.length === 0) return;
 
@@ -441,7 +409,12 @@ function ConfirmDelete({
     node.addEventListener("keydown", onKeyDown);
     return () => {
       node.removeEventListener("keydown", onKeyDown);
-      if (opener instanceof HTMLElement) opener.focus();
+
+      if (opener instanceof HTMLElement && opener.isConnected) {
+        opener.focus();
+        return;
+      }
+      document.querySelector<HTMLElement>(".admin-rows .admin-row-del")?.focus();
     };
   }, [onClose]);
 
@@ -451,8 +424,6 @@ function ConfirmDelete({
       await deleteRsvp(row.id);
       onDone(row.id);
     } catch (cause) {
-      // 실패 메시지에 회신 내용을 싣지 않는다. deleteRsvp 는 권한·이미 지워진 행을
-      // 구분해 한국어로 알려 준다.
       onError(cause instanceof Error ? cause.message : "회신을 지우지 못했습니다");
       onClose();
     }
@@ -463,7 +434,6 @@ function ConfirmDelete({
       <div ref={ref} className="admin-dialog" role="dialog" aria-modal="true" aria-labelledby={titleId} tabIndex={-1}>
         <h2 id={titleId}>이 회신을 지울까요?</h2>
 
-        {/* 누구를 지우는지 다시 적는다. 이름을 앞세우고 나머지는 아래 줄로 내린다 */}
         <p className="admin-dialog-who">
           <strong>
             {row.side} {row.name}

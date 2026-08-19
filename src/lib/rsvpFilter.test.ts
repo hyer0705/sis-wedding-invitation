@@ -75,7 +75,6 @@ describe("filterRsvp", () => {
       expect(filterRsvp(rows, filter({ query: "   " }))).toEqual(rows);
     });
 
-    // 저장값은 숫자만인데 화면에는 하이픈이 붙어 보인다. 보이는 대로 적어도 걸려야 한다.
     it("화면에 보이는 하이픈 형태로도 연락처를 찾는다", () => {
       const rows = [row({ phone: "01012345678" })];
       expect(filterRsvp(rows, filter({ query: "010-1234" }))).toEqual(rows);
