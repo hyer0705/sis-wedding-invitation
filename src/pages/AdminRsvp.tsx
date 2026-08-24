@@ -321,7 +321,7 @@ function RsvpList({
     const query = filter.query.trim();
     return (
       <div className="admin-card">
-        <p className="admin-empty">{query ? `‘${query}’와 맞는 회신이 없습니다.` : "조건에 맞는 회신이 없습니다."}</p>
+        <p className="admin-empty">{query ? `‘${query}’ 검색 결과가 없습니다.` : "조건에 맞는 회신이 없습니다."}</p>
       </div>
     );
   }

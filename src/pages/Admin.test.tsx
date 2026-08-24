@@ -352,7 +352,7 @@ describe("필터", () => {
 
     await user.type(screen.getByLabelText("이름이나 연락처로 검색"), "박도윤");
 
-    expect(await screen.findByText("‘박도윤’와 맞는 회신이 없습니다.")).toBeInTheDocument();
+    expect(await screen.findByText("‘박도윤’ 검색 결과가 없습니다.")).toBeInTheDocument();
   });
 
   it("집계와 CSV 는 걸러도 전체를 본다", async () => {

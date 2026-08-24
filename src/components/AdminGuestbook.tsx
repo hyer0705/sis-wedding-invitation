@@ -7,7 +7,8 @@ import type { GuestbookEntry } from "../lib/guestbook";
 const PREVIEW_MAX = 80;
 
 function preview(message: string): string {
-  return message.length > PREVIEW_MAX ? `${message.slice(0, PREVIEW_MAX)}…` : message;
+  const letters = [...message];
+  return letters.length > PREVIEW_MAX ? `${letters.slice(0, PREVIEW_MAX).join("")}…` : message;
 }
 
 export default function AdminGuestbook() {
@@ -152,7 +153,7 @@ function GuestbookRows({
   if (entries.length === 0) {
     return (
       <div className="admin-card">
-        <p className="admin-empty">‘{query.trim()}’와 맞는 메시지가 없습니다.</p>
+        <p className="admin-empty">‘{query.trim()}’ 검색 결과가 없습니다.</p>
       </div>
     );
   }

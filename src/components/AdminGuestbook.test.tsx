@@ -122,7 +122,7 @@ describe("검색", () => {
 
     await user.type(screen.getByLabelText("이름이나 내용으로 검색"), "박도윤");
 
-    expect(await screen.findByText("‘박도윤’와 맞는 메시지가 없습니다.")).toBeInTheDocument();
+    expect(await screen.findByText("‘박도윤’ 검색 결과가 없습니다.")).toBeInTheDocument();
   });
 
   it("좁혀도 전체 건수는 그대로 둔다", async () => {
@@ -171,6 +171,17 @@ describe("삭제", () => {
     expect(within(dialog).getByText("김민준")).toBeInTheDocument();
     expect(within(dialog).getByText("두 분의 앞날을 축복합니다")).toBeInTheDocument();
     expect(deleteMock).not.toHaveBeenCalled();
+  });
+
+  it("긴 글은 뒤를 자르되 이모지를 쪼개지 않는다", async () => {
+    const long = `${"가".repeat(79)}🎉${"나".repeat(30)}`;
+    listMock.mockResolvedValue([entry({ id: "a", message: long })]);
+
+    const { dialog } = await openDialog();
+
+    const quote = dialog.querySelector(".admin-gb-quote");
+    expect(quote?.textContent).toBe(`${"가".repeat(79)}🎉…`);
+    expect(quote?.textContent).not.toContain("�");
   });
 
   it("취소하면 아무것도 지우지 않는다", async () => {
