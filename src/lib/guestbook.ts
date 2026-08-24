@@ -58,11 +58,6 @@ export interface GuestbookPage {
   nextCursor: string | null;
 }
 
-export interface GuestbookPreview {
-  entries: GuestbookEntry[];
-  hasMore: boolean;
-}
-
 interface GuestbookRow {
   id: string;
   name: string;
@@ -83,7 +78,11 @@ function failed(action: string, error: { code?: string; message: string }): Erro
   return new Error(`${action} 실패 (${error.code || "unknown"}): ${error.message}`);
 }
 
-export async function fetchGuestbookPage(cursor: string | null = null, size: number = PAGE_SIZE): Promise<GuestbookPage> {
+export async function fetchGuestbookPage(
+  cursor: string | null = null,
+  size: number = PAGE_SIZE,
+  signal?: AbortSignal,
+): Promise<GuestbookPage> {
   let query = getSupabase()
     .from(TABLE)
     .select(READABLE_COLUMNS)
@@ -92,6 +91,7 @@ export async function fetchGuestbookPage(cursor: string | null = null, size: num
     .limit(size + 1);
 
   if (cursor) query = query.lt("created_at", cursor);
+  if (signal) query = query.abortSignal(signal);
 
   const { data, error } = await query;
   if (error) throw failed("방명록 목록 조회", error);
@@ -101,11 +101,6 @@ export async function fetchGuestbookPage(cursor: string | null = null, size: num
   const last = entries[entries.length - 1];
 
   return { entries, nextCursor: rows.length > size && last ? last.createdAt : null };
-}
-
-export async function fetchGuestbookPreview(size: number = MAIN_VISIBLE_COUNT): Promise<GuestbookPreview> {
-  const page = await fetchGuestbookPage(null, size);
-  return { entries: page.entries, hasMore: page.nextCursor !== null };
 }
 
 export async function createGuestbookEntry(values: GuestbookValues): Promise<string> {

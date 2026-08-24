@@ -4,10 +4,8 @@ import {
   deleteGuestbookEntry,
   EMPTY_GUESTBOOK_FORM,
   fetchGuestbookPage,
-  fetchGuestbookPreview,
   type GuestbookForm,
   type GuestbookValues,
-  MAIN_VISIBLE_COUNT,
   MESSAGE_MAX,
   NAME_MAX,
   PAGE_SIZE,
@@ -103,6 +101,7 @@ interface QueryMock {
   order: ReturnType<typeof vi.fn>;
   limit: ReturnType<typeof vi.fn>;
   lt: ReturnType<typeof vi.fn>;
+  abortSignal: ReturnType<typeof vi.fn>;
 }
 
 function mockQuery(result: QueryResult): QueryMock {
@@ -115,12 +114,13 @@ function mockQuery(result: QueryResult): QueryMock {
   const order = vi.fn(() => builder);
   const limit = vi.fn(() => builder);
   const lt = vi.fn(() => builder);
-  Object.assign(builder, { select, order, limit, lt });
+  const abortSignal = vi.fn(() => builder);
+  Object.assign(builder, { select, order, limit, lt, abortSignal });
 
   const from = vi.fn(() => builder);
   vi.mocked(getSupabase).mockReturnValue({ from } as never);
 
-  return { from, select, order, limit, lt };
+  return { from, select, order, limit, lt, abortSignal };
 }
 
 describe("fetchGuestbookPage", () => {
@@ -129,9 +129,10 @@ describe("fetchGuestbookPage", () => {
   let order: ReturnType<typeof vi.fn>;
   let select: ReturnType<typeof vi.fn>;
   let from: ReturnType<typeof vi.fn>;
+  let abortSignal: ReturnType<typeof vi.fn>;
 
   function respond(result: QueryResult) {
-    ({ from, select, order, limit, lt } = mockQuery(result));
+    ({ from, select, order, limit, lt, abortSignal } = mockQuery(result));
   }
 
   beforeEach(() => {
@@ -231,35 +232,22 @@ describe("fetchGuestbookPage", () => {
 
     await expect(fetchGuestbookPage()).rejects.toThrow(/unknown/);
   });
-});
 
-describe("fetchGuestbookPreview", () => {
-  function respond(rows: Row[]) {
-    return mockQuery({ data: rows, error: null });
-  }
+  it("취소 신호를 받으면 요청에 함께 실어 보낸다", async () => {
+    respond({ data: makeRows(1), error: null });
+    const controller = new AbortController();
 
-  beforeEach(() => {
-    vi.clearAllMocks();
+    await fetchGuestbookPage(null, PAGE_SIZE, controller.signal);
+
+    expect(abortSignal).toHaveBeenCalledWith(controller.signal);
   });
 
-  it("메인은 다섯 건만 보여준다", async () => {
-    respond(makeRows(MAIN_VISIBLE_COUNT + 1));
+  it("취소 신호가 없으면 붙이지 않는다", async () => {
+    respond({ data: makeRows(1), error: null });
 
-    const preview = await fetchGuestbookPreview();
+    await fetchGuestbookPage();
 
-    expect(preview.entries).toHaveLength(MAIN_VISIBLE_COUNT);
-  });
-
-  it("여섯 번째가 있으면 더 있다고 알린다", async () => {
-    respond(makeRows(MAIN_VISIBLE_COUNT + 1));
-
-    await expect(fetchGuestbookPreview()).resolves.toMatchObject({ hasMore: true });
-  });
-
-  it("다섯 건뿐이면 더 없다고 알린다", async () => {
-    respond(makeRows(MAIN_VISIBLE_COUNT));
-
-    await expect(fetchGuestbookPreview()).resolves.toMatchObject({ hasMore: false });
+    expect(abortSignal).not.toHaveBeenCalled();
   });
 });
 

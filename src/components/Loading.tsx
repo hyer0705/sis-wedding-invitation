@@ -38,8 +38,25 @@ export const MAX_VISIBLE_MS = 4000;
 /** 화면에 하나만 뜨는 오버레이라 고정 id 로 충분하다. */
 const LABEL_ID = "loading-label";
 
-/** index.html 의 부트 화면. 이 컴포넌트가 그 자리를 이어받는다. */
+/** index.html 의 부트 화면. 걷는 것은 App 이다 — 아래 removeBootScreen 머리말 참고. */
 const BOOT_ID = "boot";
+
+/**
+ * index.html 의 부트 화면을 걷는다.
+ *
+ * **페인트가 끝난 뒤(effect 안)에서만 부른다.** main.tsx 의 render 직후에 지우면
+ * React 가 아직 커밋하기 전일 수 있어 한 프레임이 깜빡인다.
+ *
+ * 부르는 자리가 Loading 이 아니라 App 인 것은 로딩 화면이 늘 뜨지는 않기 때문이다 —
+ * 방명록 전체보기로 바로 들어오면 로딩을 건너뛰는데(App.tsx), 그때 이 함수가 Loading
+ * 안에 있으면 부트 화면이 영영 남아 그 위를 덮는다.
+ *
+ * 뒤집어 말하면, 번들이 깨져 React 가 못 뜨는 경우 부트 화면은 그대로 남는다.
+ * 흰 화면보다 낫다.
+ */
+export function removeBootScreen(): void {
+  document.getElementById(BOOT_ID)?.remove();
+}
 
 /** 로딩 화면을 걷어도 되는지. 커버 사진 도착 또는 상한 도달 중 먼저 오는 쪽이다. */
 export function useCoverReady(): boolean {
@@ -72,16 +89,6 @@ export function useCoverReady(): boolean {
 }
 
 export default function Loading() {
-  // index.html 의 부트 화면을 걷는다. 여기(페인트 뒤에 도는 effect)에서 지우는 것은
-  // 이 컴포넌트가 실제로 화면에 그려진 뒤라야 자리가 비지 않기 때문이다. main.tsx 의
-  // render 직후에 지우면 React 가 아직 커밋하기 전일 수 있어 한 프레임이 깜빡인다.
-  //
-  // 뒤집어 말하면, 번들이 깨져 React 가 못 뜨는 경우 부트 화면은 그대로 남는다.
-  // 흰 화면보다 낫다.
-  useEffect(() => {
-    document.getElementById(BOOT_ID)?.remove();
-  }, []);
-
   return (
     <m.div
       // 진행 상황을 알리는 영역이라 status 다. 화면에 보이는 글씨는 aria-hidden 으로
