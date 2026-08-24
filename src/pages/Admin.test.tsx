@@ -5,6 +5,8 @@ import type { Session } from "@supabase/supabase-js";
 import Admin from "./Admin";
 import { currentSession, isAdmin, onAuthChange, signIn, signOut } from "../lib/adminAuth";
 import { deleteRsvp, listRsvp, type RsvpRow } from "../lib/adminRsvp";
+import { listGuestbook } from "../lib/adminGuestbook";
+import type { GuestbookEntry } from "../lib/guestbook";
 
 vi.mock("../lib/adminAuth", () => ({
   currentSession: vi.fn(),
@@ -19,6 +21,11 @@ vi.mock("../lib/adminRsvp", async (importOriginal) => {
   return { ...actual, listRsvp: vi.fn(), deleteRsvp: vi.fn() };
 });
 
+vi.mock("../lib/adminGuestbook", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../lib/adminGuestbook")>();
+  return { ...actual, listGuestbook: vi.fn(), deleteGuestbookAsAdmin: vi.fn() };
+});
+
 const sessionMock = vi.mocked(currentSession);
 const adminMock = vi.mocked(isAdmin);
 const signInMock = vi.mocked(signIn);
@@ -26,6 +33,7 @@ const signOutMock = vi.mocked(signOut);
 const authChangeMock = vi.mocked(onAuthChange);
 const listMock = vi.mocked(listRsvp);
 const deleteMock = vi.mocked(deleteRsvp);
+const guestbookMock = vi.mocked(listGuestbook);
 
 let notifyAuth: ((session: Session | null) => void) | undefined;
 
@@ -56,6 +64,7 @@ beforeEach(() => {
   sessionMock.mockResolvedValue(SESSION);
   adminMock.mockResolvedValue(true);
   listMock.mockResolvedValue([]);
+  guestbookMock.mockResolvedValue([]);
   signOutMock.mockResolvedValue(undefined);
 });
 
@@ -474,15 +483,34 @@ describe("개인정보", () => {
 });
 
 describe("방명록 탭", () => {
-  it("준비 중임을 알린다 — SIS-21 이 백엔드를 세운 뒤 채운다", async () => {
+  function guestbookEntry(overrides: Partial<GuestbookEntry> = {}): GuestbookEntry {
+    return {
+      id: "g-1",
+      name: "박도윤",
+      message: "행복하게 잘 사세요",
+      createdAt: "2026-08-24T12:03:00.000Z",
+      ...overrides,
+    };
+  }
+
+  it("열기 전에는 방명록을 읽지 않는다", async () => {
+    render(<Admin />);
+    await screen.findByRole("heading", { name: "회신 집계" });
+
+    expect(guestbookMock).not.toHaveBeenCalled();
+  });
+
+  it("방명록 목록으로 바꿔 그린다", async () => {
     const user = userEvent.setup();
+    guestbookMock.mockResolvedValue([guestbookEntry()]);
 
     render(<Admin />);
     await screen.findByRole("heading", { name: "회신 집계" });
 
     await user.click(screen.getByRole("tab", { name: "방명록" }));
 
-    expect(screen.getByText("방명록은 준비 중입니다")).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "방명록" })).toBeInTheDocument();
+    expect(screen.getByText("행복하게 잘 사세요")).toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "회신 집계" })).not.toBeInTheDocument();
   });
 
