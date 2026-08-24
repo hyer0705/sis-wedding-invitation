@@ -21,8 +21,7 @@
 -- (초안 SQL 로 이미 만들어 둔 테이블이 있다면, 아직 응답이 없을 때 drop table rsvp
 --  로 지우고 이 파일을 처음부터 실행하는 편이 확실하다.)
 --
--- 방명록(SIS-21)은 같은 프로젝트에 테이블을 더 얹는다. 이 파일에는 RSVP 와
--- 관리자 접근(SIS-22)만 둔다.
+-- 방명록(SIS-21)은 같은 프로젝트에 테이블을 더 얹는다. 파일 맨 아래 구역이다.
 
 create table if not exists rsvp (
   id uuid primary key default gen_random_uuid(),
@@ -203,5 +202,126 @@ create policy rsvp_admin_select on rsvp
 -- 열어 두면 실수로 원본이 바뀐 것을 알아챌 방법이 없다.
 drop policy if exists rsvp_admin_delete on rsvp;
 create policy rsvp_admin_delete on rsvp
+  for delete to authenticated
+  using (is_admin());
+
+-- ── 방명록 (SIS-21) ────────────────────────────────────────────────────────
+--
+-- ★ **이 테이블은 rsvp 와 접근 규칙이 정반대다.** rsvp 는 anon 이 쓰기만 되고
+-- 읽기가 통째로 막혀 있다(참석 명단은 하객에게 비공개). 방명록은 하객이 서로의
+-- 글을 읽는 것이 기능 자체이므로 **anon 에 select 를 연다.** 위쪽 규칙을 그대로
+-- 복사해 오면 화면이 늘 0건이 되고, 반대로 여기 규칙을 rsvp 로 옮기면 명단이
+-- 통째로 나간다. 두 테이블을 한 눈으로 보지 말 것.
+
+create extension if not exists pgcrypto with schema extensions;
+
+create table if not exists guestbook (
+  id uuid primary key default gen_random_uuid(),
+  name text not null check (char_length(name) between 1 and 20),
+  -- 상한 300자는 고객 확정값이다(2026-08-24). 화면(GB-01)에서도 막지만 여기서
+  -- 한 번 더 닫는다 — rsvp 의 phone 과 같은 이유로, 클라이언트 검증만 믿으면
+  -- 코드가 바뀌는 순간 조용히 긴 글이 쌓이고 그때는 되돌릴 방법이 없다.
+  message text not null check (char_length(message) between 1 and 300),
+  -- **평문 비밀번호를 담지 않는다.** 아래 create_guestbook_entry 가 crypt() 로
+  -- 해싱해 넣는다. 이 컬럼은 anon 에게도 authenticated 에게도 열지 않는다.
+  password_hash text not null,
+  created_at timestamptz not null default now()
+);
+
+-- 커서 페이지네이션용. 「더보기」는 offset 이 아니라 (created_at, id) 커서로
+-- 넘긴다 — 보는 중에 새 글이 들어오면 offset 은 목록 전체가 한 칸 밀려 같은
+-- 글이 두 번 보인다. 정렬이 두 컬럼이므로 인덱스도 두 컬럼이어야 한다.
+create index if not exists guestbook_created_at_idx on guestbook (created_at desc, id desc);
+
+alter table guestbook enable row level security;
+
+-- ⚠ **RLS 정책만으로는 password_hash 를 가리지 못한다.** Supabase 는 public
+-- 스키마의 새 테이블에 anon·authenticated 로 모든 권한을 주는 default privileges
+-- 를 걸어 두므로, 정책으로 select 를 열면 **모든 컬럼이 함께 열린다.**
+-- 그래서 테이블 권한을 먼저 걷어내고 **컬럼 단위로** 다시 준다.
+--
+-- 이 방식의 값어치는 실수가 조용하지 않다는 데 있다. 나중에 누가 select('*') 로
+-- 짜면 해시가 새어 나가는 것이 아니라 요청이 그냥 실패한다.
+revoke all on guestbook from anon, authenticated;
+grant select (id, name, message, created_at) on guestbook to anon, authenticated;
+
+-- 삭제는 관리자(GB-04)만 테이블에 직접 한다. 하객의 삭제는 아래 RPC 를 탄다.
+grant delete on guestbook to authenticated;
+
+-- 목록(GB-03) — 하객이 읽는다. 조건 없이 전부 보인다.
+drop policy if exists guestbook_public_select on guestbook;
+create policy guestbook_public_select on guestbook
+  for select to anon, authenticated
+  using (true);
+
+-- 작성(GB-01)·삭제(GB-02)를 RPC 로 두는 이유
+--
+--   1. **해싱은 서버가 해야 한다.** 클라이언트에서 해싱하면 그 해시가 곧
+--      비밀번호가 된다 — 화면을 거치지 않고 해시를 그대로 보내면 통과한다
+--   2. **대조하려면 해시를 읽어야 한다.** 그런데 password_hash 는 아무에게도
+--      열려 있지 않다. security definer 함수 안에서만 읽는다
+--
+-- 그래서 anon 에 insert·delete 정책을 만들지 않는다. 아래 두 함수가 유일한
+-- 창구다.
+--
+-- `set search_path` 는 is_admin() 과 같은 이유로 생략할 수 없고, 여기서는
+-- **extensions 를 반드시 포함해야 한다** — Supabase 의 pgcrypto 는 public 이
+-- 아니라 extensions 스키마에 있어서, 빼면 crypt() 를 찾지 못해 42883 으로
+-- 실패한다.
+create or replace function create_guestbook_entry(entry_name text, entry_message text, entry_password text)
+returns uuid
+language plpgsql
+security definer
+set search_path = public, extensions
+as $$
+declare
+  new_id uuid;
+begin
+  if char_length(entry_password) < 4 then
+    raise exception '비밀번호는 4자 이상이어야 합니다' using errcode = '22023';
+  end if;
+
+  insert into guestbook (name, message, password_hash)
+  values (entry_name, entry_message, crypt(entry_password, gen_salt('bf')))
+  returning id into new_id;
+
+  return new_id;
+end;
+$$;
+
+-- 비밀번호가 틀렸는지 글이 없는지를 **구분해 알려 주지 않는다.** 둘 다 false 다.
+-- 구분해 주면 남의 글에 아무 비밀번호나 넣어 존재 여부를 훑을 수 있다.
+create or replace function delete_guestbook_entry(entry_id uuid, entry_password text)
+returns boolean
+language plpgsql
+security definer
+set search_path = public, extensions
+as $$
+declare
+  stored text;
+begin
+  select password_hash into stored from guestbook where id = entry_id;
+
+  if stored is null or stored <> crypt(entry_password, stored) then
+    return false;
+  end if;
+
+  delete from guestbook where id = entry_id;
+  return true;
+end;
+$$;
+
+-- is_admin() 과 같은 함정이다 — 새 함수에는 PUBLIC 몫과 Supabase 의 anon 직접
+-- 부여분이 양쪽에서 들어오므로 `from anon, public` 으로 둘 다 걷는다. 다만
+-- is_admin() 과 달리 **이 둘은 anon 에게 다시 준다.** 하객이 부르는 함수다.
+revoke execute on function create_guestbook_entry(text, text, text) from anon, public;
+grant execute on function create_guestbook_entry(text, text, text) to anon, authenticated;
+
+revoke execute on function delete_guestbook_entry(uuid, text) from anon, public;
+grant execute on function delete_guestbook_entry(uuid, text) to anon, authenticated;
+
+-- 관리자 삭제(GB-04) — rsvp 와 같은 패턴이다. update 는 열지 않는다.
+drop policy if exists guestbook_admin_delete on guestbook;
+create policy guestbook_admin_delete on guestbook
   for delete to authenticated
   using (is_admin());
