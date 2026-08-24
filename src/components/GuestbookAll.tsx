@@ -62,7 +62,7 @@ export default function GuestbookAll() {
 
         <div style={{ padding: 20 }}>
           <div className="card" style={{ padding: "8px 26px 30px" }}>
-            {state === "failed" && <p className="gb-note">{FAILED}</p>}
+            {state === "failed" && entries.length === 0 && <p className="gb-note">{FAILED}</p>}
             {state === "ready" && entries.length === 0 && <p className="gb-note">{EMPTY}</p>}
             {entries.length > 0 && <GuestbookList entries={entries} onDeleted={forgetEntry} />}
 

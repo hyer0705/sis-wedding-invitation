@@ -63,7 +63,7 @@ export function useGuestbookFeed(size: number): GuestbookFeed {
     } catch {
       return signal.aborted;
     } finally {
-      if (!signal.aborted) setLoadingMore(false);
+      setLoadingMore(false);
     }
   }, [cursor, size, startRequest]);
 

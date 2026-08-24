@@ -2,7 +2,6 @@ import { GUESTBOOK_PATH, resolveRoute, type Route } from "./route";
 
 const INVITATION_PATH = "/";
 
-let invitationScrollY = 0;
 let openedByPush = false;
 
 export function currentRoute(): Route {
@@ -25,7 +24,6 @@ export function subscribeRoute(listener: (route: Route) => void): () => void {
 }
 
 export function openGuestbook(): void {
-  invitationScrollY = window.scrollY;
   openedByPush = true;
   window.history.pushState(null, "", GUESTBOOK_PATH);
   announce();
@@ -39,8 +37,4 @@ export function closeGuestbook(): void {
 
   window.history.replaceState(null, "", INVITATION_PATH);
   announce();
-}
-
-export function invitationScroll(): number {
-  return invitationScrollY;
 }

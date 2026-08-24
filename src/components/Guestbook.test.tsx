@@ -175,22 +175,40 @@ describe("Guestbook 삭제", () => {
     expect(within(list()).getByText("축하해요 1")).toBeInTheDocument();
   });
 
-  // ★ 지운 항목만 화면에서 뺀다. 목록을 통째로 다시 읽으면 「더보기」로 쌓아 둔 쪽이
-  // 1쪽으로 되감겨, 한 건을 지웠는데 수십 건이 사라진다.
-  it("지운 글만 목록에서 빼고 다시 읽지 않는다", async () => {
+  // 메인은 최신 다섯 건을 보이는 자리라, 한 건이 빠지면 여섯 번째가 올라와야 한다.
+  // 쌓아 둔 쪽이 없어 되감길 것도 없다 — 전체보기는 반대로 그 항목만 뺀다.
+  it("지운 뒤 다시 읽어 다음 글을 올린다", async () => {
     const user = userEvent.setup();
     vi.mocked(deleteGuestbookEntry).mockResolvedValue(true);
     renderWithMotion(<Guestbook />);
 
     const dialog = await openDeleteDialog(user);
-    vi.mocked(fetchGuestbookPage).mockClear();
+    vi.mocked(fetchGuestbookPage).mockResolvedValue({
+      entries: [entry(0), entry(2), entry(3)],
+      nextCursor: null,
+    });
     await user.type(within(dialog).getByLabelText("비밀번호"), "1234");
     await user.click(within(dialog).getByRole("button", { name: "지우기" }));
 
-    await waitFor(() => expect(within(list()).queryByText("축하해요 1")).not.toBeInTheDocument());
     expect(deleteGuestbookEntry).toHaveBeenCalledWith("id-1", "1234");
+    await waitFor(() => expect(within(list()).getByText("축하해요 3")).toBeInTheDocument());
+    expect(within(list()).queryByText("축하해요 1")).not.toBeInTheDocument();
+  });
+
+  // 저장은 됐는데 갱신만 실패한 경우다. 읽어 둔 글까지 안내 문구로 덮으면 하객은
+  // 저장이 안 된 줄 알고 같은 글을 한 번 더 남긴다.
+  it("갱신이 실패해도 읽어 둔 글은 그대로 둔다", async () => {
+    const user = userEvent.setup();
+    vi.mocked(deleteGuestbookEntry).mockResolvedValue(true);
+    renderWithMotion(<Guestbook />);
+
+    const dialog = await openDeleteDialog(user);
+    vi.mocked(fetchGuestbookPage).mockRejectedValue(new Error("네트워크 실패"));
+    await user.type(within(dialog).getByLabelText("비밀번호"), "1234");
+    await user.click(within(dialog).getByRole("button", { name: "지우기" }));
+
+    await waitFor(() => expect(deleteGuestbookEntry).toHaveBeenCalled());
     expect(within(list()).getByText("축하해요 0")).toBeInTheDocument();
-    expect(within(list()).getByText("축하해요 2")).toBeInTheDocument();
-    expect(fetchGuestbookPage).not.toHaveBeenCalled();
+    expect(screen.queryByText(/불러오지 못했어요/)).not.toBeInTheDocument();
   });
 });

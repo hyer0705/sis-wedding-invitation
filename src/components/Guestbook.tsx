@@ -15,7 +15,7 @@ const WRITE_LABEL = "축하 메시지 남기기";
 const ALL_LABEL = "전체보기";
 
 export default function Guestbook() {
-  const { entries, state, hasMore, reload, forgetEntry } = useGuestbookFeed(MAIN_VISIBLE_COUNT);
+  const { entries, state, hasMore, reload } = useGuestbookFeed(MAIN_VISIBLE_COUNT);
   const [writing, setWriting] = useState(false);
 
   useEffect(
@@ -33,9 +33,15 @@ export default function Guestbook() {
         <div style={{ width: 34, height: 1, background: "var(--input-border)", margin: "18px auto 20px" }} />
         <p className="gb-lead">{LEAD}</p>
 
-        {state === "failed" && <p className="gb-note">{FAILED}</p>}
+        {/* 읽어 둔 글이 있으면 그것을 계속 보여준다. 작성 직후의 갱신이 실패했다고
+            방금 남긴 글까지 안내 문구로 덮으면, 저장은 됐는데 안 된 것으로 보여
+            하객이 같은 글을 한 번 더 남긴다. */}
+        {state === "failed" && entries.length === 0 && <p className="gb-note">{FAILED}</p>}
         {state === "ready" && entries.length === 0 && <p className="gb-note">{EMPTY}</p>}
-        {entries.length > 0 && <GuestbookList entries={entries} onDeleted={forgetEntry} />}
+        {/* 메인은 지운 뒤 다시 읽는다. 최신 다섯 건을 보이는 자리라 한 건이 빠지면
+            여섯 번째가 올라와야 한다 — 쌓아 둔 쪽이 없어 되감길 것도 없다.
+            전체보기는 반대로 그 항목만 뺀다(GuestbookAll.tsx). */}
+        {entries.length > 0 && <GuestbookList entries={entries} onDeleted={() => void reload()} />}
 
         <div className="gb-actions">
           <button type="button" className="gb-btn gb-btn-primary" onClick={() => setWriting(true)}>
