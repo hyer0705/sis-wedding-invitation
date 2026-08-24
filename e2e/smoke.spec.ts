@@ -1,4 +1,4 @@
-import { test, expect, type Page } from "@playwright/test";
+import { test, expect, type ConsoleMessage, type Page } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
 import { INVITE } from "../src/invite";
 
@@ -96,12 +96,34 @@ test.describe("청첩장 기본 동작", () => {
     await expect(page.getByText(INVITE.dateText)).toBeVisible();
   });
 
+  // 방명록(SIS-21)이 화면에 뜨는 순간 목록을 읽는다. 그런데 이 테스트의 Supabase 주소는
+  // 일부러 해석되지 않는 `.invalid` 라(playwright.config.ts), 그 요청이 반드시 실패하고
+  // 브라우저가 「Failed to load resource」를 콘솔에 남긴다. **우리 코드가 남기는 것이
+  // 아니라 브라우저가 남기는 것이라 JS 로는 막을 수 없다.**
+  //
+  // 그래서 그 주소를 향한 실패만 걷어낸다. 화면이 오류를 어떻게 다루는지는 컴포넌트
+  // 테스트가 보고(Guestbook.test.tsx), 여기서는 **다른 콘솔 에러가 없는지**를 본다.
+  // 걷어내는 범위를 이 주소로 좁혀 두었으므로 진짜 에러는 그대로 걸린다.
+  //
+  // ⚠ **주소가 어디에 실리는지가 브라우저마다 다르다.** webkit 은 메시지 글에 담아
+  // 보내지만(`Error resolving “rsvp-e2e.invalid”…`), chromium 은 글에는
+  // `Failed to load resource: net::ERR_NAME_NOT_RESOLVED` 만 적고 주소는 location 에
+  // 둔다. 한쪽만 보면 다른 쪽에서 그대로 실패한다.
+  const OFFLINE_HOST = "rsvp-e2e.invalid";
+  const isExpectedOfflineFailure = (msg: ConsoleMessage) =>
+    msg.text().includes(OFFLINE_HOST) || msg.location().url.includes(OFFLINE_HOST);
+
   test("커버부터 푸터까지 스크롤하는 동안 콘솔 에러가 없다", async ({ page }) => {
     const errors: string[] = [];
     page.on("console", (msg) => {
-      if (msg.type() === "error") errors.push(msg.text());
+      if (msg.type() === "error" && !isExpectedOfflineFailure(msg)) errors.push(msg.text());
     });
-    page.on("pageerror", (err) => errors.push(err.message));
+    // webkit 은 이 실패를 콘솔이 아니라 **페이지 오류로도** 올린다
+    // (`…/rest/v1/guestbook?… due to access control checks.`). 콘솔만 걸러서는 막히지
+    // 않으므로 같은 잣대를 여기에도 댄다.
+    page.on("pageerror", (err) => {
+      if (!err.message.includes(OFFLINE_HOST)) errors.push(err.message);
+    });
 
     await page.goto("/");
     await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
@@ -1028,6 +1050,11 @@ test.describe("청첩장 기본 동작", () => {
     });
 
     test("critical/serious 위반이 없다", async ({ page }) => {
+      // 이 테스트만 상한을 올린다. 로딩 상한 4초 + 아코디언·폼 펼치기 + 페이지를 훑어
+      // 리빌을 전부 끝내기까지가 기본 30초에 아슬아슬했고, 방명록(SIS-21)이 섹션을
+      // 하나 더하면서 넘어갔다. 아래 리빌 poll 이 20초를 다 쓰지 못하고 잘렸다.
+      test.setTimeout(60_000);
+
       await page.goto("/");
       // 색상 대비 판정은 스타일·폰트가 적용되고 화면이 자리를 잡은 뒤라야 의미가 있다.
       // 커버 자체의 페이드인은 로딩 화면이 걷히는 연출로 옮겨져 사라졌지만(Cover.tsx),
@@ -1075,6 +1102,11 @@ test.describe("청첩장 기본 동작", () => {
       // 0.9초 페이드를 시작하고, 워커들이 CPU 를 나눠 쓰면 그 페이드들이 서로 밀린다 —
       // ios-safari 에서 「3개가 아직 1이 아니다」로 흔들렸다(2026-08-18). 조건 대기라
       // 정상일 때는 곧바로 풀리고, 늘린 시간을 실제로 쓰지 않는다.
+      //
+      // ★ 섹션이 늘면 여기가 다시 흔들린다. 방명록(SIS-21)이 들어오면서 훑을 길이와
+      // 페이드가 하나씩 늘어 **테스트 상한 30초** 쪽에 먼저 걸렸다 — poll 의 20초가
+      // 남아 있어도 테스트가 끝나 버려 「2개가 아직 1이 아니다」로 떨어진다.
+      // 섹션을 더할 때는 아래 setTimeout 도 함께 본다.
       await expect
         .poll(
           () =>

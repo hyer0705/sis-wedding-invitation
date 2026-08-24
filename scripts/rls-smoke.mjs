@@ -1,12 +1,21 @@
 // SIS-33 — RLS 정책 스모크. `npm run smoke:rls`
 //
 // supabase/schema.sql 을 적용한 뒤 한 번 돌려, 정책이 의도대로 걸렸는지 확인한다.
-// 확인하는 것은 네 가지다.
+// 확인하는 것은 아홉 가지다.
 //
-//   1. 읽기가 막혔는가 — 참석 명단은 하객에게 비공개다.
-//   2. 쓰기가 열렸는가 — 막혀 있으면 회신이 통째로 유실된다.
+//   1. rsvp 읽기가 막혔는가 — 참석 명단은 하객에게 비공개다.
+//   2. rsvp 쓰기가 열렸는가 — 막혀 있으면 회신이 통째로 유실된다.
 //   3. 관리자 명단(admin_users)이 감춰졌는가 — 관리자 uuid 가 노출될 이유가 없다.
 //   4. is_admin() 을 anon 이 부를 수 없는가 (SIS-22).
+//   5. 방명록 읽기가 **열렸는가** (SIS-21).
+//   6. 방명록의 password_hash 가 막혔는가 (SIS-21).
+//   7. 방명록에 직접 insert 가 막혔는가 (SIS-21).
+//   8. 작성 RPC 를 anon 이 부를 수 있는가 (SIS-21).
+//   9. 삭제 RPC 를 anon 이 부를 수 있는가 (SIS-21).
+//
+// ★ **5번은 1번과 방향이 반대다.** rsvp 는 읽히면 실패이고 방명록은 읽히지 않으면
+// 실패다. 두 테이블의 규칙이 정반대이므로(supabase/schema.sql 의 방명록 구역 참고)
+// 한쪽 검사를 다른 쪽에 복사하지 말 것.
 //
 // 3·4 는 관리자 페이지(SIS-22)가 select 정책을 열면서 생긴 검사다. **이 스모크는
 // 로그인하지 않은 하객의 시선으로만 본다** — publishable 키로 돌기 때문이다. 즉
@@ -175,9 +184,123 @@ const isMissingTable = (error) => error?.code === "42P01" || error?.code === "PG
   }
 }
 
+// ── 5. 방명록 읽기가 열려 있는가 (SIS-21) ──────────────────────────────────
+// 여기서만 「읽혀야 통과」다. 하객이 서로의 글을 읽는 것이 GB-03 그 자체다.
+// 0건이어도 통과다 — 아직 아무도 안 썼을 뿐이고, 확인하려는 것은 권한이다.
+{
+  const { error } = await supabase.from("guestbook").select("id, name, message, created_at").limit(1);
+  if (isMissingTable(error)) {
+    failures.push("guestbook 테이블이 없습니다 — supabase/schema.sql 의 「방명록(SIS-21)」 구역을 실행하세요");
+  } else if (error) {
+    failures.push(
+      `방명록을 하객이 읽지 못합니다 (${error.code} ${error.message}) — 화면에 목록이 늘 비어 보입니다. ` +
+        "guestbook_public_select 정책과 컬럼 grant 를 확인하세요",
+    );
+  } else {
+    console.log("⑤ 방명록 읽기 허용 — 통과");
+  }
+}
+
+// ── 6. password_hash 가 막혀 있는가 (SIS-21) ───────────────────────────────
+// select 를 연 테이블이라 **정책만으로는 이 컬럼이 가려지지 않는다.** 컬럼 단위
+// grant 가 살아 있어야 막힌다. 여기서 통과하면 해시가 통째로 나가고, 비밀번호
+// 삭제(GB-02)가 무력해진다.
+{
+  const { data, error } = await supabase.from("guestbook").select("password_hash").limit(1);
+  if (error) {
+    if (error.code === "42501" || error.code === "PGRST100" || error.code === "PGRST204") {
+      console.log("⑥ password_hash 차단 — 통과");
+    } else {
+      failures.push(`password_hash select 에서 예상 못한 오류: ${error.code} ${error.message}`);
+    }
+  } else {
+    failures.push(
+      "password_hash 가 하객에게 읽힙니다 — 비밀번호 삭제(GB-02)가 무력해집니다. " +
+        "`revoke all on guestbook from anon, authenticated` 뒤에 컬럼 단위 grant 를 실행했는지 확인하세요. " +
+        (data && data.length > 0
+          ? "이미 노출된 글이 있으므로 비밀번호를 새로 받아야 합니다"
+          : "아직 글이 없어 실제 유출은 없습니다"),
+    );
+  }
+}
+
+// ── 7. 방명록에 직접 insert 가 막혀 있는가 (SIS-21) ────────────────────────
+// 작성은 반드시 RPC 를 타야 한다. 직접 insert 가 열려 있으면 password_hash 를
+// 제 손으로 정해 넣을 수 있고, 그러면 남의 글을 지울 비밀번호도 함께 정해진다.
+{
+  const { error } = await supabase.from("guestbook").insert({ name: "RLS스모크", message: "직접 insert 차단 확인" });
+  if (!error) {
+    failures.push(
+      "방명록에 직접 insert 가 됩니다 — 해시를 우회해 글을 넣을 수 있습니다. " +
+        "insert 정책을 만들지 않았는지, 테이블 grant 를 걷어냈는지 확인하고 방금 저장된 RLS스모크 행을 지우세요",
+    );
+  } else if (error.code === "42501" || error.code === "PGRST204") {
+    console.log("⑦ 직접 insert 차단 — 통과");
+  } else {
+    failures.push(`방명록 insert 에서 예상 못한 오류: ${error.code} ${error.message}`);
+  }
+}
+
+// ── 8. 작성 RPC 를 anon 이 부를 수 있는가 (SIS-21) ─────────────────────────
+// ② 와 같은 수법이다. **일부러 4자 미만의 비밀번호**를 보내 함수 안의 가드에
+// 걸리게 한다. 22023 이 왔다는 것은 execute 권한을 통과해 함수 본문까지 들어갔다는
+// 뜻이고, 행은 남지 않는다. 진짜 글을 넣으면 지울 방법이 없어(delete 는 열려
+// 있지 않다) 방명록에 테스트 글이 영구히 남는다.
+{
+  const { error } = await supabase.rpc("create_guestbook_entry", {
+    entry_name: "RLS스모크",
+    entry_message: "작성 RPC 확인",
+    entry_password: "1",
+  });
+
+  if (!error) {
+    failures.push(
+      "4자 미만 비밀번호가 그대로 통과했습니다 — create_guestbook_entry 의 길이 가드가 없습니다. " +
+        "supabase/schema.sql 의 방명록 구역을 다시 실행하고, 방금 저장된 RLS스모크 글을 대시보드에서 지우세요",
+    );
+  } else if (error.code === "22023") {
+    console.log("⑧ 작성 RPC 호출 가능 — 통과 (길이 가드 22023, 글은 남지 않음)");
+  } else if (error.code === "42501" || error.code === "PGRST202") {
+    failures.push(
+      "작성 RPC 를 하객이 부를 수 없습니다 — 축하 메시지를 아무도 남기지 못합니다. " +
+        "`grant execute on function create_guestbook_entry(text, text, text) to anon` 을 실행하세요. " +
+        "방금 실행했다면 PostgREST 의 스키마 캐시가 갱신되도록 몇 초 뒤 다시 돌려 보세요",
+    );
+  } else {
+    failures.push(`create_guestbook_entry 에서 예상 못한 오류: ${error.code} ${error.message}`);
+  }
+}
+
+// ── 9. 삭제 RPC 를 anon 이 부를 수 있는가 (SIS-21) ─────────────────────────
+// 없는 id 로 부른다. 아무것도 지우지 않으면서 execute 권한과 반환 규약을 함께
+// 확인한다 — 없는 글은 예외가 아니라 false 여야 한다(존재 여부를 훑지 못하게).
+{
+  const { data, error } = await supabase.rpc("delete_guestbook_entry", {
+    entry_id: "00000000-0000-0000-0000-000000000000",
+    entry_password: "0000",
+  });
+
+  if (error) {
+    if (error.code === "42501" || error.code === "PGRST202") {
+      failures.push(
+        "삭제 RPC 를 하객이 부를 수 없습니다 — 본인 글을 지울 수 없습니다(GB-02). " +
+          "`grant execute on function delete_guestbook_entry(uuid, text) to anon` 을 실행하세요",
+      );
+    } else {
+      failures.push(`delete_guestbook_entry 에서 예상 못한 오류: ${error.code} ${error.message}`);
+    }
+  } else if (data === false) {
+    console.log("⑨ 삭제 RPC 호출 가능 — 통과 (없는 글은 false)");
+  } else {
+    failures.push(`delete_guestbook_entry 가 없는 글에 ${JSON.stringify(data)} 를 돌려줍니다 — false 여야 합니다`);
+  }
+}
+
 if (failures.length > 0) {
   console.error("\nRLS 스모크 실패:");
   for (const f of failures) console.error(`  - ${f}`);
   process.exit(1);
 }
-console.log("\nRLS 스모크 통과 — 하객(anon) 기준 읽기 차단·쓰기 허용, 관리자 경로 차단 확인");
+console.log(
+  "\nRLS 스모크 통과 — 하객(anon) 기준 회신은 읽기 차단·쓰기 허용, 방명록은 읽기 허용·해시 차단, 관리자 경로 차단 확인",
+);
