@@ -1,4 +1,4 @@
-import { test, expect, type Page } from "@playwright/test";
+import { test, expect, type ConsoleMessage, type Page } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
 import { INVITE } from "../src/invite";
 
@@ -96,10 +96,27 @@ test.describe("청첩장 기본 동작", () => {
     await expect(page.getByText(INVITE.dateText)).toBeVisible();
   });
 
+  // 방명록(SIS-21)이 화면에 뜨는 순간 목록을 읽는다. 그런데 이 테스트의 Supabase 주소는
+  // 일부러 해석되지 않는 `.invalid` 라(playwright.config.ts), 그 요청이 반드시 실패하고
+  // 브라우저가 「Failed to load resource」를 콘솔에 남긴다. **우리 코드가 남기는 것이
+  // 아니라 브라우저가 남기는 것이라 JS 로는 막을 수 없다.**
+  //
+  // 그래서 그 주소를 향한 실패만 걷어낸다. 화면이 오류를 어떻게 다루는지는 컴포넌트
+  // 테스트가 보고(Guestbook.test.tsx), 여기서는 **다른 콘솔 에러가 없는지**를 본다.
+  // 걷어내는 범위를 이 주소로 좁혀 두었으므로 진짜 에러는 그대로 걸린다.
+  //
+  // ⚠ **주소가 어디에 실리는지가 브라우저마다 다르다.** webkit 은 메시지 글에 담아
+  // 보내지만(`Error resolving “rsvp-e2e.invalid”…`), chromium 은 글에는
+  // `Failed to load resource: net::ERR_NAME_NOT_RESOLVED` 만 적고 주소는 location 에
+  // 둔다. 한쪽만 보면 다른 쪽에서 그대로 실패한다.
+  const OFFLINE_HOST = "rsvp-e2e.invalid";
+  const isExpectedOfflineFailure = (msg: ConsoleMessage) =>
+    msg.text().includes(OFFLINE_HOST) || msg.location().url.includes(OFFLINE_HOST);
+
   test("커버부터 푸터까지 스크롤하는 동안 콘솔 에러가 없다", async ({ page }) => {
     const errors: string[] = [];
     page.on("console", (msg) => {
-      if (msg.type() === "error") errors.push(msg.text());
+      if (msg.type() === "error" && !isExpectedOfflineFailure(msg)) errors.push(msg.text());
     });
     page.on("pageerror", (err) => errors.push(err.message));
 
