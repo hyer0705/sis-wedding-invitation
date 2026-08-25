@@ -29,11 +29,12 @@
 - 애니메이션: **Motion for React만 허용** (`LazyMotion` + `m` 컴포넌트, `MotionConfig reducedMotion="user"` 유지). 다른 애니메이션 라이브러리 추가 금지
 - 지도: Kakao Maps JS SDK + 외부 링크 3종(네이버지도·카카오맵·티맵). 카카오내비가 아닌 이유는 `src/lib/mapLinks.ts` 머리말
 - 공유: `index.html` OG 태그는 **`vite.config.ts`의 `inviteMeta` 플러그인이 `INVITE`에서 빌드 시점에 주입**(직접 적지 않는다 — 값이 어긋난 채 배포된 적 있음). 썸네일은 R2의 `og-image.jpg`(JPEG — 외부 스크래퍼는 WebP 지원이 제각각) + Kakao JS SDK(`src/lib/share.ts`) + `navigator.share` 폴백
-- RSVP: Google Apps Script 웹앱 → Google Sheets (`src/lib/rsvp.ts`). DB 없음. `no-cors` POST + localStorage 중복 방지
+- RSVP: **Supabase**(2026-08-18 확정, SIS-33). 브라우저가 직접 호출하므로 서버·배포처는 그대로다. 접근 통제는 전부 RLS 정책(`supabase/schema.sql`)이 하며 **anon 은 insert 만** 가능하다 — 참석 명단은 하객에게 비공개. 클라이언트는 `src/lib/supabase.ts` 하나를 공유하고, 키는 `sb_publishable_`(secret 키는 어디에도 두지 않는다). Apps Script 는 응답을 읽지 못해(`no-cors`) 실패가 유실되고 방명록 읽기가 불가능해 탈락
+- 관리자(SIS-22): 화면은 **청첩장 `/` 과 관리자 `/admin` 둘뿐**이라 라우팅 라이브러리를 쓰지 않는다 — `src/lib/route.ts` 가 경로를 가른다. react-router 를 넣어 봤더니 하객 번들이 667KB → 708KB 로 늘어, 관리자 화면을 lazy 로 가른 목적과 앞뒤가 맞지 않았다. **관리자 화면의 lazy 분할은 유지한다.** `/admin` 직접 접속은 `vercel.json` 의 SPA fallback 이 받는다. 권한은 Supabase Auth 로그인 + `admin_users` 등록 + `is_admin()` 이 판정하며(`supabase/schema.sql`), **대시보드의 이메일 회원가입을 반드시 꺼 둔다** — 켜져 있으면 번들의 publishable 키로 누구나 계정을 만들어 `authenticated` 가 된다. 계정 정보(이메일·uuid)는 리포에 두지 않는다. **화면은 SIS-38 이 채웠다** — `Admin.tsx`(문지기·탭) + `AdminRsvp.tsx`(집계·필터·목록·CSV), 스타일은 `src/styles/admin.css` 에 따로 둔다(global.css 에 섞으면 하객도 내려받는다). 탭은 회신·방명록 둘이며 **방명록 칸은 SIS-21 이 백엔드를 세운 뒤 채운다**. 필터는 목록만 좁히고 **집계·CSV 는 늘 전체 기준**이다 — 거른 파일을 전체로 착각하면 식수를 잘못 주문한다
 - 이미지: 원본은 `photos-original/`(git 제외) → `npm run optimize`(sharp)로 WebP 2벌(480w/960w) → `public/images/`(git 제외) → `npm run upload:images`로 **Cloudflare R2**에 업로드. 사진은 리포에 커밋하지 않는다. 로딩 URL은 `VITE_IMAGE_BASE_URL` + `src/lib/imageUrl.ts`가 만들며, 값이 비면 로컬 `/images` 폴백
 - 지도 앱 로고: 타사 상표라 사진과 같은 경로를 탄다. `logos-original/`(git 제외) → `npm run optimize:logos` → 같은 버킷. 폭 2벌이 아니라 64px 정사각 1벌이라 URL은 `imageUrl()`이 아니라 `assetUrl()`이 만든다. **로고를 변형하지 않는다** — 각 사 가이드가 색·형태 변경을 금지한다
 - 호스팅: Vercel — `main` 푸시 시 배포, PR 프리뷰 URL은 고객 검수용
-- 비밀값(Kakao JS 키, Apps Script URL)은 `.env` (템플릿: `.env.example`)
+- 비밀값(Kakao JS 키, Supabase URL·publishable 키)은 `.env` (템플릿: `.env.example`). keep-alive 워크플로는 같은 값을 리포 시크릿 `SUPABASE_URL`·`SUPABASE_PUBLISHABLE_KEY` 로 읽는다
 
 ### 명령어
 | 명령 | 역할 |
@@ -48,7 +49,8 @@
 | `npm run optimize` | 원본 사진 → WebP 변환 |
 | `npm run optimize:logos` | `logos-original/`의 지도 앱 로고 → 64px 정사각 WebP (SIS-32) |
 | `npm run upload:images` | `public/images/` → Cloudflare R2 업로드. 목록만 볼 때는 `npm run upload:images -- --dry-run` (`--` 없으면 npm이 플래그를 먹는다) |
-| `npm run verify` | **배포 게이트** — mock 상태·placeholder 잔존·이미지 베이스 URL 미설정·커버/og-image R2 도달 불가 시 실패 |
+| `npm run verify` | **배포 게이트** — mock 상태·placeholder 잔존·이미지 베이스 URL 미설정·Supabase 환경변수 미설정·커버/og-image R2 도달 불가 시 실패 |
+| `npm run smoke:rls` | Supabase RLS 확인 — 읽기 차단·쓰기 허용. 스키마 적용 후 1회 (SIS-33) |
 
 ## 고객 정보 관리 원칙
 - 모든 고객 정보는 `src/invite.ts`의 `INVITE` 상수 **한 곳에서만** 관리한다. 하드코딩 중복 금지
@@ -75,7 +77,12 @@
 | input-bg / border | `#fbfcf8` / `#e6e8dd` | 입력 필드 |
 | on-primary | `#f7f8f1` (보조 `#f6f8f2` 2종) | 그린 배경 위 텍스트 — 깊어진 primary 위에서 세 톤이 사실상 한 값으로 모였다 |
 | on-surface | `#5f7060` | 연녹색 박스(surface) 위 텍스트 — 지도 앱 버튼 |
-| overlay | `#282e26` @ 94% | 라이트박스 배경 |
+| overlay | `#282e26` @ 94% | 확인 팝업 배경 |
+| error | `#a4453a` | 오류 표시 — 오류 칸 테두리·`.rsvp-error`·초점 링, 되돌릴 수 없는 동작의 확정 버튼 (카드 위 5.96:1) |
+
+> **`--error` 는 「새 색상을 추가하지 않는다」의 유일한 예외다** (2026-08-18 확정, SIS-36). c안에 빨강 계열이 없어 그전까지 오류를 `--primary`(초록)로 표시했는데, 오류난 칸과 멀쩡한 칸이 같은 계열이라 훑어서는 어디가 틀렸는지 잡히지 않았다. 색만으로 오류를 알리지 않는 원칙은 그대로다 — 메시지 글이 늘 함께 붙고 테두리 굵기(1.5px)로 한 번 더 구분한다. **토스트 캡슐은 `--text` 그대로다** (전송 실패와 공용). 이 예외를 근거 삼아 색을 더 늘리지 않는다.
+>
+> **쓰는 자리가 하나 늘었다 — 되돌릴 수 없는 동작의 확정 버튼** (2026-08-19 확정, SIS-38). 관리자 화면의 회신 삭제는 되돌릴 창구가 없는데 확인 팝업의 「삭제」·「취소」가 같은 초록 계열이라 손가락이 어느 쪽으로 가는지 걸리는 것이 없었다. 지금 쓰는 곳은 `.admin-btn-danger` 하나뿐이며, 「위험해 보이게」를 근거로 일반 버튼에 옮겨 붙이지 않는다.
 
 ### 타이포그래피
 | 폰트 | 용도 | 크기 위계 |
@@ -91,9 +98,12 @@
 - 사진 비율 **4:5** 고정 (커버는 아치형: 상단 radius 200 / 하단 18)
 - 지도 16:10, 버튼·입력 필드 radius 14
 - **갤러리는 가로 슬라이드** (2026-08-06 고객 확정 — c안의 2열 그리드에서 변경). 자리는 4:5로 고정하되 사진은 잘리지 않게 안에 맞추고(원본이 가로·세로·필름 스트립으로 섞여 있다), 양옆 사진이 22px 걸쳐 보인다. 사진 radius 18
-- 섹션 순서: 커버 → 초대글 → **Calendar** → 갤러리(14장) → 오시는길 → 마음전하기 → RSVP → 푸터
+- 섹션 순서: 커버 → 초대글 → **Calendar** → 갤러리(14장) → 오시는길 → RSVP → 마음전하기 → 방명록 → 공유 → 푸터
+  - **RSVP 가 마음전하기 위**다 (2026-08-24 고객 요청 — 그전까지는 마음전하기 다음이었다). 참석 여부를 먼저 묻고 계좌를 그 뒤에 둔다
+  - **방명록은 마음전하기 바로 다음**이다 (2026-08-24 고객 확정, SIS-21). 위 RSVP 이동으로 두 섹션이 붙었다
   - Calendar 한 카드가 달력·예식 일시·예식장·캘린더 저장·D-Day를 모두 담는다 (2026-08-11 고객 확정 — c안의 When&Where 그린 카드와 D-Day 카드를 합쳤다). 이 변경으로 페이지에 그린 배경 카드는 남아 있지 않다
-- 오버레이 2종: 토스트 / RSVP 완료 카드 — **라이트박스는 만들지 않는다** (고객이 확대·줌 거절, `GL-02` 미채택)
+- 오버레이 3종: 토스트 / RSVP 완료 카드 / **RSVP 제출 확인 팝업**(SIS-36) — **라이트박스는 만들지 않는다** (고객이 확대·줌 거절, `GL-02` 미채택)
+  - 쌓임 순서는 확인 팝업(90) < 토스트(95) < 로딩(100). 전송이 실패하면 토스트가 팝업을 닫지 않은 채 그 위에 떠야 한다
 
 ### 애니메이션
 - 스크롤 리빌: `Reveal` 컴포넌트(`whileInView`, translateY 22px + fade 0.9s) 공통 사용
@@ -125,7 +135,7 @@
 - [ ] 카톡 공유 미리보기 확인 (OG 태그, 카카오 디버거로 캐시 갱신)
 - [ ] iOS Safari / Android Chrome 실기기 확인
 - [ ] D-Day 카운트다운 정상 동작 (KST 기준)
-- [ ] RSVP 제출 → 수신처(스프레드시트) 도착 확인
+- [ ] RSVP 제출 → **Supabase `rsvp` 테이블**에 행이 들어오는지 대시보드에서 확인 (RLS 때문에 화면에서는 확인할 수 없다 — `docs/manual-qa.md` §6)
 - [ ] 지도 3종 링크(네이버·카카오맵·티맵) 실기기에서 앱 연결 확인 — 좌표가 예식장을 가리키는지 함께 확인
 - [ ] Kakao Developers 콘솔에 배포 도메인 등록 (미등록이면 지도만 정적 안내로 빠진다)
 - [ ] 계좌 복사 버튼 → 실제 클립보드 값 확인

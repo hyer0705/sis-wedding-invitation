@@ -1,7 +1,7 @@
 {
   "name": "sis-wedding-invitation",
   "private": true,
-  "version": "0.1.0",
+  "version": "1.1.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -12,6 +12,7 @@
     "optimize:logos": "node scripts/optimize-logos.mjs",
     "upload:images": "node scripts/upload-images.mjs",
     "verify": "node scripts/verify-release.mjs",
+    "smoke:rls": "node scripts/rls-smoke.mjs",
     "review": "node scripts/review-guard.mjs",
     "review:branch": "node scripts/review-guard.mjs --branch",
     "lint": "eslint src",
@@ -22,9 +23,13 @@
     "check": "prettier --check \"src/**/*.{ts,tsx,css}\" \"e2e/**/*.ts\" \"scripts/**/*.mjs\" index.html && eslint src && npm run test:unit && npm run build"
   },
   "dependencies": {
+    "@hookform/resolvers": "^5.9.1",
+    "@supabase/supabase-js": "^2.112.3",
     "motion": "^12.42.2",
     "react": "^19.2.7",
-    "react-dom": "^19.2.7"
+    "react-dom": "^19.2.7",
+    "react-hook-form": "^7.85.0",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@aws-sdk/client-s3": "^3.1103.0",

@@ -1,6 +1,91 @@
-import { test, expect, type Page } from "@playwright/test";
+import { test, expect, type ConsoleMessage, type Page } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
 import { INVITE } from "../src/invite";
+
+/**
+ * RSVP 폼은 버튼 뒤에 숨어 있다 (SIS-15). 폼을 보는 테스트는 여기서 시작한다.
+ *
+ * goto 는 부르는 쪽이 한다 — 접근성 감사는 페이지 상태를 이미 만들어 둔 뒤에 부르므로
+ * 여기서 다시 열면 그 준비가 통째로 날아간다.
+ */
+async function openRsvpForm(page: Page) {
+  const opener = page.getByRole("button", { name: "참석 여부 알리기" });
+  await opener.scrollIntoViewIfNeeded();
+  await opener.click();
+  await expect(page.getByRole("button", { name: "신랑측 하객" })).toBeVisible();
+}
+
+/**
+ * 회신 저장 요청을 가로채 답을 대신 준다 (SIS-20).
+ *
+ * 진짜 Supabase 로 보내면 테스트를 돌릴 때마다 고객 테이블에 회신이 쌓이고, 지울
+ * 방법도 없다(anon 에는 delete 정책이 없다). 빌드에 박히는 주소는 해석되지 않는
+ * `.invalid` 라(playwright.config.ts) 여기서 잡지 않은 요청은 그냥 실패한다.
+ *
+ * @returns 가로챈 요청의 본문. 실제로 무엇이 나갔는지 확인하는 데 쓴다.
+ */
+async function stubRsvpInsert(page: Page, { status = 201 } = {}) {
+  const sent: unknown[] = [];
+
+  await page.route("**/rest/v1/rsvp*", async (route) => {
+    // 다른 출처로 가는 요청이라 브라우저가 preflight 를 먼저 보낸다. 여기에
+    // 답해 주지 않으면 본 요청이 CORS 에서 막혀 스텁까지 오지도 못한다.
+    //
+    // 허용 헤더는 와일드카드가 아니라 **요청이 물어본 목록을 그대로 되돌린다.**
+    // supabase-js 는 apikey·x-client-info 같은 커스텀 헤더를 실어 보내는데, 이
+    // 자리의 `*` 를 어떻게 대조하는지는 엔진마다 다르다. webkit 은 CI 에서만
+    // 도는지라(playwright.config.ts) 로컬에서 재현할 수 없는 실패가 되고,
+    // 되돌려 주는 쪽은 어느 엔진에서든 통한다.
+    const cors = {
+      "access-control-allow-origin": "*",
+      "access-control-allow-headers": route.request().headers()["access-control-request-headers"] ?? "*",
+      "access-control-allow-methods": "POST, OPTIONS",
+    };
+    if (route.request().method() === "OPTIONS") {
+      await route.fulfill({ status: 204, headers: cors });
+      return;
+    }
+
+    sent.push(JSON.parse(route.request().postData() ?? "null"));
+    await route.fulfill({
+      status,
+      headers: { ...cors, "content-type": "application/json" },
+      // select 를 붙이지 않으므로 PostgREST 는 성공에 빈 본문을 준다. 실패는 오류 객체다.
+      body: status < 400 ? "" : JSON.stringify({ code: "23514", message: "check 제약 위반", details: "", hint: "" }),
+    });
+  });
+
+  return sent;
+}
+
+/** 참석 회신을 동의 단계까지 채운다. 개인정보 안내는 그 단계에서야 나타난다. */
+async function fillRsvpToConsent(page: Page) {
+  await openRsvpForm(page);
+  await page.getByRole("button", { name: "신랑측 하객" }).click();
+  await page.getByRole("button", { name: "참석합니다" }).click();
+  await page.getByLabel("성함").fill("홍길동");
+  await page.getByLabel("참석 인원 (본인 포함)").fill("2");
+  await page.getByLabel("연락처").fill("000-0000-0000");
+  await page.getByRole("button", { name: "식사함" }).click();
+  await expect(page.getByRole("checkbox")).toBeVisible();
+}
+
+/**
+ * 제출 버튼을 눌러 확인 팝업까지 연다 (SIS-36).
+ *
+ * 「참석 의사 전하기」는 이제 전송이 아니라 팝업 열기다 — 검증을 통과해야 열린다.
+ */
+async function openRsvpConfirm(page: Page) {
+  await page.getByRole("button", { name: "참석 의사 전하기" }).click();
+  const dialog = page.getByRole("dialog");
+  await expect(dialog).toBeVisible();
+  // 페이드가 끝나기를 기다린다. toBeVisible 은 opacity 를 보지 않아 전환 도중에도
+  // 통과하는데, 그때 색상 대비를 검사하면 axe 가 반투명이 합성된 중간 색을 읽어
+  // (--text #3a3631 을 옅은 회색으로) 팝업 전체를 오탐한다 — reducedMotion 을 켜도
+  // transform 만 줄고 opacity 페이드는 남는다(Motion 사양).
+  await expect(page.locator(".rsvp-confirm-overlay")).toHaveCSS("opacity", "1");
+  return dialog;
+}
 
 test.describe("청첩장 기본 동작", () => {
   test("페이지가 열리고 신랑·신부 이름과 예식 일시가 보인다", async ({ page }) => {
@@ -11,12 +96,34 @@ test.describe("청첩장 기본 동작", () => {
     await expect(page.getByText(INVITE.dateText)).toBeVisible();
   });
 
+  // 방명록(SIS-21)이 화면에 뜨는 순간 목록을 읽는다. 그런데 이 테스트의 Supabase 주소는
+  // 일부러 해석되지 않는 `.invalid` 라(playwright.config.ts), 그 요청이 반드시 실패하고
+  // 브라우저가 「Failed to load resource」를 콘솔에 남긴다. **우리 코드가 남기는 것이
+  // 아니라 브라우저가 남기는 것이라 JS 로는 막을 수 없다.**
+  //
+  // 그래서 그 주소를 향한 실패만 걷어낸다. 화면이 오류를 어떻게 다루는지는 컴포넌트
+  // 테스트가 보고(Guestbook.test.tsx), 여기서는 **다른 콘솔 에러가 없는지**를 본다.
+  // 걷어내는 범위를 이 주소로 좁혀 두었으므로 진짜 에러는 그대로 걸린다.
+  //
+  // ⚠ **주소가 어디에 실리는지가 브라우저마다 다르다.** webkit 은 메시지 글에 담아
+  // 보내지만(`Error resolving “rsvp-e2e.invalid”…`), chromium 은 글에는
+  // `Failed to load resource: net::ERR_NAME_NOT_RESOLVED` 만 적고 주소는 location 에
+  // 둔다. 한쪽만 보면 다른 쪽에서 그대로 실패한다.
+  const OFFLINE_HOST = "rsvp-e2e.invalid";
+  const isExpectedOfflineFailure = (msg: ConsoleMessage) =>
+    msg.text().includes(OFFLINE_HOST) || msg.location().url.includes(OFFLINE_HOST);
+
   test("커버부터 푸터까지 스크롤하는 동안 콘솔 에러가 없다", async ({ page }) => {
     const errors: string[] = [];
     page.on("console", (msg) => {
-      if (msg.type() === "error") errors.push(msg.text());
+      if (msg.type() === "error" && !isExpectedOfflineFailure(msg)) errors.push(msg.text());
     });
-    page.on("pageerror", (err) => errors.push(err.message));
+    // webkit 은 이 실패를 콘솔이 아니라 **페이지 오류로도** 올린다
+    // (`…/rest/v1/guestbook?… due to access control checks.`). 콘솔만 걸러서는 막히지
+    // 않으므로 같은 잣대를 여기에도 댄다.
+    page.on("pageerror", (err) => {
+      if (!err.message.includes(OFFLINE_HOST)) errors.push(err.message);
+    });
 
     await page.goto("/");
     await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
@@ -161,20 +268,47 @@ test.describe("청첩장 기본 동작", () => {
   test.describe("커버 패럴랙스", () => {
     const coverTransform = (page: Page) => page.locator("header img").evaluate((el) => getComputedStyle(el).transform);
 
-    test("스크롤하면 커버 사진이 따라 내려온다", async ({ page }) => {
-      await page.goto("/");
+    /**
+     * 패럴랙스를 재기 전에 화면이 준비되기를 기다린다.
+     *
+     * goto 는 load 에서 풀리는데 그 시점에는 로딩 오버레이(CM-04)가 아직 덮고 있고,
+     * 스크롤 구독은 Cover 의 effect 가 마운트된 뒤에야 걸린다(Cover.tsx — useScroll 을
+     * 쓰지 않고 직접 구독한다). 그 사이에 재면 스크롤을 흘려보낸다.
+     *
+     * **스크롤이 실제로 먹었는지도 확인한다.** 이것이 없으면 실패했을 때
+     * 「스크롤이 안 됐다」와 「패럴랙스가 깨졌다」를 구분할 수 없다 — 2026-08-18 에
+     * ios-safari 에서 이 테스트가 흔들렸을 때 로그만으로는 원인을 좁히지 못했다.
+     */
+    async function scrollPastCover(page: Page) {
+      // 기본 5초로는 모자란다. 로딩 화면은 커버 사진 도착 또는 **상한 4초**(Loading.tsx 의
+      // MAX_VISIBLE_MS) 중 먼저 오는 쪽에 걷히는데, CI 에는 사진이 없어(리포에 커밋하지
+      // 않는다) 매번 상한을 꽉 채운다. 거기에 페이드가 더해져 여유가 1초도 남지 않고,
+      // 워커들이 CPU 를 나눠 쓰면 그대로 넘어간다 — 실제로 넘어갔다(2026-08-18).
+      await expect(page.getByTestId("loading")).toBeHidden({ timeout: 15_000 });
       const before = await coverTransform(page);
 
       await page.evaluate(() => window.scrollTo(0, 400));
-      await expect.poll(() => coverTransform(page)).not.toBe(before);
+      await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(0);
+
+      return before;
+    }
+
+    test("스크롤하면 커버 사진이 따라 내려온다", async ({ page }) => {
+      await page.goto("/");
+      const before = await scrollPastCover(page);
+
+      // 기본 5초는 여유가 없다. 스크롤 값에 물린 갱신이 한 프레임 늦게 커밋되는 일이
+      // 있어(webkit) 여기서 시간을 조금 더 준다 — 늦게라도 따라오면 통과다.
+      await expect.poll(() => coverTransform(page), { timeout: 10_000 }).not.toBe(before);
     });
 
     test("모션을 줄인 설정에서는 사진이 움직이지 않는다", async ({ page }) => {
       await page.emulateMedia({ reducedMotion: "reduce" });
       await page.goto("/");
-      const before = await coverTransform(page);
+      // 「안 움직였다」를 보는 테스트라 준비 대기가 더 중요하다. 화면이 아직 스크롤될
+      // 상태가 아니면 아무것도 안 한 채로 통과해 버린다.
+      const before = await scrollPastCover(page);
 
-      await page.evaluate(() => window.scrollTo(0, 400));
       await page.waitForTimeout(300);
       expect(await coverTransform(page)).toBe(before);
     });
@@ -320,7 +454,8 @@ test.describe("청첩장 기본 동작", () => {
       await context.grantPermissions(["clipboard-read", "clipboard-write"]);
       await page.goto("/");
 
-      const groom = page.getByRole("button", { name: /^신랑측/ });
+      // RSVP 의 「신랑측 하객」 버튼과 겹치지 않도록 정확히 일치시킨다 (SIS-15).
+      const groom = page.getByRole("button", { name: "신랑측", exact: true });
       await groom.click();
 
       // 측당 2건이 모두 보여야 한다 — 형식이 어긋난 항목은 조용히 버려지므로 건수를 센다.
@@ -581,6 +716,258 @@ test.describe("청첩장 기본 동작", () => {
     });
   });
 
+  // RS-01·RS-03 (SIS-15) + 전송(SIS-20).
+  //
+  // 컴포넌트 테스트(Rsvp.test.tsx)는 submitRsvp 자체를 mock 으로 덮으므로, supabase-js
+  // 가 실제로 어떤 주소에 어떤 본문을 보내는지는 여기서만 드러난다. 응답만 스텁으로
+  // 세우고 그 앞은 전부 진짜 코드가 돈다.
+  test.describe("RSVP", () => {
+    // 단계가 접혔다 펴지는 전환이 있어, 애니메이션을 끄고 최종 상태를 본다.
+    test.use({ reducedMotion: "reduce" });
+
+    test("여는 버튼을 눌러야 폼이 나온다", async ({ page }) => {
+      await page.goto("/");
+      await expect(page.getByRole("button", { name: "신랑측 하객" })).toBeHidden();
+
+      await openRsvpForm(page);
+      await expect(page.getByRole("button", { name: "신랑측 하객" })).toBeVisible();
+    });
+
+    // 여섯 칸을 한꺼번에 펼치면 카드가 화면 두 배가 된다. 한 번에 하나씩 묻는다.
+    test("앞 항목을 채워야 다음 항목이 나타난다", async ({ page }) => {
+      await page.goto("/");
+      await openRsvpForm(page);
+      await expect(page.getByRole("button", { name: "참석합니다" })).toBeHidden();
+
+      await page.getByRole("button", { name: "신랑측 하객" }).click();
+      await expect(page.getByRole("button", { name: "참석합니다" })).toBeVisible();
+      await expect(page.getByLabel("성함")).toBeHidden();
+
+      await page.getByRole("button", { name: "참석합니다" }).click();
+      await expect(page.getByLabel("성함")).toBeVisible();
+      await expect(page.getByLabel("참석 인원 (본인 포함)")).toBeHidden();
+
+      await page.getByLabel("성함").fill("홍길동");
+      await expect(page.getByLabel("참석 인원 (본인 포함)")).toBeVisible();
+      await expect(page.getByLabel("연락처")).toBeHidden();
+
+      await page.getByLabel("참석 인원 (본인 포함)").fill("2");
+      await expect(page.getByLabel("연락처")).toBeVisible();
+    });
+
+    // 연락처가 필수로 돌아오면서(SIS-37) 미참석도 「채워야 다음이 나온다」를 따른다.
+    test("미참석이면 성함 다음이 연락처고, 채워야 동의가 나온다", async ({ page }) => {
+      await page.goto("/");
+      await openRsvpForm(page);
+
+      await page.getByRole("button", { name: "신부측 하객" }).click();
+      await page.getByRole("button", { name: "참석 어려워요" }).click();
+      await page.getByLabel("성함").fill("김하객");
+
+      await expect(page.getByLabel("연락처")).toHaveValue("");
+      await expect(page.getByRole("checkbox")).toBeHidden();
+
+      await page.getByLabel("연락처").fill("000-0000-0000");
+      await expect(page.getByRole("checkbox")).toBeVisible();
+      await expect(page.getByLabel("참석 인원 (본인 포함)")).toBeHidden();
+    });
+
+    // 축의 대조·답례·회신 정정에 이 번호 말고는 창구가 없다 (SIS-37).
+    test("미참석 회신도 연락처를 실어 나른다", async ({ page }) => {
+      const sent = await stubRsvpInsert(page);
+      await page.goto("/");
+      await openRsvpForm(page);
+
+      await page.getByRole("button", { name: "신부측 하객" }).click();
+      await page.getByRole("button", { name: "참석 어려워요" }).click();
+      await page.getByLabel("성함").fill("김하객");
+      await page.getByLabel("연락처").fill("000-0000-0000");
+      await page.getByRole("checkbox").check();
+
+      // 미참석의 인원 1·식사안함은 DB 의 not null 을 채우려고 넣은 값이라 팝업에
+      // 싣지 않는다 — 화면에서 확인한 것과 저장되는 것이 여기서만 갈린다.
+      const dialog = await openRsvpConfirm(page);
+      await expect(dialog.getByRole("term")).toHaveText(["하객 구분", "참석 여부", "성함", "연락처"]);
+      await dialog.getByRole("button", { name: "확인" }).click();
+
+      await expect(page.getByText(/참석 의사가 전달되었습니다/)).toBeVisible();
+      expect(sent).toHaveLength(1);
+      const row = Array.isArray(sent[0]) ? sent[0][0] : sent[0];
+      expect(row).toMatchObject({ attend: "미참석", count: 1, meal: "식사안함", phone: "00000000000" });
+    });
+
+    test("동의 전에는 제출 버튼이 잠겨 있다", async ({ page }) => {
+      await page.goto("/");
+      await fillRsvpToConsent(page);
+
+      const submit = page.getByRole("button", { name: "참석 의사 전하기" });
+      await expect(submit).toBeDisabled();
+
+      await page.getByRole("checkbox").check();
+      await expect(submit).toBeEnabled();
+    });
+
+    // 제출 → 완료 카드 왕복 (SIS-20).
+    test("참석 회신을 제출하면 저장 요청이 나가고 완료 카드로 바뀐다", async ({ page }) => {
+      const sent = await stubRsvpInsert(page);
+      await page.goto("/");
+      await fillRsvpToConsent(page);
+      await page.getByRole("checkbox").check();
+      const dialog = await openRsvpConfirm(page);
+      // 팝업에 보인 값이 그대로 나간다. 연락처는 저장되는 모양(하이픈 없음)으로 보인다.
+      await expect(dialog.getByText("00000000000")).toBeVisible();
+      await dialog.getByRole("button", { name: "확인" }).click();
+
+      await expect(page.getByText(/참석 의사가 전달되었습니다/)).toBeVisible();
+      await expect(page.getByRole("button", { name: "참석 의사 전하기" })).toBeHidden();
+
+      // 컬럼 대응이 어긋나면 DB 가 23514·PGRST204 로 거절하는데, 화면에는 원인이
+      // 보이지 않는다. 나간 본문을 supabase/schema.sql 의 컬럼과 직접 맞춘다.
+      expect(sent).toHaveLength(1);
+      const row = Array.isArray(sent[0]) ? sent[0][0] : sent[0];
+      expect(row).toEqual({
+        side: "신랑측",
+        attend: "참석",
+        name: "홍길동",
+        count: 2,
+        meal: "식사함",
+        // 하이픈은 폼이 걷어낸다 — 같은 번호가 두 모양으로 쌓이면 대조가 안 된다.
+        phone: "00000000000",
+      });
+
+      // 중복 제출 방지는 localStorage 에 남는다. jsdom 이 아니라 진짜 브라우저에서
+      // 새로고침을 넘겨 확인한다.
+      await page.reload();
+      await expect(page.getByText(/참석 의사가 전달되었습니다/)).toBeVisible();
+      await expect(page.getByRole("button", { name: "참석 여부 알리기" })).toBeHidden();
+    });
+
+    // 실패를 삼키면 하객도 고객도 회신이 유실된 것을 알 수 없다 (SIS-33).
+    test("저장이 실패하면 완료 카드로 넘어가지 않고 다시 시도할 수 있다", async ({ page }) => {
+      await stubRsvpInsert(page, { status: 500 });
+      await page.goto("/");
+      await fillRsvpToConsent(page);
+      await page.getByRole("checkbox").check();
+      const dialog = await openRsvpConfirm(page);
+      await dialog.getByRole("button", { name: "확인" }).click();
+
+      await expect(page.getByTestId("toast")).toContainText("실패");
+      await expect(page.getByText(/참석 의사가 전달되었습니다/)).toBeHidden();
+      // 팝업은 열린 채로 둔다 — 닫으면 여섯 항목을 처음부터 다시 확인해야 한다.
+      // 토스트가 팝업 위(z-index 95 > 90)에 떠야 안내가 가려지지 않는다.
+      await expect(dialog).toBeVisible();
+      await expect(dialog.getByRole("button", { name: "확인" })).toBeEnabled();
+    });
+
+    // 검증 시점이 「전송 직전」에서 「팝업 열기 직전」으로 옮겨 왔다 (SIS-36).
+    test("검증에 걸리면 팝업이 뜨지 않고 한 줄로 알린다", async ({ page }) => {
+      const sent = await stubRsvpInsert(page);
+      await page.goto("/");
+      await fillRsvpToConsent(page);
+      await page.getByLabel("참석 인원 (본인 포함)").fill("0");
+      await page.getByRole("checkbox").check();
+      await page.getByRole("button", { name: "참석 의사 전하기" }).click();
+
+      await expect(page.getByTestId("toast")).toContainText("입력을 확인해 주세요");
+      await expect(page.getByRole("dialog")).toBeHidden();
+      // 무엇이 틀렸는지는 칸 옆의 인라인 오류가 말한다.
+      await expect(page.getByText(/참석 인원은 1~20명/)).toBeVisible();
+      await expect(page.getByLabel("참석 인원 (본인 포함)")).toBeFocused();
+      expect(sent).toHaveLength(0);
+    });
+
+    // 틀린 값을 보고 되돌아왔는데 폼이 비어 있으면 여섯 항목을 다시 적어야 한다.
+    test("팝업을 닫으면 폼이 채운 그대로 남는다", async ({ page }) => {
+      await page.goto("/");
+      await fillRsvpToConsent(page);
+      await page.getByRole("checkbox").check();
+      const dialog = await openRsvpConfirm(page);
+
+      await dialog.getByRole("button", { name: "뒤로" }).click();
+
+      await expect(page.getByRole("dialog")).toBeHidden();
+      await expect(page.getByLabel("성함")).toHaveValue("홍길동");
+      await expect(page.getByLabel("연락처")).toHaveValue("000-0000-0000");
+      await expect(page.getByRole("checkbox")).toBeChecked();
+      // 닫으면 눌렀던 버튼으로 초점이 돌아온다 — 키보드로 훑던 사람이 폼을 다시
+      // 찾아 내려오지 않아도 된다.
+      await expect(page.getByRole("button", { name: "참석 의사 전하기" })).toBeFocused();
+    });
+
+    // 여러 명이 와도 번호는 하나만 받는다. 미참석은 인원 개념이 없어 붙이지 않는다.
+    test("연락처 안내는 참석에만 붙고 형식 예시는 그대로 남는다", async ({ page }) => {
+      await page.goto("/");
+      await openRsvpForm(page);
+      await page.getByRole("button", { name: "신랑측 하객" }).click();
+      await page.getByRole("button", { name: "참석합니다" }).click();
+      await page.getByLabel("성함").fill("홍길동");
+      await page.getByLabel("참석 인원 (본인 포함)").fill("2");
+
+      await expect(page.getByText(/대표 한 분의 연락처만 남겨주세요/)).toBeVisible();
+      // 하이픈 없이 적어도 된다는 정보가 안내에 밀려 사라지면 안 된다.
+      await expect(page.getByLabel("연락처")).toHaveAttribute("placeholder", /^ex\)/);
+
+      await page.getByRole("button", { name: "참석 어려워요" }).click();
+      await expect(page.getByText(/대표 한 분의 연락처만 남겨주세요/)).toBeHidden();
+    });
+
+    // 고지한 수집 항목이 실제 수집과 어긋나면 고지가 효력을 잃는다(RS-03).
+    test("개인정보 처리방침 전문을 펼쳐 볼 수 있다", async ({ page }) => {
+      await page.goto("/");
+      await fillRsvpToConsent(page);
+      await expect(page.getByText("개인정보 처리방침", { exact: true })).toBeHidden();
+
+      await page.getByRole("button", { name: "개인정보 처리방침 자세히 보기" }).click();
+      await expect(page.getByText("개인정보 처리방침", { exact: true })).toBeVisible();
+      await expect(page.getByText(/데이터 저장 리전/)).toBeVisible();
+    });
+
+    // 페이드의 끝색은 --surface-3 의 알파 0 을 값으로 직접 적어 둔 것이다(global.css).
+    // 토큰만 바꾸면 시작색은 따라오고 끝색은 옛 색으로 남아, 잘린 자리에 탁한 띠가
+    // 생긴다. 눈으로는 알아채기 어려운 종류라 여기서 두 색이 같은지 직접 잰다.
+    test("페이드 끝색이 안내 박스 배경과 같다", async ({ page }) => {
+      await page.goto("/");
+      await fillRsvpToConsent(page);
+      await page.getByRole("button", { name: "개인정보 처리방침 자세히 보기" }).click();
+
+      const measured = await page.locator(".privacy-policy-wrap").evaluate((el) => {
+        const gradient = getComputedStyle(el, "::after").backgroundImage;
+        // 그라데이션 안의 rgb·rgba 를 순서대로 뽑는다. 시작색은 토큰, 끝색은 하드코딩이다.
+        const stops = gradient.match(/rgba?\([^)]*\)/g) ?? [];
+        const rgb = (value) => (value.match(/[\d.]+/g) ?? []).slice(0, 3).join(",");
+        return { stops: stops.length, first: rgb(stops[0] ?? ""), last: rgb(stops.at(-1) ?? "") };
+      });
+
+      expect(measured.stops, "그라데이션에서 색을 읽지 못했다").toBe(2);
+      expect(measured.last, "페이드 끝색이 --surface-3 와 어긋났다").toBe(measured.first);
+    });
+
+    // 9개 항목을 그대로 펼치면 카드가 화면 몇 배로 늘어난다. 안쪽에서만 스크롤해
+    // 폼과 다음 섹션의 자리가 흔들리지 않아야 한다.
+    test("전문은 카드를 늘리지 않고 자체 높이 안에서 스크롤한다", async ({ page }) => {
+      await page.goto("/");
+      await fillRsvpToConsent(page);
+
+      const card = page.locator(".card").filter({ hasText: "개인정보 수집·이용 안내" });
+      const before = (await card.boundingBox())?.height ?? 0;
+
+      await page.getByRole("button", { name: "개인정보 처리방침 자세히 보기" }).click();
+      const panel = page.getByRole("region", { name: "개인정보 처리방침" });
+      await expect(panel).toBeVisible();
+
+      // 내용이 영역보다 길어야 스크롤이 의미가 있다.
+      const { clientHeight, scrollHeight } = await panel.evaluate((el) => ({
+        clientHeight: el.clientHeight,
+        scrollHeight: el.scrollHeight,
+      }));
+      expect(scrollHeight).toBeGreaterThan(clientHeight);
+
+      // 카드가 늘어나는 폭은 접힌 영역의 높이까지다. 전문 전체 길이만큼 늘면 안 된다.
+      const after = (await card.boundingBox())?.height ?? 0;
+      expect(after - before).toBeLessThan(scrollHeight);
+    });
+  });
+
   // 페이드인이 진행 중이면 axe가 합성된 중간 색상을 읽어 색상 대비를 오탐한다.
   // reduced-motion으로 애니메이션을 건너뛰어 최종 상태를 검사하고,
   // 동시에 prefers-reduced-motion 대응(MotionConfig reducedMotion="user")도 함께 검증한다.
@@ -619,10 +1006,17 @@ test.describe("청첩장 기본 동작", () => {
         ["--muted", "--bg", SMALL, "커버 날짜 캡션 11px·푸터 날짜 12px"],
         ["--muted", "--card", SMALL, "갤러리 안내 문구 12.5px"],
         ["--muted-2", "--surface", SMALL, "D-Day 일·시·분 라벨 10.5px"],
-        ["--muted-2", "--card", SMALL, "갤러리 카운터 18px"],
+        ["--muted-2", "--card", SMALL, "갤러리 카운터 18px·연락처 안내 문구 12.5px"],
+        ["--muted", "--surface-3", SMALL, "확인 팝업 항목 라벨 13px"],
         ["--primary", "--bg", LARGE, "커버 30px·푸터 34px — 전부 큰 글씨"],
         ["--primary", "--card", SMALL, "교통 안내 라벨 12.5px·혼주 관계 13px·D-Day 일수 14px 굵게"],
         ["--on-surface", "--surface-2", SMALL, "공유 버튼 13px"],
+        ["--on-surface", "--surface", SMALL, "RSVP 미선택 버튼 14px·잠긴 제출 버튼 15px"],
+        ["--on-surface", "--surface-3", SMALL, "개인정보 처리방침 펼치기 12.5px"],
+        ["--text", "--surface-3", SMALL, "개인정보 안내 제목 13.5px·동의 문구 13px·확인 팝업 항목 값 14px"],
+        // 새로 들인 오류색 (SIS-36). 카드 위 5.96:1 로, 그전까지 오류를 표시하던
+        // --primary(4.81)보다 여유가 있다.
+        ["--error", "--card", SMALL, "오류 메시지 12.5px·오류 칸 테두리·초점 링"],
         ["--on-primary", "--primary", SMALL, "달력 예식일 원 14.5px 굵게·지도 앱 버튼 13px"],
         ["--on-primary-sub", "--primary", SMALL, "D-Day 「초」 라벨 10.5px"],
         ["--on-primary-title", "--primary", SMALL, "그린 배경 위 제목"],
@@ -656,6 +1050,11 @@ test.describe("청첩장 기본 동작", () => {
     });
 
     test("critical/serious 위반이 없다", async ({ page }) => {
+      // 이 테스트만 상한을 올린다. 로딩 상한 4초 + 아코디언·폼 펼치기 + 페이지를 훑어
+      // 리빌을 전부 끝내기까지가 기본 30초에 아슬아슬했고, 방명록(SIS-21)이 섹션을
+      // 하나 더하면서 넘어갔다. 아래 리빌 poll 이 20초를 다 쓰지 못하고 잘렸다.
+      test.setTimeout(60_000);
+
       await page.goto("/");
       // 색상 대비 판정은 스타일·폰트가 적용되고 화면이 자리를 잡은 뒤라야 의미가 있다.
       // 커버 자체의 페이드인은 로딩 화면이 걷히는 연출로 옮겨져 사라졌지만(Cover.tsx),
@@ -663,15 +1062,23 @@ test.describe("청첩장 기본 동작", () => {
       // 1인 것을 확인하는 것으로 오버레이가 걷혔음까지 함께 본다.
       await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
       await page.evaluate(() => document.fonts.ready);
-      await expect(page.getByTestId("loading")).toBeHidden();
+      // 기본 5초를 쓰지 않는 이유는 커버 패럴랙스 쪽 scrollPastCover 의 주석 참고 —
+      // CI 에서 로딩은 늘 상한 4초를 채우므로 여유가 1초도 남지 않는다.
+      await expect(page.getByTestId("loading")).toBeHidden({ timeout: 15_000 });
       await expect(page.locator("header")).toHaveCSS("opacity", "1");
 
       // 아코디언은 기본이 접힘이고 닫힌 패널은 DOM 에서 빠진다. 열어 두지 않으면 계좌 행과
       // 복사 버튼이 감사 대상에 아예 없어, 그 안의 위반은 CI 가 영영 보지 못한다.
-      for (const label of [/^신랑측/, /^신부측/]) {
-        await page.getByRole("button", { name: label }).click();
+      // 이름을 정확히 맞춘다 — RSVP 의 「신랑측 하객」이 앞자리를 공유한다 (SIS-15).
+      for (const label of ["신랑측", "신부측"]) {
+        await page.getByRole("button", { name: label, exact: true }).click();
       }
       await expect(page.getByRole("button", { name: /계좌번호 복사$/ }).first()).toBeVisible();
+
+      // 처리방침 전문도 접힌 채로는 감사되지 않는다. 문단·목록이 많아 대비 위반이
+      // 숨기 쉬운 자리라, 폼을 동의 단계까지 채워 펼쳐 두고 검사한다 (RS-03).
+      await fillRsvpToConsent(page);
+      await page.getByRole("button", { name: "개인정보 처리방침 자세히 보기" }).click();
 
       await expect(page.getByRole("button", { name: "카카오톡으로 공유" })).toBeVisible();
 
@@ -690,11 +1097,23 @@ test.describe("청첩장 기본 동작", () => {
       });
       // 리빌 대상은 Reveal 이 그리는 <section> 뿐이라 그것만 본다. 인라인 opacity 를 통째로
       // 훑으면 갤러리의 잠긴 화살표(0.35)와 커버의 「scroll ↓」(무한 왕복)에 영영 걸린다.
+      //
+      // 기본 5초로는 모자란다. 마지막 섹션들은 훑기가 끝날 무렵에야 뷰에 들어와 그때부터
+      // 0.9초 페이드를 시작하고, 워커들이 CPU 를 나눠 쓰면 그 페이드들이 서로 밀린다 —
+      // ios-safari 에서 「3개가 아직 1이 아니다」로 흔들렸다(2026-08-18). 조건 대기라
+      // 정상일 때는 곧바로 풀리고, 늘린 시간을 실제로 쓰지 않는다.
+      //
+      // ★ 섹션이 늘면 여기가 다시 흔들린다. 방명록(SIS-21)이 들어오면서 훑을 길이와
+      // 페이드가 하나씩 늘어 **테스트 상한 30초** 쪽에 먼저 걸렸다 — poll 의 20초가
+      // 남아 있어도 테스트가 끝나 버려 「2개가 아직 1이 아니다」로 떨어진다.
+      // 섹션을 더할 때는 아래 setTimeout 도 함께 본다.
       await expect
-        .poll(() =>
-          page.evaluate(
-            () => [...document.querySelectorAll("section")].filter((el) => getComputedStyle(el).opacity !== "1").length,
-          ),
+        .poll(
+          () =>
+            page.evaluate(
+              () => [...document.querySelectorAll("section")].filter((el) => getComputedStyle(el).opacity !== "1").length,
+            ),
+          { timeout: 20_000 },
         )
         .toBe(0);
 
@@ -709,6 +1128,24 @@ test.describe("청첩장 기본 동작", () => {
       const results = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa"]).analyze();
       // 위반 객체를 통째로 비교하면 실패 출력이 노드 하나에 수십 줄이라 무엇이 걸렸는지 안 보인다.
       // 규칙·요소·사유 한 줄로 눌러서 비교한다.
+      const blocking = results.violations
+        .filter((v) => v.impact === "critical" || v.impact === "serious")
+        .flatMap((v) =>
+          v.nodes.map((n) => `${v.id} · ${n.target.join(" ")} · ${n.failureSummary?.split("\n")[1]?.trim() ?? ""}`),
+        );
+      expect(blocking).toEqual([]);
+    });
+
+    // 확인 팝업은 버튼 뒤에 있어 위 감사가 닿지 못한다. 페이지 전체를 다시 훑는 대신
+    // 팝업만 범위로 잡는다 — 열면 오버레이가 화면을 덮어, 같이 감사하면 뒤쪽 요소의
+    // 판정이 이 팝업과 무관하게 흔들린다 (SIS-36).
+    test("확인 팝업에 critical/serious 위반이 없다", async ({ page }) => {
+      await page.goto("/");
+      await fillRsvpToConsent(page);
+      await page.getByRole("checkbox").check();
+      await openRsvpConfirm(page);
+
+      const results = await new AxeBuilder({ page }).include('[role="dialog"]').withTags(["wcag2a", "wcag2aa"]).analyze();
       const blocking = results.violations
         .filter((v) => v.impact === "critical" || v.impact === "serious")
         .flatMap((v) =>
