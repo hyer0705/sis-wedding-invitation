@@ -218,6 +218,20 @@ if (!imageBase) {
     errors.push("Location.tsx 에서 지도 앱 로고 파일명을 찾지 못했습니다 — 게이트가 무력화됩니다");
   }
 
+  // 배경음악도 같은 버킷에 있다(SIS-27). 로고와 같은 이유로 확인한다 — 404 가 나도
+  // 토글은 멀쩡히 그려지고 눌러도 아무 일이 없을 뿐이라 화면에 신호가 남지 않는다.
+  // 파일명은 lib 가 단일 기준이다.
+  let bgmFile = null;
+  if (/<Bgm[\s/>]/.test(appSource)) {
+    const bgmSource = await readFile("src/lib/bgm.ts", "utf8");
+    const bgmMatch = /^export const BGM_FILE = "([^"]+)";/m.exec(bgmSource);
+    if (!bgmMatch) {
+      errors.push("src/lib/bgm.ts 에서 BGM_FILE 을 찾지 못했습니다 — 게이트가 무력화됩니다");
+    } else {
+      bgmFile = bgmMatch[1];
+    }
+  }
+
   const base = imageBase.replace(/\/+$/, "");
   const targets = [
     coverMatch && { label: "커버 사진", url: `${base}/${coverMatch[1]}-960.webp` },
@@ -225,13 +239,23 @@ if (!imageBase) {
     // 카드에 썸네일이 통째로 빠진다.
     { label: "카톡 공유 썸네일(og-image.jpg)", url: `${base}/og-image.jpg` },
     ...logoFiles.map((file) => ({ label: `지도 앱 로고(${file})`, url: `${base}/${file}` })),
+    // 명세서가 정한 규격은 mp3 3MB 이하다. 로컬 산출은 optimize:audio 가 막지만,
+    // 버킷에 옛 파일이 남아 있으면 하객이 받는 것은 그쪽이다.
+    bgmFile && { label: `배경음악(${bgmFile})`, url: `${base}/${bgmFile}`, maxBytes: 3 * 1024 * 1024 },
   ].filter(Boolean);
 
-  for (const { label, url } of targets) {
+  for (const { label, url, maxBytes } of targets) {
     try {
       const res = await fetch(url, { method: "HEAD", signal: AbortSignal.timeout(8000) });
       if (!res.ok) {
         errors.push(`${label}에 접근할 수 없습니다 (HTTP ${res.status}): ${url} — 버킷 공개 설정과 업로드 여부를 확인하세요`);
+        continue;
+      }
+      const size = Number(res.headers.get("content-length"));
+      if (maxBytes && size > maxBytes) {
+        errors.push(
+          `${label}이 규격을 넘습니다 (${(size / 1024 / 1024).toFixed(2)}MB > ${maxBytes / 1024 / 1024}MB) — npm run optimize:audio 산출물로 다시 올리세요`,
+        );
       }
     } catch (e) {
       errors.push(`${label} 확인 실패: ${url} — ${e.message}`);

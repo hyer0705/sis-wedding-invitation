@@ -27,7 +27,7 @@ function normalizeBase(raw: string | undefined): string {
  * @param base  베이스 URL. 생략하면 `VITE_IMAGE_BASE_URL`
  */
 export function imageUrl(name: string, width: ImageWidth, base?: string): string {
-  return `${normalizeBase(base ?? readBase())}/${name}-${width}.webp`;
+  return `${normalizeBase(base ?? readImageBase())}/${name}-${width}.webp`;
 }
 
 /**
@@ -48,7 +48,7 @@ export function imageSrcSet(name: string, base?: string): string {
  * @param file 확장자까지 포함한 파일명 (예: `logo-tmap.webp`)
  */
 export function assetUrl(file: string, base?: string): string {
-  return `${normalizeBase(base ?? readBase())}/${file}`;
+  return `${normalizeBase(base ?? readImageBase())}/${file}`;
 }
 
 /**
@@ -74,14 +74,17 @@ export const OG_IMAGE_FILE = "og-image.jpg";
  * @param base    이미지 베이스 URL. 생략하면 `VITE_IMAGE_BASE_URL`
  */
 export function ogImageUrl(siteUrl: string, base?: string): string {
-  const resolved = normalizeBase(base ?? readBase());
+  const resolved = normalizeBase(base ?? readImageBase());
   const origin = siteUrl.replace(/\/+$/, "");
   return /^https?:\/\//.test(resolved) ? `${resolved}/${OG_IMAGE_FILE}` : `${origin}${resolved}/${OG_IMAGE_FILE}`;
 }
 
 // Playwright(E2E)는 Vite 를 거치지 않고 이 파일을 읽을 수 있어 import.meta.env 가
 // 없다. invite.ts 와 같은 방식으로 방어한다.
-function readBase(): string | undefined {
+//
+// 배경음악(SIS-27)도 같은 버킷을 쓰지만 폴백 경로가 달라(/audio) 이 값만 빌려 간다 —
+// lib/bgm.ts 참고.
+export function readImageBase(): string | undefined {
   const env = (import.meta.env ?? {}) as Record<string, string | undefined>;
   return env.VITE_IMAGE_BASE_URL;
 }

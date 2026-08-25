@@ -907,3 +907,61 @@ body {
   color: var(--text-sub);
   cursor: pointer;
 }
+
+/* ── CV-03 배경음악 토글 (SIS-27) ──────────────────────────────────────────
+   화면 우상단에 상시 고정한다. 커버 안에만 두면 스크롤한 뒤에는 끌 수도 켤 수도
+   없는데, 기본값이 음소거라 켜고 끄는 접근성이 이 기능의 값어치를 좌우한다.
+
+   쌓임 순서 70 — 오버레이 넷보다 모두 아래다. 로딩(100)·토스트(95)·확인 팝업(90)·
+   전체보기(80) 어느 것이 떠 있든 그 위로 올라오지 않는다. */
+.bgm {
+  position: fixed;
+  top: 0;
+  right: 0;
+  left: 0;
+  z-index: 70;
+  display: flex;
+  justify-content: flex-end;
+  max-width: var(--page-max);
+  margin: 0 auto;
+  padding: 14px 18px 0;
+  pointer-events: none;
+}
+
+/* 시각적으로는 36px 원이지만 터치 영역은 44px 다. 원을 ::before 로 그리는 것이
+   그래서다 — 버튼을 36px 로 줄이면 손가락으로 집기 어려워진다. */
+.bgm-toggle {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--on-primary);
+  cursor: pointer;
+  pointer-events: auto;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.bgm-toggle::before {
+  content: "";
+  position: absolute;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--primary);
+  box-shadow: 0 6px 16px rgba(80, 95, 75, 0.28);
+}
+
+.bgm-toggle svg {
+  position: relative;
+}
+
+.bgm-toggle:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+  border-radius: 50%;
+}
