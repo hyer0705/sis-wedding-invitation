@@ -35,6 +35,8 @@ jobs:
         run: npm install --no-audit --no-fund
 
       - name: 시크릿·개인정보·금지 파일 검사
+        env:
+          REVIEW_BASE: ${{ github.event_name == 'push' && 'origin/main' || '' }}
         run: npm run review:branch
 
       - name: 의존성 취약점 검사
