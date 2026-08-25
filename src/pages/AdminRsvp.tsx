@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
-import { createPortal } from "react-dom";
+import { useCallback, useEffect, useId, useMemo, useState } from "react";
+import AdminConfirmDialog from "../components/AdminConfirmDialog";
 import { deleteRsvp, listRsvp, summarize, type RsvpRow } from "../lib/adminRsvp";
 import { formatKst, formatPhone, rsvpCsvBlob, rsvpCsvFileName } from "../lib/csv";
 import {
@@ -321,7 +321,7 @@ function RsvpList({
     const query = filter.query.trim();
     return (
       <div className="admin-card">
-        <p className="admin-empty">{query ? `‘${query}’와 맞는 회신이 없습니다.` : "조건에 맞는 회신이 없습니다."}</p>
+        <p className="admin-empty">{query ? `‘${query}’ 검색 결과가 없습니다.` : "조건에 맞는 회신이 없습니다."}</p>
       </div>
     );
   }
@@ -372,90 +372,30 @@ function ConfirmDelete({
   onDone: (id: string) => void;
   onError: (message: string) => void;
 }) {
-  const ref = useRef<HTMLDivElement>(null);
-  const titleId = useId();
-  const [deleting, setDeleting] = useState(false);
+  return (
+    <AdminConfirmDialog
+      title="이 회신을 지울까요?"
+      confirmLabel="삭제"
+      runningLabel="지우는 중…"
+      fallbackError="회신을 지우지 못했습니다"
+      onClose={onClose}
+      onError={onError}
+      onConfirm={async () => {
+        await deleteRsvp(row.id);
+        onDone(row.id);
+      }}
+    >
+      <p className="admin-dialog-who">
+        <strong>
+          {row.side} {row.name}
+        </strong>
+        <span>
+          {row.attend}
+          {row.attend === "참석" && ` ${row.count}명`}
+        </span>
+      </p>
 
-  useEffect(() => {
-    const node = ref.current;
-    if (!node) return;
-
-    const opener = document.activeElement;
-    node.focus();
-
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        onClose();
-        return;
-      }
-      if (event.key !== "Tab") return;
-
-      const targets = node.querySelectorAll<HTMLElement>("button:not(:disabled)");
-      if (targets.length === 0) return;
-
-      const first = targets[0];
-      const last = targets[targets.length - 1];
-      const active = document.activeElement;
-
-      if (event.shiftKey && (active === first || active === node)) {
-        event.preventDefault();
-        last.focus();
-      } else if (!event.shiftKey && active === last) {
-        event.preventDefault();
-        first.focus();
-      }
-    };
-
-    node.addEventListener("keydown", onKeyDown);
-    return () => {
-      node.removeEventListener("keydown", onKeyDown);
-
-      if (opener instanceof HTMLElement && opener.isConnected) {
-        opener.focus();
-        return;
-      }
-      document.querySelector<HTMLElement>(".admin-rows .admin-row-del")?.focus();
-    };
-  }, [onClose]);
-
-  async function confirm() {
-    setDeleting(true);
-    try {
-      await deleteRsvp(row.id);
-      onDone(row.id);
-    } catch (cause) {
-      onError(cause instanceof Error ? cause.message : "회신을 지우지 못했습니다");
-      onClose();
-    }
-  }
-
-  return createPortal(
-    <div className="admin-dialog-overlay">
-      <div ref={ref} className="admin-dialog" role="dialog" aria-modal="true" aria-labelledby={titleId} tabIndex={-1}>
-        <h2 id={titleId}>이 회신을 지울까요?</h2>
-
-        <p className="admin-dialog-who">
-          <strong>
-            {row.side} {row.name}
-          </strong>
-          <span>
-            {row.attend}
-            {row.attend === "참석" && ` ${row.count}명`}
-          </span>
-        </p>
-
-        <p>지운 회신은 되돌릴 수 없습니다.</p>
-
-        <div className="admin-dialog-actions">
-          <button type="button" className="admin-btn admin-btn-ghost" onClick={onClose}>
-            취소
-          </button>
-          <button type="button" className="admin-btn admin-btn-danger" onClick={confirm} disabled={deleting}>
-            {deleting ? "지우는 중…" : "삭제"}
-          </button>
-        </div>
-      </div>
-    </div>,
-    document.body,
+      <p>지운 회신은 되돌릴 수 없습니다.</p>
+    </AdminConfirmDialog>
   );
 }

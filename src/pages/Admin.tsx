@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useId, useState } from "react";
 import { currentSession, isAdmin, onAuthChange, signIn, signOut } from "../lib/adminAuth";
 import AdminRsvp from "./AdminRsvp";
+import AdminGuestbook from "../components/AdminGuestbook";
 import "../styles/admin.css";
 
 const BOOT_ID = "boot";
@@ -239,22 +240,9 @@ function Dashboard({ tab, onTab }: { tab: Tab; onTab: (tab: Tab) => void }) {
         </button>
       </div>
 
-      <div id={panelId} role="tabpanel" aria-labelledby={tab === "회신" ? rsvpTabId : guestbookTabId}>
-        {tab === "회신" ? <AdminRsvp onCount={report} /> : <GuestbookPlaceholder />}
+      <div id={panelId} className="admin-panel" role="tabpanel" aria-labelledby={tab === "회신" ? rsvpTabId : guestbookTabId}>
+        {tab === "회신" ? <AdminRsvp onCount={report} /> : <AdminGuestbook />}
       </div>
     </>
-  );
-}
-
-function GuestbookPlaceholder() {
-  return (
-    <div className="admin-card">
-      <p className="admin-empty">
-        <strong>방명록은 준비 중입니다</strong>
-        하객이 남긴 축하 메시지를
-        <br />
-        여기에서 보고 지울 수 있게 됩니다.
-      </p>
-    </div>
   );
 }
