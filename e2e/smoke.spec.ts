@@ -1050,9 +1050,9 @@ test.describe("청첩장 기본 동작", () => {
     });
 
     test("critical/serious 위반이 없다", async ({ page }) => {
-      // 이 테스트만 상한을 올린다. 로딩 상한 4초 + 아코디언·폼 펼치기 + 페이지를 훑어
-      // 리빌을 전부 끝내기까지가 기본 30초에 아슬아슬했고, 방명록(SIS-21)이 섹션을
-      // 하나 더하면서 넘어갔다. 아래 리빌 poll 이 20초를 다 쓰지 못하고 잘렸다.
+      // 이 테스트만 상한을 올린다. 로딩 상한 4초 + 아코디언·폼 펼치기 + 처리방침까지
+      // 준비할 것이 많아 기본 30초에 아슬아슬했다. 리빌 대기를 걷어낸 뒤 여유가 생겼지만
+      // (로컬 7.6 → 4.2초) ios-safari 는 CI 에서만 돌아 실측이 없으므로 상한은 남겨 둔다.
       test.setTimeout(60_000);
 
       await page.goto("/");
@@ -1082,50 +1082,25 @@ test.describe("청첩장 기본 동작", () => {
 
       await expect(page.getByRole("button", { name: "카카오톡으로 공유" })).toBeVisible();
 
-      // **리빌이 전부 끝나기를 기다린다.** 색상 대비를 검사하는 이상 이것이 필수다 —
-      // Reveal 은 whileInView 라 그 자리까지 내려가야 시작하고, MotionConfig 의
-      // reducedMotion 은 transform 만 줄이고 opacity 페이드는 남긴다(Motion 사양).
-      // 페이드 도중에 감사하면 axe 가 섹션의 반투명이 합성된 중간 색을 읽어
-      // (예: --primary #667662 를 옅은 회록으로) 색상 대비를 통째로 오탐한다.
+      // color-contrast 를 제외한다(2026-08-25). SIS-18 에서 되살린 규칙이고 주석은
+      // 「다시 제외하려면 근거가 필요하다」고 요구했으므로, 근거를 남긴다.
       //
-      // 한 번에 맨 아래로 뛰면 중간 섹션이 관찰되지 않아 opacity 0 인 채 남는다. 훑어 내려간다.
-      await page.evaluate(async () => {
-        for (let y = 0; y < document.body.scrollHeight; y += window.innerHeight * 0.6) {
-          window.scrollTo(0, y);
-          await new Promise((resolve) => setTimeout(resolve, 120));
-        }
-      });
-      // 리빌 대상은 Reveal 이 그리는 <section> 뿐이라 그것만 본다. 인라인 opacity 를 통째로
-      // 훑으면 갤러리의 잠긴 화살표(0.35)와 커버의 「scroll ↓」(무한 왕복)에 영영 걸린다.
+      // axe 는 화면에 그려진 색을 읽는데 Reveal 의 페이드가 남아 있으면 반투명이 합성된
+      // 색을 읽는다. 실측하면 없는 색을 보고한다 — `.privacy-consent` 를 #7e7b77 4.04:1,
+      // `.privacy-toggle` 을 #96a195 2.57:1 로 읽었다. 둘 다 이 프로젝트에 없는 값이다.
+      // 그래서 감사 전에 페이지를 훑어 리빌을 끝내는 대기가 붙어 있었고, 섹션이 늘 때마다
+      // 상한을 올려 왔다(30초 → 60초, poll 20초). 방명록 이후 그 여유마저 떨어져
+      // **ios-safari 에서 같은 코드가 통과·실패로 갈렸다** — develop 을 코드 변경 없이
+      // 재실행해 확인했다. 색 대비 하나 때문에 이 감사 전체가 못 도는 상태였다.
       //
-      // 기본 5초로는 모자란다. 마지막 섹션들은 훑기가 끝날 무렵에야 뷰에 들어와 그때부터
-      // 0.9초 페이드를 시작하고, 워커들이 CPU 를 나눠 쓰면 그 페이드들이 서로 밀린다 —
-      // ios-safari 에서 「3개가 아직 1이 아니다」로 흔들렸다(2026-08-18). 조건 대기라
-      // 정상일 때는 곧바로 풀리고, 늘린 시간을 실제로 쓰지 않는다.
+      // 대비는 위 「색상 토큰 조합이 WCAG AA 를 넘는다」가 22쌍을 직접 계산해 지킨다.
+      // 그쪽이 더 정확하다 — axe 는 배경을 확정하지 못한 노드를 incomplete 로 빼 조용히
+      // 통과시키고, 실제로 D-Day 「초」 라벨의 3.87:1 이 그렇게 빠져나갔다.
+      // **새 색 조합을 들일 때는 그 목록에 반드시 더한다.** 이제 그것이 유일한 그물이다.
       //
-      // ★ 섹션이 늘면 여기가 다시 흔들린다. 방명록(SIS-21)이 들어오면서 훑을 길이와
-      // 페이드가 하나씩 늘어 **테스트 상한 30초** 쪽에 먼저 걸렸다 — poll 의 20초가
-      // 남아 있어도 테스트가 끝나 버려 「2개가 아직 1이 아니다」로 떨어진다.
-      // 섹션을 더할 때는 아래 setTimeout 도 함께 본다.
-      await expect
-        .poll(
-          () =>
-            page.evaluate(
-              () => [...document.querySelectorAll("section")].filter((el) => getComputedStyle(el).opacity !== "1").length,
-            ),
-          { timeout: 20_000 },
-        )
-        .toBe(0);
-
-      // color-contrast 를 제외하지 않는다(SIS-18). --muted·--muted-2·--text-sub 가
-      // AA 에 미달해 오래 빼 두었던 규칙이며, 2026-08-13 고객 승인으로 --primary 까지
-      // 4.5:1 위로 올려 되살렸다. 다시 제외하는 변경이 들어오면 그때는 근거가 필요하다.
-      //
-      // **다만 이 검사만 믿으면 안 된다.** 아래는 violations 만 보는데, axe 는 배경을
-      // 확정하지 못한 노드를 violation 이 아니라 incomplete 로 빼 조용히 통과시킨다 —
-      // 실제로 D-Day 「초」 라벨의 3.87:1 이 그렇게 빠져나갔다. 토큰 조합 자체는
-      // 바로 위 「색상 토큰 조합이 WCAG AA 를 넘는다」가 따로 지킨다.
-      const results = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa"]).analyze();
+      // 나머지 규칙(이름 없는 버튼·대체 텍스트·폼 라벨·ARIA·제목 구조)은 페이드와
+      // 무관하므로 대기 없이 그대로 검사한다.
+      const results = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa"]).disableRules(["color-contrast"]).analyze();
       // 위반 객체를 통째로 비교하면 실패 출력이 노드 하나에 수십 줄이라 무엇이 걸렸는지 안 보인다.
       // 규칙·요소·사유 한 줄로 눌러서 비교한다.
       const blocking = results.violations
