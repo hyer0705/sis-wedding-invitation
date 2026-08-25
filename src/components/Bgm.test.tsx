@@ -16,6 +16,10 @@ function audio() {
   return screen.getByTestId("bgm-audio") as HTMLAudioElement;
 }
 
+function toggle() {
+  return screen.getByRole("button", { name: "배경음악" });
+}
+
 describe("Bgm", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
@@ -33,16 +37,16 @@ describe("Bgm", () => {
     expect(audio()).toHaveAttribute("loop");
     expect(audio()).toHaveAttribute("preload", "none");
     expect(play).not.toHaveBeenCalled();
-    expect(screen.getByRole("button", { name: "배경음악 켜기" })).toHaveAttribute("aria-pressed", "false");
+    expect(toggle()).toHaveAttribute("aria-pressed", "false");
   });
 
   it("토글을 누르면 재생하고 aria-pressed 가 켜짐으로 바뀐다", async () => {
     const { play } = mockPlayback();
     renderWithMotion(<Bgm />);
 
-    await userEvent.click(screen.getByRole("button", { name: "배경음악 켜기" }));
+    await userEvent.click(toggle());
 
-    await waitFor(() => expect(screen.getByRole("button", { name: "배경음악 끄기" })).toHaveAttribute("aria-pressed", "true"));
+    await waitFor(() => expect(toggle()).toHaveAttribute("aria-pressed", "true"));
     expect(play).toHaveBeenCalledTimes(1);
     expect(audio().muted).toBe(false);
   });
@@ -51,10 +55,36 @@ describe("Bgm", () => {
     const { pause } = mockPlayback();
     renderWithMotion(<Bgm />);
 
-    await userEvent.click(screen.getByRole("button", { name: "배경음악 켜기" }));
-    await userEvent.click(await screen.findByRole("button", { name: "배경음악 끄기" }));
+    await userEvent.click(toggle());
+    await waitFor(() => expect(toggle()).toHaveAttribute("aria-pressed", "true"));
+    await userEvent.click(toggle());
 
-    await waitFor(() => expect(screen.getByRole("button", { name: "배경음악 켜기" })).toHaveAttribute("aria-pressed", "false"));
+    await waitFor(() => expect(toggle()).toHaveAttribute("aria-pressed", "false"));
+    expect(pause).toHaveBeenCalled();
+    expect(audio().muted).toBe(true);
+  });
+
+  it("재생이 시작되기를 기다리는 동안 다시 눌러도 끄기가 먹는다", async () => {
+    let startPlayback = () => {};
+    const play = vi.fn<() => Promise<void>>().mockImplementation(
+      () =>
+        new Promise<void>((resolve) => {
+          startPlayback = resolve;
+        }),
+    );
+    const pause = vi.fn();
+    vi.spyOn(HTMLMediaElement.prototype, "play").mockImplementation(play);
+    vi.spyOn(HTMLMediaElement.prototype, "pause").mockImplementation(pause);
+    renderWithMotion(<Bgm />);
+
+    await userEvent.click(toggle());
+    await waitFor(() => expect(toggle()).toHaveAttribute("aria-pressed", "true"));
+
+    await userEvent.click(toggle());
+    startPlayback();
+
+    await waitFor(() => expect(toggle()).toHaveAttribute("aria-pressed", "false"));
+    expect(play).toHaveBeenCalledTimes(1);
     expect(pause).toHaveBeenCalled();
     expect(audio().muted).toBe(true);
   });
@@ -65,9 +95,9 @@ describe("Bgm", () => {
     vi.spyOn(HTMLMediaElement.prototype, "pause").mockImplementation(vi.fn());
     renderWithMotion(<Bgm />);
 
-    await userEvent.click(screen.getByRole("button", { name: "배경음악 켜기" }));
+    await userEvent.click(toggle());
 
     await waitFor(() => expect(audio().muted).toBe(true));
-    expect(screen.getByRole("button", { name: "배경음악 켜기" })).toHaveAttribute("aria-pressed", "false");
+    expect(toggle()).toHaveAttribute("aria-pressed", "false");
   });
 });

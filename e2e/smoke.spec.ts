@@ -975,7 +975,7 @@ test.describe("청첩장 기본 동작", () => {
     test("자동으로 재생하지 않는다", async ({ page }) => {
       await page.goto("/");
 
-      await expect(page.getByRole("button", { name: "배경음악 켜기" })).toHaveAttribute("aria-pressed", "false");
+      await expect(page.getByRole("button", { name: "배경음악" })).toHaveAttribute("aria-pressed", "false");
 
       const state = await page.evaluate(() => {
         const audio = document.querySelector("audio");
@@ -989,7 +989,7 @@ test.describe("청첩장 기본 동작", () => {
     test("아래로 스크롤해도 토글이 화면에 남는다", async ({ page }) => {
       await page.goto("/");
 
-      const toggle = page.getByRole("button", { name: "배경음악 켜기" });
+      const toggle = page.getByRole("button", { name: "배경음악" });
       await expect(toggle).toBeInViewport();
 
       await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));

@@ -36,13 +36,13 @@ export default function Bgm() {
       return;
     }
 
+    setPlaying(true);
     audio.muted = false;
     try {
       await audio.play();
-      setPlaying(true);
     } catch {
-      audio.muted = true;
       audio.pause();
+      audio.muted = true;
       setPlaying(false);
     }
   }
@@ -56,7 +56,7 @@ export default function Bgm() {
         onClick={toggle}
         whileTap={{ scale: 0.94 }}
         aria-pressed={playing}
-        aria-label={playing ? "배경음악 끄기" : "배경음악 켜기"}
+        aria-label="배경음악"
       >
         {playing ? <SpeakerOnIcon /> : <SpeakerOffIcon />}
       </m.button>
