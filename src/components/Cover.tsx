@@ -128,7 +128,7 @@ export default function Cover({ coverReady = false }: { coverReady?: boolean }) 
           }}
         />
       </div>
-      <h1 style={{ margin: "30px 0 0", fontWeight: 700, fontSize: 30, letterSpacing: "0.06em" }}>
+      <h1 style={{ margin: "30px 0 0", fontWeight: 900, fontSize: 20, letterSpacing: "0.20em" }}>
         {INVITE.groom.name} <span style={{ color: "var(--primary)", fontWeight: 400 }}>&amp;</span> {INVITE.bride.name}
       </h1>
       <div style={{ marginTop: 14, fontSize: 14, color: "var(--text-sub)", lineHeight: 1.7 }}>
