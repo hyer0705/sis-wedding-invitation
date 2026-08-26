@@ -7,7 +7,7 @@ const OUT_DIR = "public/audio";
 const OUT_NAME = "bgm.mp3";
 
 const START_SECONDS = 0;
-const DURATION_SECONDS = 90;
+const DURATION_SECONDS = 119;
 const FADE_IN_SECONDS = 1.5;
 const FADE_OUT_SECONDS = 2.5;
 const BITRATE = "96k";
@@ -15,8 +15,7 @@ const SAMPLE_RATE = "44100";
 
 const SPEC_MAX_BYTES = 3 * 1024 * 1024;
 
-const LICENSE_NOTE =
-  "Pixabay Content License - https://pixabay.com/music/acoustic-group-beautiful-acoustic-guitar-amp-piano-239981/";
+const LICENSE_NOTE = "Pixabay Content License - https://pixabay.com/music/modern-classical-wedding-485932/";
 
 function requireFfmpeg() {
   try {

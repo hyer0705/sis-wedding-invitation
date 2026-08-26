@@ -2,7 +2,7 @@
 // (SIS-28 · SIS-27).
 //
 //   npm run optimize                    원본 → WebP 2벌 (public/images/)
-//   npm run optimize:audio              원본 → 90초 mp3 (public/audio/)
+//   npm run optimize:audio              원본 → 96kbps mp3 (public/audio/)
 //   npm run upload:images -- --dry-run  올릴 파일 목록만 확인 (자격증명 불필요)
 //   npm run upload:images               두 폴더 → R2
 //

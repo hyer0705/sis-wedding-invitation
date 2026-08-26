@@ -203,7 +203,7 @@ M4가 별도인 이유: 방명록은 **읽기**가 필요하고 관리자 비밀
 | `npm run review`        | 스테이징된 변경의 시크릿·개인정보·금지 파일 검사 (pre-commit 훅이 호출) |
 | `npm run review:branch` | `develop...HEAD` + 커밋 메시지 검사 — **PR 전 게이트**, CI에서도 실행   |
 | `npm run optimize`      | 원본 사진 → WebP 변환                                                   |
-| `npm run optimize:audio` | 배경음악 원본 → 90초 mp3 (ffmpeg 필요, SIS-27)                        |
+| `npm run optimize:audio` | 배경음악 원본 → 96kbps mp3 (ffmpeg 필요, SIS-27)                      |
 | `npm run mock:images`   | picsum에서 mock 갤러리 이미지·og-image 생성                             |
 | `npm run verify`        | **배포 게이트** — mock 상태·placeholder 잔존·이미지 초과 시 실패        |
 | `npm run smoke:rls`     | Supabase RLS 확인 — 읽기 차단·쓰기 허용 (스키마 적용 후 1회)            |
