@@ -94,7 +94,7 @@ export function tmapAppUrl(place: Place): string {
   return `tmap://route?${query}`;
 }
 
-export function isIosDevice(userAgent: string, maxTouchPoints = 0): boolean {
+function isIosDevice(userAgent: string, maxTouchPoints = 0): boolean {
   if (/iPhone|iPad|iPod/i.test(userAgent)) return true;
   return /Macintosh/i.test(userAgent) && maxTouchPoints > 1;
 }

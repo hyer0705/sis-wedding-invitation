@@ -29,7 +29,9 @@ export default function Share() {
       result = "failed";
     }
     if (result === "copied") showToast("청첩장 주소가 복사되었습니다");
-    else if (result === "failed") showToast("공유에 실패했어요\n주소창을 길게 눌러 복사해 주세요");
+    // "길게 눌러" 는 휴대폰에서만 통한다. 이 문구에 실제로 닿는 것은 대개 PC 다 —
+    // 거기에는 navigator.share 가 없어 복사가 마지막 창구이기 때문이다 (SIS-42).
+    else if (result === "failed") showToast("공유에 실패했어요\n주소창의 주소를 복사해 주세요");
   };
 
   // 이 섹션이 보이면 공유 SDK 를 미리 받아 둔다. 버튼을 누른 뒤에 받기 시작하면
