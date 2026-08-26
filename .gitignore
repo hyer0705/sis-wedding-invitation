@@ -155,7 +155,10 @@ logos-original/
 /public/images/
 
 # 배경음악 — 사진과 같은 이유로 리포에 커밋하지 않는다(SIS-27).
-# 저작권 확인이 필요한 파일이라 git 이력에 한 번 들어가면 되돌리기 어렵다.
+# 원본은 20분 38MB 이고 산출물도 1MB 대라, git 이력에 한 번 들어가면 되돌릴 수 없고
+# 곡 교체 요청마다 누적된다. 이미지와 같은 경로를 탄다:
+# optimize:audio → public/audio/ → upload:images → R2.
+/audio-original/
 /public/audio/
 
 # Playwright

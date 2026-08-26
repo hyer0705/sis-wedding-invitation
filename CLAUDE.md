@@ -32,6 +32,7 @@
 - RSVP: **Supabase**(2026-08-18 확정, SIS-33). 브라우저가 직접 호출하므로 서버·배포처는 그대로다. 접근 통제는 전부 RLS 정책(`supabase/schema.sql`)이 하며 **anon 은 insert 만** 가능하다 — 참석 명단은 하객에게 비공개. 클라이언트는 `src/lib/supabase.ts` 하나를 공유하고, 키는 `sb_publishable_`(secret 키는 어디에도 두지 않는다). Apps Script 는 응답을 읽지 못해(`no-cors`) 실패가 유실되고 방명록 읽기가 불가능해 탈락
 - 관리자(SIS-22): 화면은 **청첩장 `/` 과 관리자 `/admin` 둘뿐**이라 라우팅 라이브러리를 쓰지 않는다 — `src/lib/route.ts` 가 경로를 가른다. react-router 를 넣어 봤더니 하객 번들이 667KB → 708KB 로 늘어, 관리자 화면을 lazy 로 가른 목적과 앞뒤가 맞지 않았다. **관리자 화면의 lazy 분할은 유지한다.** `/admin` 직접 접속은 `vercel.json` 의 SPA fallback 이 받는다. 권한은 Supabase Auth 로그인 + `admin_users` 등록 + `is_admin()` 이 판정하며(`supabase/schema.sql`), **대시보드의 이메일 회원가입을 반드시 꺼 둔다** — 켜져 있으면 번들의 publishable 키로 누구나 계정을 만들어 `authenticated` 가 된다. 계정 정보(이메일·uuid)는 리포에 두지 않는다. **화면은 SIS-38 이 채웠다** — `Admin.tsx`(문지기·탭) + `AdminRsvp.tsx`(집계·필터·목록·CSV), 스타일은 `src/styles/admin.css` 에 따로 둔다(global.css 에 섞으면 하객도 내려받는다). 탭은 회신·방명록 둘이며 **방명록 칸은 SIS-21 이 백엔드를 세운 뒤 채운다**. 필터는 목록만 좁히고 **집계·CSV 는 늘 전체 기준**이다 — 거른 파일을 전체로 착각하면 식수를 잘못 주문한다
 - 이미지: 원본은 `photos-original/`(git 제외) → `npm run optimize`(sharp)로 WebP 2벌(480w/960w) → `public/images/`(git 제외) → `npm run upload:images`로 **Cloudflare R2**에 업로드. 사진은 리포에 커밋하지 않는다. 로딩 URL은 `VITE_IMAGE_BASE_URL` + `src/lib/imageUrl.ts`가 만들며, 값이 비면 로컬 `/images` 폴백
+- 배경음악(SIS-27): 원본은 `audio-original/`(git 제외) → `npm run optimize:audio`(ffmpeg) → **곡 전체 119초·96kbps 약 1.4MB** → `public/audio/`(git 제외) → 사진과 같은 `npm run upload:images` 로 R2. 규격은 명세서가 정한 **mp3 3MB 이하**이며 `npm run verify` 가 R2 실물의 크기까지 잰다. URL 은 `imageUrl()`·`assetUrl()` 이 아니라 `src/lib/bgm.ts` 가 만든다 — 베이스가 비었을 때의 로컬 폴백이 사진(`/images`)과 달리 `/audio` 라서다. **음원을 리포에 커밋하지 않는다**: 곡 교체 요청마다 이력에 바이너리가 쌓이고 되돌릴 수 없다. 저작권 근거(출처 URL·라이선스)는 SIS-27 본문에 남긴다 — 명세서가 명시적으로 경고한 항목이라 근거 없이 곡을 바꾸지 않는다
 - 지도 앱 로고: 타사 상표라 사진과 같은 경로를 탄다. `logos-original/`(git 제외) → `npm run optimize:logos` → 같은 버킷. 폭 2벌이 아니라 64px 정사각 1벌이라 URL은 `imageUrl()`이 아니라 `assetUrl()`이 만든다. **로고를 변형하지 않는다** — 각 사 가이드가 색·형태 변경을 금지한다
 - 호스팅: Vercel — `main` 푸시 시 배포, PR 프리뷰 URL은 고객 검수용
 - 비밀값(Kakao JS 키, Supabase URL·publishable 키)은 `.env` (템플릿: `.env.example`). keep-alive 워크플로는 같은 값을 리포 시크릿 `SUPABASE_URL`·`SUPABASE_PUBLISHABLE_KEY` 로 읽는다
@@ -48,6 +49,7 @@
 | `npm run review:branch` | `develop...HEAD` + 커밋 메시지 검사 (**PR 전 게이트**, CI에서도 실행) |
 | `npm run optimize` | 원본 사진 → WebP 변환 |
 | `npm run optimize:logos` | `logos-original/`의 지도 앱 로고 → 64px 정사각 WebP (SIS-32) |
+| `npm run optimize:audio` | `audio-original/`의 배경음악 → 96kbps mp3 (SIS-27). **ffmpeg 필요** — `brew install ffmpeg` |
 | `npm run upload:images` | `public/images/` → Cloudflare R2 업로드. 목록만 볼 때는 `npm run upload:images -- --dry-run` (`--` 없으면 npm이 플래그를 먹는다) |
 | `npm run verify` | **배포 게이트** — mock 상태·placeholder 잔존·이미지 베이스 URL 미설정·Supabase 환경변수 미설정·커버/og-image R2 도달 불가 시 실패 |
 | `npm run smoke:rls` | Supabase RLS 확인 — 읽기 차단·쓰기 허용. 스키마 적용 후 1회 (SIS-33) |
@@ -103,7 +105,8 @@
   - **방명록은 마음전하기 바로 다음**이다 (2026-08-24 고객 확정, SIS-21). 위 RSVP 이동으로 두 섹션이 붙었다
   - Calendar 한 카드가 달력·예식 일시·예식장·캘린더 저장·D-Day를 모두 담는다 (2026-08-11 고객 확정 — c안의 When&Where 그린 카드와 D-Day 카드를 합쳤다). 이 변경으로 페이지에 그린 배경 카드는 남아 있지 않다
 - 오버레이 3종: 토스트 / RSVP 완료 카드 / **RSVP 제출 확인 팝업**(SIS-36) — **라이트박스는 만들지 않는다** (고객이 확대·줌 거절, `GL-02` 미채택)
-  - 쌓임 순서는 확인 팝업(90) < 토스트(95) < 로딩(100). 전송이 실패하면 토스트가 팝업을 닫지 않은 채 그 위에 떠야 한다
+  - 쌓임 순서는 배경음악 토글(70) < 방명록 전체보기(80) < 확인 팝업(90) < 토스트(95) < 로딩(100). 전송이 실패하면 토스트가 팝업을 닫지 않은 채 그 위에 떠야 한다
+- **배경음악 토글은 화면 우상단 상시 고정**이다 (2026-08-25 확정, SIS-27). 시각 원 36px·터치 영역 44px, `--primary` 배경에 `--on-primary` 아이콘. 커버 안에만 두면 스크롤한 뒤에는 켤 수도 끌 수도 없는데 기본값이 음소거라, 켜고 끄는 접근성이 이 기능의 값어치를 좌우한다. 상태는 색이 아니라 **아이콘 모양**(음파 / 사선)으로 갈린다
 
 ### 애니메이션
 - 스크롤 리빌: `Reveal` 컴포넌트(`whileInView`, translateY 22px + fade 0.9s) 공통 사용
@@ -139,4 +142,5 @@
 - [ ] 지도 3종 링크(네이버·카카오맵·티맵) 실기기에서 앱 연결 확인 — 좌표가 예식장을 가리키는지 함께 확인
 - [ ] Kakao Developers 콘솔에 배포 도메인 등록 (미등록이면 지도만 정적 안내로 빠진다)
 - [ ] 계좌 복사 버튼 → 실제 클립보드 값 확인
+- [ ] 배경음악 → **카카오톡 인앱 브라우저에서 실제로 소리가 나는지** 확인. 막히면 토글이 켜진 채 조용해지지 않아야 한다. iOS 는 **무음 스위치**를 먼저 본다 (`docs/manual-qa.md` §11)
 - [ ] 「캘린더에 저장」 → **카카오톡 인앱 브라우저**에서 .ics 다운로드가 막히지 않는지 확인. iOS·안드로이드 기본 캘린더에 11시로 들어가는지도 함께 본다 (막히면 구글 캘린더 링크 병행)
