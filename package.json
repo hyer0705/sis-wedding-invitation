@@ -1,7 +1,7 @@
 {
   "name": "sis-wedding-invitation",
   "private": true,
-  "version": "1.1.1",
+  "version": "1.2.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -10,6 +10,7 @@
     "prepare": "git config core.hooksPath .githooks || true",
     "optimize": "node scripts/optimize-images.mjs",
     "optimize:logos": "node scripts/optimize-logos.mjs",
+    "optimize:audio": "node scripts/optimize-audio.mjs",
     "upload:images": "node scripts/upload-images.mjs",
     "verify": "node scripts/verify-release.mjs",
     "smoke:rls": "node scripts/rls-smoke.mjs",

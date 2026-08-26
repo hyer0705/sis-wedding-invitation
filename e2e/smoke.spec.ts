@@ -968,6 +968,35 @@ test.describe("청첩장 기본 동작", () => {
     });
   });
 
+  // 재생이 실제로 되는지는 여기서 보지 않는다. CI 에는 음원이 없고(리포에 커밋하지
+  // 않는다) 로컬에는 있어, 같은 코드가 환경마다 다른 결과를 낸다. 소리가 나는지는
+  // 컴포넌트 테스트(Bgm.test.tsx)와 실기기 QA 가 나눠 맡는다.
+  test.describe("배경음악", () => {
+    test("자동으로 재생하지 않는다", async ({ page }) => {
+      await page.goto("/");
+
+      await expect(page.getByRole("button", { name: "배경음악" })).toHaveAttribute("aria-pressed", "false");
+
+      const state = await page.evaluate(() => {
+        const audio = document.querySelector("audio");
+        return audio ? { paused: audio.paused, muted: audio.muted, preload: audio.preload, loop: audio.loop } : null;
+      });
+      expect(state).toEqual({ paused: true, muted: true, preload: "none", loop: true });
+    });
+
+    // 커버 안에 두지 않고 화면에 고정한 이유가 이것이다(SIS-27). 기본이 음소거라,
+    // 스크롤한 뒤에 켤 수 없으면 하객 대부분은 이 기능을 만나지 못한다.
+    test("아래로 스크롤해도 토글이 화면에 남는다", async ({ page }) => {
+      await page.goto("/");
+
+      const toggle = page.getByRole("button", { name: "배경음악" });
+      await expect(toggle).toBeInViewport();
+
+      await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+      await expect(toggle).toBeInViewport();
+    });
+  });
+
   // 페이드인이 진행 중이면 axe가 합성된 중간 색상을 읽어 색상 대비를 오탐한다.
   // reduced-motion으로 애니메이션을 건너뛰어 최종 상태를 검사하고,
   // 동시에 prefers-reduced-motion 대응(MotionConfig reducedMotion="user")도 함께 검증한다.
