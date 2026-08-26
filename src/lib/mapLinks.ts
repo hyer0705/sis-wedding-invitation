@@ -94,9 +94,18 @@ export function tmapAppUrl(place: Place): string {
   return `tmap://route?${query}`;
 }
 
+export function isIosDevice(userAgent: string, maxTouchPoints = 0): boolean {
+  if (/iPhone|iPad|iPod/i.test(userAgent)) return true;
+  return /Macintosh/i.test(userAgent) && maxTouchPoints > 1;
+}
+
+export function isMobileDevice(userAgent: string, maxTouchPoints = 0): boolean {
+  return /Android|Windows Phone/i.test(userAgent) || isIosDevice(userAgent, maxTouchPoints);
+}
+
 /** 티맵 앱이 없을 때 보낼 스토어. 판별에 실패하면 안드로이드로 본다(국내 점유율 기준). */
-export function tmapStoreUrl(userAgent: string): string {
-  return /iPhone|iPad|iPod/i.test(userAgent) ? TMAP_STORE.ios : TMAP_STORE.android;
+export function tmapStoreUrl(userAgent: string, maxTouchPoints = 0): string {
+  return isIosDevice(userAgent, maxTouchPoints) ? TMAP_STORE.ios : TMAP_STORE.android;
 }
 
 type OpenOptions = {
