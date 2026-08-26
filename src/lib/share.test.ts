@@ -158,13 +158,41 @@ describe("shareKakao", () => {
   it("도메인 미등록으로 sendDefault 가 던져도 폴백까지 이어 준다", async () => {
     // 카카오 콘솔에 프리뷰 도메인을 등록하기 전에 늘 겪는 경우다. 여기서 멈추면
     // 버튼을 눌러도 아무 일이 일어나지 않는다.
-    stubKakao({ throws: true });
+    const { sendDefault } = stubKakao({ throws: true });
     const share = vi.fn(() => Promise.resolve());
     vi.stubGlobal("navigator", { share, clipboard: undefined });
     const { shareKakao } = await loadShare("test-key");
 
     await expect(shareKakao()).resolves.toBe("shared");
     expect(share).toHaveBeenCalledTimes(1);
+    // 실패한 시도를 되풀이하지 않는다 — 두 번 부르면 공유 창도 두 번 뜬다.
+    expect(sendDefault).toHaveBeenCalledTimes(1);
+  });
+
+  it("SIS-42 미리 받아 둔 SDK 가 있으면 클릭과 같은 틱에 공유 창을 연다", async () => {
+    // PC 에서 sendDefault 는 window.open 으로 창을 연다. 브라우저는 그 호출이 클릭과
+    // 같은 흐름에 있을 때만 팝업으로 보지 않으므로, await 를 하나라도 건너면 막힌다.
+    // 그래서 결과를 기다리기 전에 이미 불려 있어야 한다.
+    const { sendDefault } = stubKakao();
+    const { shareKakao } = await loadShare("test-key");
+
+    const result = shareKakao();
+
+    expect(sendDefault).toHaveBeenCalledTimes(1);
+    await expect(result).resolves.toBe("kakao");
+  });
+
+  it("SIS-42 PC 에서 팝업이 막히면 조용히 링크 복사로 마무리한다", async () => {
+    // 팝업이 막히면 SDK 가 열리지 않은 창(null)에 focus 를 부르다 TypeError 를 던진다.
+    // PC 브라우저에는 navigator.share 가 없어 복사가 마지막 창구다 — 여기서 실패하면
+    // 하객이 보는 것은 "공유에 실패했어요" 뿐이다.
+    stubKakao({ throws: true });
+    const writeText = vi.fn(() => Promise.resolve());
+    vi.stubGlobal("navigator", { share: undefined, clipboard: { writeText } });
+    const { shareKakao } = await loadShare("test-key");
+
+    await expect(shareKakao()).resolves.toBe("copied");
+    expect(writeText).toHaveBeenCalledWith(INVITE.siteUrl);
   });
 
   it("키 형식이 어긋나 init 이 던져도 폴백까지 이어 준다", async () => {

@@ -19,6 +19,9 @@ function copyByExecCommand(text: string): boolean {
   document.body.appendChild(area);
 
   try {
+    // 선택만으로는 포커스가 옮겨 오지 않는 경우가 있고, 그러면 복사가 거부된다.
+    // PC 에서 카카오 공유 팝업이 막힌 직후가 그런 자리다 (SIS-42).
+    area.focus({ preventScroll: true });
     area.select();
     // iOS Safari 는 select() 만으로 선택 범위가 잡히지 않아 범위를 직접 지정한다.
     area.setSelectionRange(0, text.length);
