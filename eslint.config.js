@@ -8,5 +8,6 @@ export default tseslint.config(js.configs.recommended, ...tseslint.configs.recom
   rules: {
     "react-hooks/rules-of-hooks": "error",
     "react-hooks/exhaustive-deps": "warn",
+    "no-empty": ["error", { allowEmptyCatch: true }],
   },
 });
