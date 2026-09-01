@@ -1074,6 +1074,61 @@ test.describe("청첩장 기본 동작", () => {
       expect(room).not.toBeNull();
       expect(room!.padding).toBeGreaterThanOrEqual(room!.barHeight);
     });
+
+    // 그 여백은 **바가 있는 화면에만** 붙어야 한다. 관리자 화면(pages/Admin.tsx)도 .page 를
+    // 쓰는데 그쪽에는 바가 없어, .page 에 여백을 걸면 회신 목록 아래에 근거 없는 공백만 남는다.
+    test("바가 없는 관리자 화면에는 아래 여백을 두지 않는다", async ({ page }) => {
+      await page.goto("/admin");
+      // 문지기가 세션을 확인하는 동안에는 아무것도 그리지 않는다. E2E 의 Supabase 주소는
+      // 해석되지 않는 .invalid 라 확인이 실패로 끝나고, 그때 로그인/오류 화면이 나온다.
+      await page.locator(".page").waitFor({ timeout: 15_000 });
+
+      const admin = await page.evaluate(() => {
+        const pageEl = document.querySelector(".page");
+        if (!pageEl) return null;
+        return {
+          hasBar: !!document.querySelector(".text-size-bar"),
+          padding: parseFloat(getComputedStyle(pageEl).paddingBottom),
+        };
+      });
+
+      expect(admin).not.toBeNull();
+      expect(admin!.hasBar).toBe(false);
+      expect(admin!.padding).toBe(0);
+    });
+
+    // **이 자리는 자동 검사 두 겹이 모두 비켜 간다.** axe 는 aria-hidden 요소를 접근성
+    // 트리에서 빼고 색 대비를 재지 않고, 아래 「색상 토큰 조합」 검사는 목록에 없는 짝을
+    // 놓친다. 실제로 --primary 로 두었을 때 --surface 위 4.37:1(작은 「가」 13px 은 AA 미달)
+    // 이 두 겹을 모두 빠져나갔다. 그래서 렌더된 요소의 색을 직접 잰다.
+    test("바의 「가」 표시가 AA 를 넘는다", async ({ page }) => {
+      await page.goto("/");
+
+      const ratio = await page.evaluate(() => {
+        const mark = document.querySelector(".text-size-bar-mark-small");
+        const button = document.querySelector(".text-size-bar-button");
+        if (!mark || !button) return null;
+
+        const parse = (value: string) => (value.match(/[\d.]+/g) ?? []).slice(0, 3).map(Number);
+        const luminance = (c: number[]) => {
+          const ch = (v: number) => {
+            const s = v / 255;
+            return s <= 0.03928 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4;
+          };
+          return 0.2126 * ch(c[0]) + 0.7152 * ch(c[1]) + 0.0722 * ch(c[2]);
+        };
+
+        const fg = parse(getComputedStyle(mark).color);
+        const bg = parse(getComputedStyle(button).backgroundColor);
+        const [hi, lo] = [luminance(fg), luminance(bg)].sort((a, b) => b - a);
+        return { ratio: (hi + 0.05) / (lo + 0.05), size: parseFloat(getComputedStyle(mark).fontSize) };
+      });
+
+      expect(ratio).not.toBeNull();
+      // 작은 「가」는 작은 글씨라 4.5:1 이 필요하다. 큰 「가」만 large text 기준을 탄다.
+      expect(ratio!.size).toBeLessThan(18.66);
+      expect(ratio!.ratio).toBeGreaterThanOrEqual(4.5);
+    });
   });
 
   // 페이드인이 진행 중이면 axe가 합성된 중간 색상을 읽어 색상 대비를 오탐한다.

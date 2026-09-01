@@ -33,7 +33,9 @@ export default function App() {
   useEffect(removeBootScreen, []);
 
   return (
-    <div className="page">
+    // has-bottom-bar 는 아래 TextSizeBar 가 덮는 만큼을 비워 둔다. 바가 없는 관리자
+    // 화면도 .page 를 쓰므로 그쪽까지 여백이 붙지 않도록 클래스를 갈라 두었다.
+    <div className="page has-bottom-bar">
       {/* 방명록 전체보기로 바로 들어온 경우에는 로딩 화면을 띄우지 않는다. 그 화면은
           커버 사진을 기다리는 것인데(z-index 100), 방명록(80) 위를 덮어 버려 하객이
           받은 링크를 열면 읽으려던 글 대신 로딩 화면을 마주하게 된다. 커버는 그 뒤에서

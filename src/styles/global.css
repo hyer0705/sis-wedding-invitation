@@ -9,9 +9,13 @@ body {
 }
 
 /* 화면 아래 글자 크기 바가 스크롤 목적지를 덮지 않게 한다.
-   .page 의 padding-bottom 은 문서 끝 여백일 뿐이라, 페이지 중간 요소로 스크롤할 때는
-   소용이 없다 — 브라우저가 요소를 화면 맨 아래에 붙이면 그대로 바 뒤로 들어간다.
-   RSVP 폼이 다음 칸으로 옮겨 갈 때(Rsvp.tsx 의 Step) 와 입력 칸에 초점이 갈 때가 그렇다. */
+   .has-bottom-bar 의 padding-bottom 은 문서 끝 여백일 뿐이라, 페이지 중간 요소로
+   스크롤할 때는 소용이 없다 — 브라우저가 요소를 화면 맨 아래에 붙이면 그대로 바 뒤로
+   들어간다. RSVP 폼이 다음 칸으로 옮겨 갈 때(Rsvp.tsx 의 Step) 와 입력 칸에 초점이
+   갈 때가 그렇다.
+
+   스크롤 컨테이너가 문서라 여기 걸 수밖에 없어 바가 없는 관리자 화면에도 함께 걸린다.
+   그쪽은 자동으로 스크롤하는 자리가 없어 눈에 띄는 영향이 없다. */
 html {
   scroll-padding-bottom: calc(var(--text-size-bar-h) + env(safe-area-inset-bottom, 0px) + 12px);
 }
@@ -29,8 +33,14 @@ body {
   min-height: 100vh;
   box-shadow: 0 0 70px rgba(60, 70, 55, 0.18);
   overflow: hidden;
-  /* 화면 아래 글자 크기 바(--text-size-bar-h)가 푸터를 가리지 않도록 그만큼 비운다.
-     바 높이는 배율을 타지 않아 켜고 꺼도 이 값이 흔들리지 않는다. */
+}
+
+/* 화면 아래 글자 크기 바(--text-size-bar-h)가 푸터를 가리지 않도록 그만큼 비운다.
+   바 높이는 배율을 타지 않아 켜고 꺼도 이 값이 흔들리지 않는다.
+
+   **.page 가 아니라 이 클래스에 건다.** 관리자 화면(pages/Admin.tsx)도 .page 를 쓰는데
+   그쪽에는 바가 없어, .page 에 두면 회신 목록 아래에 근거 없는 68px 공백만 남는다. */
+.has-bottom-bar {
   padding-bottom: calc(var(--text-size-bar-h) + env(safe-area-inset-bottom, 0px));
 }
 
@@ -1045,7 +1055,13 @@ body {
   align-items: baseline;
   gap: 2px;
   line-height: 1;
-  color: var(--primary);
+  /* 라벨과 같은 --on-surface 다. **--primary 를 쓰지 말 것** — 이 배경(--surface) 위에서
+     4.37:1 이라 작은 「가」(13px)가 AA 에 미달한다. 저시력 하객을 위해 만든 기능의 유일한
+     진입점이 정작 그 하객에게 가장 흐린 요소가 된다.
+     이 자리는 자동 검사 두 겹이 모두 비켜 간다 — axe 는 aria-hidden 요소를 접근성 트리에서
+     빼고 재지 않고, 토큰 조합 검사도 조합 목록에 없으면 놓친다. 그래서 e2e 의
+     「글자 크기 바의 「가」 표시가 AA 를 넘는다」가 이 요소를 직접 잰다. */
+  color: var(--on-surface);
 }
 
 .text-size-bar-mark-small {
