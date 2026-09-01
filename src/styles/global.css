@@ -11,7 +11,7 @@ body {
 /* 화면 아래 글자 크기 바가 스크롤 목적지를 덮지 않게 한다.
    .has-bottom-bar 의 padding-bottom 은 문서 끝 여백일 뿐이라, 페이지 중간 요소로
    스크롤할 때는 소용이 없다 — 브라우저가 요소를 화면 맨 아래에 붙이면 그대로 바 뒤로
-   들어간다. RSVP 폼이 다음 칸으로 옮겨 갈 때(Rsvp.tsx 의 Step) 와 입력 칸에 초점이
+   들어간다. RSVP 폼이 다음 칸으로 옮겨 갈 때(rsvp/Step.tsx) 와 입력 칸에 초점이
    갈 때가 그렇다.
 
    스크롤 컨테이너가 문서라 여기 걸 수밖에 없어 바가 없는 관리자 화면에도 함께 걸린다.
@@ -327,7 +327,7 @@ body {
    색만으로 오류를 전달하지 않는다는 원칙은 그대로다 — .rsvp-error 의 메시지가 늘 함께 붙고,
    테두리도 굵기(1.5px)로 한 번 더 구분한다. */
 /* 항목이 한 번에 하나씩 나타나므로 gap 을 두지 않는다 — 접힌 단계에도 간격이 남아
-   빈자리가 생긴다. 여백은 각 단계가 자기 안쪽에 준다(Rsvp.tsx 의 Step). */
+   빈자리가 생긴다. 여백은 각 단계가 자기 안쪽에 준다(rsvp/Step.tsx). */
 .rsvp-form {
   display: flex;
   flex-direction: column;
@@ -414,7 +414,7 @@ body {
   border-width: 1.5px;
 }
 
-/* 초점 링도 오류색으로 간다. 검증에 걸리면 첫 오류 칸으로 초점이 옮겨 가므로(Rsvp.tsx),
+/* 초점 링도 오류색으로 간다. 검증에 걸리면 첫 오류 칸으로 초점이 옮겨 가므로(rsvp/RsvpForm.tsx),
    이 자리가 하객이 가장 먼저 보게 되는 곳이다. */
 .rsvp-invalid:focus-visible,
 .gb-invalid:focus-visible {
@@ -648,7 +648,7 @@ body {
   text-align: left;
 }
 
-/* 초점이 팝업 안에 갇히므로(Rsvp.tsx) 이 상자 자체도 초점을 받는다. 열릴 때
+/* 초점이 팝업 안에 갇히므로(rsvp/RsvpConfirmDialog.tsx) 이 상자 자체도 초점을 받는다. 열릴 때
    제목이 먼저 읽히도록 버튼이 아니라 여기로 초점을 준다 — 「확인」에 바로 주면
    엔터 한 번에 전송된다. */
 .rsvp-confirm:focus-visible,

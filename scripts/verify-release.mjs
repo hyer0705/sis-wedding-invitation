@@ -41,7 +41,9 @@ for (const file of targets) {
 // Rsvp.tsx 가 그 경우다.
 const appSource = await readFile("src/App.tsx", "utf8");
 const imported = new Map(
-  [...appSource.matchAll(/^import\s+(?:{[^}]*}|(\w+))(?:\s*,\s*{[^}]*})?\s+from\s+"\.\/(components\/\w+)";/gm)]
+  // 경로에 폴더가 끼어도 잡는다(components/rsvp/Rsvp). \w+ 만 보던 때는 폴더로
+  // 옮겨 간 섹션이 목록에서 조용히 빠져, 자리표시가 그대로 배포될 수 있었다.
+  [...appSource.matchAll(/^import\s+(?:{[^}]*}|(\w+))(?:\s*,\s*{[^}]*})?\s+from\s+"\.\/(components\/[\w/]+)";/gm)]
     .filter(([, name]) => name)
     .map(([, name, modulePath]) => [name, `src/${modulePath}.tsx`]),
 );

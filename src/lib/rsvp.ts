@@ -310,7 +310,7 @@ const TABLE = "rsvp";
  * 지나가고, 완료 카드가 뜬 채 회신은 어디에도 남지 않는다 — Apps Script 를 버린
  * 이유(실패의 조용한 유실, SIS-33)가 그대로 재현된다. 그래서 반드시 던진다.
  *
- * 던진 오류는 화면에 그대로 나가지 않는다. 하객에게는 Rsvp.tsx 가 다시 시도해
+ * 던진 오류는 화면에 그대로 나가지 않는다. 하객에게는 RsvpForm.tsx 가 다시 시도해
  * 달라는 안내를 띄우고, 이 메시지는 원인을 좁히는 쪽에서 본다.
  */
 export async function submitRsvp(payload: RsvpPayload): Promise<void> {
