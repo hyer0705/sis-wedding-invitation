@@ -38,8 +38,12 @@ describe("Location", () => {
   it("MP-02 예식장과 도로명 주소를 보여 준다", () => {
     renderWithMotion(<Location />);
 
-    // 층수는 주소에만 둔다 — 제목에도 넣으면 "7F"가 두 줄 연달아 보인다.
-    expect(screen.getByText(`${INVITE.venue} ${INVITE.hall.split(" ")[0]}`)).toBeInTheDocument();
+    // 예식장과 홀은 각각 한 줄이다(2026-09-01 고객 요청). 층수는 주소에만 둔다 —
+    // 제목에도 넣으면 "7F"가 두 줄 연달아 보인다.
+    const title = screen.getByTestId("venue-title");
+    expect(title).toHaveTextContent(INVITE.venue);
+    expect(title).toHaveTextContent(INVITE.hall.split(" ")[0]);
+    expect(title.querySelector("br")).not.toBeNull();
     expect(screen.getByText(INVITE.address)).toBeInTheDocument();
   });
 

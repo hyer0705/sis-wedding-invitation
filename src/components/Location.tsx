@@ -96,10 +96,15 @@ export default function Location() {
       <div className="card" style={{ padding: "38px 26px" }}>
         <div style={{ marginBottom: 22 }}>
           <div className="script-title">Location</div>
-          <div style={{ fontSize: 17, fontWeight: 700, marginTop: 10 }}>
-            {/* 홀 이름만 쓴다. INVITE.hall 은 "다이너스티홀 7F" 인데 층수는 바로 아래
+          <div data-testid="venue-title" style={{ fontSize: 17, fontWeight: 700, marginTop: 10, lineHeight: 1.5 }}>
+            {/* 예식장과 홀을 각각 한 줄에 둔다(2026-09-01 고객 요청). 한 줄로 이으면
+                375px 에서 카드 폭을 꽉 채운다.
+
+                홀 이름만 쓴다. INVITE.hall 은 "다이너스티홀 7F" 인데 층수는 바로 아래
                 주소에도 들어 있어, 통째로 쓰면 "7F" 가 두 줄 연속으로 보인다. */}
-            {INVITE.venue} {INVITE.hall.split(" ")[0]}
+            {INVITE.venue}
+            <br />
+            {INVITE.hall.split(" ")[0]}
           </div>
           <div style={{ fontSize: 14, color: "var(--text-sub)", marginTop: 6 }}>{INVITE.address}</div>
         </div>
