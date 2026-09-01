@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { m, useMotionValue, useReducedMotionConfig } from "motion/react";
 import { INVITE } from "../invite";
 import { imageSrcSet, imageUrl } from "../lib/imageUrl";
+import { scaled } from "../lib/typeScale";
 
 // 커버 사진. 사진 교체 시 `npm run optimize` 산출물 이름만 여기서 바꾼다.
 // 실제 호스트는 VITE_IMAGE_BASE_URL(Cloudflare R2)이 정한다 — lib/imageUrl.ts 참고.
@@ -79,7 +80,13 @@ export default function Cover({ coverReady = false }: { coverReady?: boolean }) 
     <m.header style={{ padding: "54px 26px 60px", textAlign: "center", position: "relative", overflow: "hidden" }}>
       <div style={{ fontFamily: "var(--font-script)", fontSize: 30, color: "var(--primary)", lineHeight: 1 }}>The wedding of</div>
       <div
-        style={{ marginTop: 10, fontFamily: "var(--font-caption)", fontSize: 11, letterSpacing: "0.4em", color: "var(--muted)" }}
+        style={{
+          marginTop: 10,
+          fontFamily: "var(--font-caption)",
+          fontSize: scaled(11.5),
+          letterSpacing: "0.4em",
+          color: "var(--text-sub)",
+        }}
       >
         {INVITE.dateDots}
       </div>
@@ -131,7 +138,7 @@ export default function Cover({ coverReady = false }: { coverReady?: boolean }) 
       <h1 style={{ margin: "30px 0 0", fontWeight: 900, fontSize: 20, letterSpacing: "0.20em" }}>
         {INVITE.groom.name} <span style={{ color: "var(--primary)", fontWeight: 400 }}>&amp;</span> {INVITE.bride.name}
       </h1>
-      <div style={{ marginTop: 14, fontSize: 14, color: "var(--text-sub)", lineHeight: 1.7 }}>
+      <div style={{ marginTop: 14, fontSize: scaled(14.5), color: "var(--text-body)", lineHeight: 1.7 }}>
         {/* 날짜는 위 캡션(dateDots)이 이미 보여준다. c안대로 요일·시각만 둔다. */}
         {INVITE.dayText}
         <br />

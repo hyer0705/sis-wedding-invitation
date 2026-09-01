@@ -997,6 +997,140 @@ test.describe("청첩장 기본 동작", () => {
     });
   });
 
+  // 큰 글씨로 보기 (2026-09-01). 50대 후반~60대 초반 하객에게 글씨가 흐리다는
+  // 평이 있어 하객이 스스로 키울 수 있게 했다 — 근거는 src/lib/textSize.ts 머리말.
+  test.describe("큰 글씨로 보기", () => {
+    const bodyText = (page: Page) => page.getByText(INVITE.greeting.body[0].split("\n")[0].trim());
+
+    async function fontSize(page: Page) {
+      return page.evaluate(() => {
+        const paragraph = document.querySelector(".card p");
+        return paragraph ? parseFloat(getComputedStyle(paragraph).fontSize) : 0;
+      });
+    }
+
+    test("바를 누르면 본문 글자가 실제로 커진다", async ({ page }) => {
+      await page.goto("/");
+      await bodyText(page).scrollIntoViewIfNeeded();
+
+      const before = await fontSize(page);
+      await page.locator(".text-size-bar-button").click();
+      const after = await fontSize(page);
+
+      expect(after).toBeGreaterThan(before);
+      // 문구도 함께 바뀐다 — 색만으로 상태를 가르지 않는다.
+      await expect(page.getByRole("button", { name: /글씨 원래대로/ })).toBeVisible();
+    });
+
+    // 배율은 글자에만 걸린다. 페이지를 통째로 확대(zoom)하면 확대된 좌표계에서 320px
+    // 미디어쿼리가 평가되지 않아 지도 앱 버튼이 카드 밖으로 밀려났다.
+    test("큰 글씨에서도 카드 밖으로 밀려나는 것이 없다", async ({ page }) => {
+      await page.goto("/");
+      await page.locator(".text-size-bar-button").click();
+      await page.locator(".map-links").scrollIntoViewIfNeeded();
+
+      const bleeding = await page.evaluate(() =>
+        [...document.querySelectorAll(".card")].flatMap((card) => {
+          const limit = card.getBoundingClientRect().right + 0.5;
+          return [...card.querySelectorAll("*")]
+            .filter((el) => el.getBoundingClientRect().right > limit)
+            .map((el) => `${el.tagName}.${el.className}`);
+        }),
+      );
+
+      expect(bleeding).toEqual([]);
+      expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(
+        await page.evaluate(() => window.innerWidth),
+      );
+    });
+
+    // 이 바가 아이콘 토글을 대신한 이유가 이것이다 — 어디를 보고 있든 눈에 남아야 한다.
+    test("어디로 스크롤해도 바가 화면 아래에 남는다", async ({ page }) => {
+      await page.goto("/");
+
+      const bar = page.locator(".text-size-bar");
+      await expect(bar).toBeInViewport();
+
+      await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+      await expect(bar).toBeInViewport();
+    });
+
+    // 바가 화면 아래에 붙어 있으므로 페이지가 그만큼 비워 두어야 한다. 재는 것은 푸터의
+    // 화면 좌표가 아니라 페이지의 아래 여백이다 — 리빌(translateY 22px)이 도는 동안에는
+    // 푸터가 아직 제자리에 오지 않아, 좌표로 재면 애니메이션 타이밍에 따라 결과가 갈린다.
+    test("페이지가 바 높이만큼 아래를 비워 둔다", async ({ page }) => {
+      await page.goto("/");
+
+      const room = await page.evaluate(() => {
+        const pageEl = document.querySelector(".page");
+        const bar = document.querySelector(".text-size-bar");
+        if (!pageEl || !bar) return null;
+        return {
+          padding: parseFloat(getComputedStyle(pageEl).paddingBottom),
+          barHeight: bar.getBoundingClientRect().height,
+        };
+      });
+
+      expect(room).not.toBeNull();
+      expect(room!.padding).toBeGreaterThanOrEqual(room!.barHeight);
+    });
+
+    // 그 여백은 **바가 있는 화면에만** 붙어야 한다. 관리자 화면(pages/Admin.tsx)도 .page 를
+    // 쓰는데 그쪽에는 바가 없어, .page 에 여백을 걸면 회신 목록 아래에 근거 없는 공백만 남는다.
+    test("바가 없는 관리자 화면에는 아래 여백을 두지 않는다", async ({ page }) => {
+      await page.goto("/admin");
+      // 문지기가 세션을 확인하는 동안에는 아무것도 그리지 않는다. E2E 의 Supabase 주소는
+      // 해석되지 않는 .invalid 라 확인이 실패로 끝나고, 그때 로그인/오류 화면이 나온다.
+      await page.locator(".page").waitFor({ timeout: 15_000 });
+
+      const admin = await page.evaluate(() => {
+        const pageEl = document.querySelector(".page");
+        if (!pageEl) return null;
+        return {
+          hasBar: !!document.querySelector(".text-size-bar"),
+          padding: parseFloat(getComputedStyle(pageEl).paddingBottom),
+        };
+      });
+
+      expect(admin).not.toBeNull();
+      expect(admin!.hasBar).toBe(false);
+      expect(admin!.padding).toBe(0);
+    });
+
+    // **이 자리는 자동 검사 두 겹이 모두 비켜 간다.** axe 는 aria-hidden 요소를 접근성
+    // 트리에서 빼고 색 대비를 재지 않고, 아래 「색상 토큰 조합」 검사는 목록에 없는 짝을
+    // 놓친다. 실제로 --primary 로 두었을 때 --surface 위 4.37:1(작은 「가」 13px 은 AA 미달)
+    // 이 두 겹을 모두 빠져나갔다. 그래서 렌더된 요소의 색을 직접 잰다.
+    test("바의 「가」 표시가 AA 를 넘는다", async ({ page }) => {
+      await page.goto("/");
+
+      const ratio = await page.evaluate(() => {
+        const mark = document.querySelector(".text-size-bar-mark-small");
+        const button = document.querySelector(".text-size-bar-button");
+        if (!mark || !button) return null;
+
+        const parse = (value: string) => (value.match(/[\d.]+/g) ?? []).slice(0, 3).map(Number);
+        const luminance = (c: number[]) => {
+          const ch = (v: number) => {
+            const s = v / 255;
+            return s <= 0.03928 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4;
+          };
+          return 0.2126 * ch(c[0]) + 0.7152 * ch(c[1]) + 0.0722 * ch(c[2]);
+        };
+
+        const fg = parse(getComputedStyle(mark).color);
+        const bg = parse(getComputedStyle(button).backgroundColor);
+        const [hi, lo] = [luminance(fg), luminance(bg)].sort((a, b) => b - a);
+        return { ratio: (hi + 0.05) / (lo + 0.05), size: parseFloat(getComputedStyle(mark).fontSize) };
+      });
+
+      expect(ratio).not.toBeNull();
+      // 작은 「가」는 작은 글씨라 4.5:1 이 필요하다. 큰 「가」만 large text 기준을 탄다.
+      expect(ratio!.size).toBeLessThan(18.66);
+      expect(ratio!.ratio).toBeGreaterThanOrEqual(4.5);
+    });
+  });
+
   // 페이드인이 진행 중이면 axe가 합성된 중간 색상을 읽어 색상 대비를 오탐한다.
   // reduced-motion으로 애니메이션을 건너뛰어 최종 상태를 검사하고,
   // 동시에 prefers-reduced-motion 대응(MotionConfig reducedMotion="user")도 함께 검증한다.
@@ -1028,26 +1162,23 @@ test.describe("청첩장 기본 동작", () => {
         ["--text", "--bg", SMALL, "제목"],
         ["--text", "--card", SMALL, "카드 제목·계좌 예금주"],
         ["--text-body", "--bg", SMALL, "본문"],
-        ["--text-body", "--card", SMALL, "달력 날짜·인사말"],
-        ["--text-sub", "--bg", SMALL, "커버 일시·장소 14px"],
-        ["--text-sub", "--card", SMALL, "예식장·주소·계좌·인용 출처 12.5~15px"],
-        ["--text-sub", "--surface-3", SMALL, "인사말 카드의 강조 배경 12.5px"],
-        ["--muted", "--bg", SMALL, "커버 날짜 캡션 11px·푸터 날짜 12px"],
-        ["--muted", "--card", SMALL, "갤러리 안내 문구 12.5px"],
-        ["--muted-2", "--surface", SMALL, "D-Day 일·시·분 라벨 10.5px"],
-        ["--muted-2", "--card", SMALL, "갤러리 카운터 18px·연락처 안내 문구 12.5px"],
-        ["--muted", "--surface-3", SMALL, "확인 팝업 항목 라벨 13px"],
+        ["--text-body", "--card", SMALL, "달력 날짜·요일 12px·인사말·안내 문구 13px"],
+        ["--text-sub", "--bg", SMALL, "커버 날짜 캡션 11.5px·푸터 날짜 13px"],
+        ["--text-sub", "--card", SMALL, "방명록 날짜 12.5px·글자 수 12.5px·입력 보조 문구 13px"],
+        ["--text-body", "--surface", SMALL, "D-Day 일·시·분 라벨 11.5px"],
+        ["--text-body", "--surface-3", SMALL, "확인 팝업 항목 라벨 13.5px"],
+        ["--muted-2", "--card", SMALL, "갤러리 카운터 18px"],
         ["--primary", "--bg", LARGE, "커버 30px·푸터 34px — 전부 큰 글씨"],
-        ["--primary", "--card", SMALL, "교통 안내 라벨 12.5px·혼주 관계 13px·D-Day 일수 14px 굵게"],
+        ["--primary", "--card", SMALL, "교통 안내 라벨 13.5px·혼주 관계 13px·D-Day 일수 14.5px 굵게"],
         ["--on-surface", "--surface-2", SMALL, "공유 버튼 13px"],
         ["--on-surface", "--surface", SMALL, "RSVP 미선택 버튼 14px·잠긴 제출 버튼 15px"],
-        ["--on-surface", "--surface-3", SMALL, "개인정보 처리방침 펼치기 12.5px"],
+        ["--on-surface", "--surface-3", SMALL, "개인정보 처리방침 펼치기 13px"],
         ["--text", "--surface-3", SMALL, "개인정보 안내 제목 13.5px·동의 문구 13px·확인 팝업 항목 값 14px"],
         // 새로 들인 오류색 (SIS-36). 카드 위 5.96:1 로, 그전까지 오류를 표시하던
         // --primary(4.81)보다 여유가 있다.
-        ["--error", "--card", SMALL, "오류 메시지 12.5px·오류 칸 테두리·초점 링"],
-        ["--on-primary", "--primary", SMALL, "달력 예식일 원 14.5px 굵게·지도 앱 버튼 13px"],
-        ["--on-primary-sub", "--primary", SMALL, "D-Day 「초」 라벨 10.5px"],
+        ["--error", "--card", SMALL, "오류 메시지 13px·오류 칸 테두리·초점 링"],
+        ["--on-primary", "--primary", SMALL, "달력 예식일 원 14.5px 굵게·주소 복사 버튼 14px"],
+        ["--on-primary-sub", "--primary", SMALL, "D-Day 「초」 라벨 11.5px"],
         ["--on-primary-title", "--primary", SMALL, "그린 배경 위 제목"],
       ];
 

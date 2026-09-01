@@ -1,5 +1,6 @@
 import Reveal from "./Reveal";
 import { INVITE } from "../invite";
+import { scaled } from "../lib/typeScale";
 
 export default function Footer() {
   return (
@@ -11,12 +12,14 @@ export default function Footer() {
           for your love
         </div>
         <div style={{ width: 1, height: 34, background: "linear-gradient(#c6cdba, transparent)", margin: "22px auto" }} />
-        <div style={{ fontSize: 14, color: "var(--text-sub)" }}>
+        <div style={{ fontSize: scaled(14.5), color: "var(--text-body)" }}>
           {INVITE.groom.name} · {INVITE.bride.name}
         </div>
         {/* 토큰 밖의 색(#aab09e)을 직접 적어 두었던 자리다. 배경 위 대비가 2.01 이라 AA 에
             한참 못 미쳤고, 토큰표에 없어 색감 일괄 변경에서도 빠졌다 (SIS-18). */}
-        <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 8 }}>{INVITE.dateDots.replaceAll(" . ", ". ")}</div>
+        <div style={{ fontSize: scaled(13), color: "var(--text-sub)", marginTop: 8 }}>
+          {INVITE.dateDots.replaceAll(" . ", ". ")}
+        </div>
       </footer>
     </Reveal>
   );

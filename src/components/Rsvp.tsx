@@ -21,6 +21,7 @@ import {
   type RsvpPayload,
   type RsvpValues,
 } from "../lib/rsvp";
+import { scaled } from "../lib/typeScale";
 
 // RS-01 참석 여부 회신 · RS-03 개인정보 수집 동의.
 //
@@ -76,7 +77,15 @@ export default function Rsvp() {
     <Reveal>
       <div className="card">
         <div className="script-title">R.S.V.P</div>
-        <p style={{ margin: "10px 0 26px", fontSize: 14, color: "var(--text-sub)", lineHeight: 1.8, whiteSpace: "pre-line" }}>
+        <p
+          style={{
+            margin: "10px 0 26px",
+            fontSize: scaled(14),
+            color: "var(--text-body)",
+            lineHeight: 1.8,
+            whiteSpace: "pre-line",
+          }}
+        >
           {LEAD}
         </p>
 
@@ -149,6 +158,10 @@ function Step({ show, children }: { show: boolean; children: React.ReactNode }) 
     if (!pendingReveal.current) return;
     pendingReveal.current = false;
     // jsdom 에는 scrollIntoView 가 없다. 테스트에서 터지지 않도록 있을 때만 부른다.
+    //
+    // "nearest" 는 화면에 걸친 칸을 **뷰포트 맨 아래에 붙이는데**, 화면 아래 글자 크기
+    // 바가 그 자리를 덮는다. global.css 의 html { scroll-padding-bottom } 이 바 높이만큼
+    // 앞당겨 멈추게 한다 — 그 규칙을 지우면 새로 나타난 칸이 바 뒤로 들어간다.
     ref.current?.scrollIntoView?.({ block: "nearest", behavior: "smooth" });
   };
 

@@ -43,6 +43,17 @@
      버튼에 옮겨 붙이지 않는다. */
   --error: #a4453a;
 
+  /* 큰 글씨로 보기 (2026-09-01). 글자 크기는 모두 이 배율을 곱해서 쓴다 —
+     하객이 토글을 켜면 src/lib/textSize.ts 가 이 값만 바꾼다. 사진·여백·미디어쿼리는
+     배율을 타지 않으므로 레이아웃은 제자리에 남는다.
+     장식은 일부러 뺐다 — Parisienne 타이틀·커버 이름(고객이 크기·자간을 지정했다,
+     SIS-41)·D-Day 숫자·달력 원의 지름. 이유는 src/lib/textSize.ts 머리말. */
+  --type-scale: 1;
+
+  /* 화면 아래 글자 크기 바의 높이. 페이지 아래 여백과 토스트 위치가 이 값을 함께 본다 —
+     따로 적어 두면 바 높이를 고칠 때 한쪽만 남아 푸터가 가려지거나 토스트가 바에 걸린다. */
+  --text-size-bar-h: 68px;
+
   --font-script: "Parisienne", cursive;
   --font-serif: "Nanum Myeongjo", serif;
   --font-caption: "Gowun Dodum", sans-serif;

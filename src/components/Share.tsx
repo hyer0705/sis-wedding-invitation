@@ -1,6 +1,7 @@
 import Reveal from "./Reveal";
 import { useToast } from "./Toast";
 import { copyLink, loadKakaoSdk, shareKakao, type ShareResult } from "../lib/share";
+import { scaled } from "../lib/typeScale";
 
 // SH-01 카카오톡 공유 · SH-02 링크 복사. c안에 공유 UI 가 없어 새로 만들었다.
 //
@@ -41,7 +42,7 @@ export default function Share() {
   return (
     <Reveal onInView={() => void loadKakaoSdk()}>
       <section aria-label="청첩장 공유" style={{ padding: "30px 20px 0" }}>
-        <p style={{ margin: "0 0 14px", textAlign: "center", fontSize: 12, color: "var(--text-sub)" }}>{LEAD}</p>
+        <p style={{ margin: "0 0 14px", textAlign: "center", fontSize: scaled(13), color: "var(--text-body)" }}>{LEAD}</p>
         <div style={{ display: "flex", gap: 10 }}>
           <ShareButton onClick={() => handle(shareKakao)}>카카오톡으로 공유</ShareButton>
           <ShareButton onClick={() => handle(copyLink)}>링크 복사</ShareButton>
@@ -66,7 +67,7 @@ function ShareButton({ onClick, children }: { onClick: () => void; children: str
         // 실제로 검사하므로(SIS-18), 여기를 바꿔 대비가 무너지면 E2E 가 잡는다.
         color: "var(--on-surface)",
         fontFamily: "var(--font-serif)",
-        fontSize: 13,
+        fontSize: scaled(13),
         cursor: "pointer",
       }}
     >

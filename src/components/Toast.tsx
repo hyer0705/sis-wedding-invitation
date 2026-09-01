@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { AnimatePresence, m } from "motion/react";
+import { scaled } from "../lib/typeScale";
 
 // c안의 토스트(§TOAST). 복사처럼 화면이 바뀌지 않는 동작의 결과를 알린다.
 //
@@ -81,7 +82,9 @@ function Toast({ message }: { message: string | null }) {
         position: "fixed",
         left: 0,
         right: 0,
-        bottom: 40,
+        // 화면 아래 글자 크기 바 위에 뜬다(2026-09-01). 그 바가 생기기 전에는 40 이었는데,
+        // 그대로 두면 「주소가 복사되었습니다」가 바에 절반쯤 가린다.
+        bottom: "calc(var(--text-size-bar-h) + env(safe-area-inset-bottom, 0px) + 16px)",
         // 컬럼 밖으로 나가지 않게 묶는다. 모바일(≤430px)에서는 아무 영향이 없고,
         // 태블릿·PC 에서만 캡슐이 청첩장 폭 안에서 접힌다 (SIS-18).
         maxWidth: "var(--page-max)",
@@ -106,7 +109,7 @@ function Toast({ message }: { message: string | null }) {
               color: "var(--on-primary)",
               padding: "13px 26px",
               borderRadius: 40,
-              fontSize: 14,
+              fontSize: scaled(14),
               lineHeight: 1.5,
               textAlign: "center",
               // 문구에 넣은 줄 나눔을 그대로 살린다. 브라우저에 맡기면 320px 에서 마지막

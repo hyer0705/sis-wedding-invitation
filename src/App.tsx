@@ -13,6 +13,7 @@ import Share from "./components/Share";
 import Footer from "./components/Footer";
 import Loading, { removeBootScreen, useCoverReady } from "./components/Loading";
 import Bgm from "./components/Bgm";
+import { TextSizeBar } from "./components/TextSize";
 import { currentRoute, subscribeRoute } from "./lib/navigation";
 
 export default function App() {
@@ -32,13 +33,17 @@ export default function App() {
   useEffect(removeBootScreen, []);
 
   return (
-    <div className="page">
+    // has-bottom-bar 는 아래 TextSizeBar 가 덮는 만큼을 비워 둔다. 바가 없는 관리자
+    // 화면도 .page 를 쓰므로 그쪽까지 여백이 붙지 않도록 클래스를 갈라 두었다.
+    <div className="page has-bottom-bar">
       {/* 방명록 전체보기로 바로 들어온 경우에는 로딩 화면을 띄우지 않는다. 그 화면은
           커버 사진을 기다리는 것인데(z-index 100), 방명록(80) 위를 덮어 버려 하객이
           받은 링크를 열면 읽으려던 글 대신 로딩 화면을 마주하게 된다. 커버는 그 뒤에서
           그대로 받아 두므로 X 로 돌아오면 이미 준비돼 있다. */}
       <AnimatePresence>{!ready && route !== "guestbook" && <Loading key="loading" />}</AnimatePresence>
-      <Bgm />
+      <div className="floating-controls">
+        <Bgm />
+      </div>
       {/* 로딩이 걷힌 시점을 커버도 알아야 한다 — 그때까지 사진이 안 온 경우에만 페이드로 얹는다 (SIS-29) */}
       <Cover coverReady={ready} />
       <Invitation />
@@ -55,6 +60,9 @@ export default function App() {
       {/* 공유 버튼은 푸터 위다 — 청첩장을 다 읽은 뒤에 "전해 주세요"가 나온다 (SIS-16) */}
       <Share />
       <Footer />
+      {/* 글자 크기 바는 화면 아래에 붙박이로 선다 (2026-09-01). 아이콘으로 두었더니
+          정작 이 기능이 필요한 하객이 눌러 볼 생각을 하지 않았다 — components/TextSize.tsx 머리말 */}
+      <TextSizeBar />
       {route === "guestbook" && <GuestbookAll />}
     </div>
   );
