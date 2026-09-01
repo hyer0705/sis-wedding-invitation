@@ -1,9 +1,22 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { kakaoMapUrl, naverAppUrl, naverWebUrl, openWithFallback, tmapAppUrl, tmapStoreUrl, type Place } from "./mapLinks";
+import {
+  isMobileDevice,
+  kakaoMapUrl,
+  naverAppUrl,
+  naverWebUrl,
+  openWithFallback,
+  tmapAppUrl,
+  tmapStoreUrl,
+  type Place,
+} from "./mapLinks";
 
 // 좌표가 어긋나면 하객이 엉뚱한 건물 앞에 선다. 링크 형식은 눈으로 확인하기 어려우므로
 // 값이 어느 자리에 실리는지를 고정해 둔다. 특히 티맵은 x 가 경도라 순서가 뒤집히기 쉽다.
 const PLACE: Place = { name: "신도림 웨스턴베니비스", lat: 37.507009, lng: 126.890296 };
+
+// iPadOS 13+ 사파리는 자신을 맥으로 소개한다. UA 만 보면 PC 로 잘못 갈린다.
+const IPAD_UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 Version/17.0 Safari/605.1.15";
+const MAC_UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Chrome/128.0.0.0 Safari/537.36";
 
 describe("naverAppUrl", () => {
   it("좌표와 이름을 담아 네이버지도 앱을 연다", () => {
@@ -81,6 +94,29 @@ describe("tmapStoreUrl", () => {
     const ua = "Mozilla/5.0 (Linux; Android 14; SM-S911N) AppleWebKit/537.36";
 
     expect(tmapStoreUrl(ua)).toContain("play.google.com");
+  });
+
+  it("아이패드는 데스크톱을 자처해도 App Store 로 보낸다", () => {
+    // iPadOS 13 부터 사파리가 맥 UA 를 보낸다. 터치 지점 수로만 갈린다.
+    expect(tmapStoreUrl(IPAD_UA, 5)).toContain("apps.apple.com");
+  });
+});
+
+describe("isMobileDevice", () => {
+  it("아이폰과 안드로이드는 모바일이다", () => {
+    expect(isMobileDevice("Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X)")).toBe(true);
+    expect(isMobileDevice("Mozilla/5.0 (Linux; Android 14; SM-S911N)")).toBe(true);
+  });
+
+  it("PC 는 모바일이 아니다", () => {
+    // 여기서 참이 되면 PC 에서도 앱 스킴을 시도해 보던 탭이 덮인다.
+    expect(isMobileDevice(MAC_UA)).toBe(false);
+    expect(isMobileDevice("Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/128.0.0.0")).toBe(false);
+  });
+
+  it("아이패드는 맥과 UA 가 같아도 터치 지점 수로 갈린다", () => {
+    expect(isMobileDevice(IPAD_UA, 5)).toBe(true);
+    expect(isMobileDevice(MAC_UA, 0)).toBe(false);
   });
 });
 

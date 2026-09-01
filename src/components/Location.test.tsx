@@ -4,6 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { renderWithMotion } from "../test/renderWithMotion";
 import Location from "./Location";
 import { INVITE } from "../invite";
+import { openWithFallback } from "../lib/mapLinks";
 
 // 지도 SDK 는 네트워크를 타므로 테스트에서는 언제나 "쓸 수 없음"으로 둔다. 키가 없는
 // 환경에서도 섹션 전체가 멀쩡해야 한다는 것이 MP-01 의 조건이라, 그 상태가 곧 기본값이다.
@@ -12,14 +13,33 @@ vi.mock("../lib/kakaoMap", () => ({
   drawVenueMap: vi.fn(),
 }));
 
+// 앱 스킴 이동은 jsdom 이 처리하지 못한다. 시도했는지만 보면 되므로 가로챈다.
+vi.mock("../lib/mapLinks", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../lib/mapLinks")>()),
+  openWithFallback: vi.fn(() => () => {}),
+}));
+
 const writeText = vi.fn();
+
+// 하객 대다수가 휴대폰으로 연다. 기본을 모바일로 두고 PC 는 그 자리에서 바꾼다.
+const MOBILE_UA = "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15";
+const DESKTOP_UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Chrome/128.0.0.0 Safari/537.36";
+
+function useDevice(userAgent: string, maxTouchPoints = 0) {
+  Object.defineProperty(navigator, "userAgent", { value: userAgent, configurable: true });
+  Object.defineProperty(navigator, "maxTouchPoints", { value: maxTouchPoints, configurable: true });
+}
 
 beforeEach(() => {
   writeText.mockReset().mockResolvedValue(undefined);
+  vi.mocked(openWithFallback).mockClear();
+  useDevice(MOBILE_UA, 5);
 });
 
 afterEach(() => {
   Reflect.deleteProperty(navigator as unknown as Record<string, unknown>, "clipboard");
+  Reflect.deleteProperty(navigator as unknown as Record<string, unknown>, "userAgent");
+  Reflect.deleteProperty(navigator as unknown as Record<string, unknown>, "maxTouchPoints");
 });
 
 /**
@@ -135,6 +155,54 @@ describe("Location", () => {
     expect(await screen.findByText(/아래 지도 앱에서 위치를 확인/)).toBeInTheDocument();
     // 지도가 없다고 길찾기까지 멈추면 안 된다.
     expect(linkTo("네이버지도")).toBeInTheDocument();
+  });
+
+  it("SIS-42 모바일에서는 네이버지도가 앱 스킴을 먼저 시도한다", async () => {
+    const user = userEvent.setup();
+    renderWithMotion(<Location />);
+
+    await user.click(linkTo("네이버지도"));
+
+    expect(openWithFallback).toHaveBeenCalledWith(expect.stringMatching(/^nmap:\/\//), expect.stringContaining("map.naver.com"));
+  });
+
+  it("SIS-42 PC 에서는 네이버지도가 스킴을 시도하지 않고 새 탭으로 열린다", async () => {
+    // 스킴을 시도하면 링크가 preventDefault 되어 보던 청첩장이 있던 탭이 덮인다.
+    useDevice(DESKTOP_UA);
+    const user = userEvent.setup();
+    renderWithMotion(<Location />);
+
+    const link = linkTo("네이버지도");
+    expect(link).toHaveAttribute("target", "_blank");
+    expect(link).toHaveAttribute("href", expect.stringContaining("map.naver.com"));
+
+    await user.click(link);
+
+    expect(openWithFallback).not.toHaveBeenCalled();
+  });
+
+  it("SIS-42 PC 에서 티맵은 스토어로 보내지 않고 다른 앱을 안내한다", async () => {
+    // 앱을 깔 수 없는 사람을 스토어로 보내는 것은 막다른 길이다.
+    useDevice(DESKTOP_UA);
+    const user = userEvent.setup();
+    renderWithMotion(<Location />);
+
+    expect(screen.queryByRole("link", { name: "티맵" })).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "티맵" }));
+
+    await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent(/네이버지도나 카카오맵/));
+    expect(screen.queryByText(/apps\.apple\.com|play\.google\.com/)).not.toBeInTheDocument();
+    expect(openWithFallback).not.toHaveBeenCalled();
+  });
+
+  it("SIS-42 모바일에서 티맵은 앱을 여는 링크 그대로다", async () => {
+    const user = userEvent.setup();
+    renderWithMotion(<Location />);
+
+    await user.click(linkTo("티맵"));
+
+    expect(openWithFallback).toHaveBeenCalledWith(expect.stringMatching(/^tmap:\/\//), expect.stringContaining("apps.apple.com"));
   });
 
   it("MP-02 주소 복사 버튼이 INVITE 의 주소를 그대로 복사한다", async () => {

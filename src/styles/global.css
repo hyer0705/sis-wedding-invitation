@@ -154,7 +154,9 @@ body {
   margin-top: 14px;
 }
 
-.map-links a {
+/* 티맵은 PC 에서 링크가 아니라 안내 버튼이 된다 (SIS-42). 모양은 셋이 같아야 한다. */
+.map-links a,
+.map-links button {
   flex: 1;
   display: flex;
   align-items: center;
@@ -162,12 +164,15 @@ body {
   gap: 5px;
   padding: 11px 6px;
   background: var(--surface);
+  border: none;
   border-radius: var(--radius-control);
   text-decoration: none;
   color: var(--on-surface);
+  font-family: inherit;
   /* c안 버튼 스케일(13~15)의 하한. 로고가 붙어도 모든 폭에서 들어간다. */
   font-size: 13px;
   white-space: nowrap;
+  cursor: pointer;
 }
 
 /* 로고는 장식이라 자리만 고정한다. 늦게 오거나 오지 않아도 라벨이 밀리지 않는다. */
@@ -184,7 +189,8 @@ body {
     gap: 6px;
   }
 
-  .map-links a {
+  .map-links a,
+  .map-links button {
     gap: 4px;
     padding: 11px 4px;
     font-size: 12px;

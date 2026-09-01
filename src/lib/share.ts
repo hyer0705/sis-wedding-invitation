@@ -94,11 +94,41 @@ export function loadKakaoSdk(): Promise<boolean> {
  */
 export type ShareResult = "kakao" | "shared" | "copied" | "failed";
 
+/**
+ * 이미 받아 둔 SDK 를 초기화한다. 아직 없으면 기다리지 않고 거짓을 준다.
+ *
+ * 기다리지 않는 것이 핵심이다. `sendDefault` 는 PC 에서 `window.open` 으로 공유 창을
+ * 여는데, 브라우저는 그 호출이 **사용자 클릭과 같은 흐름 안에** 있을 때만 팝업으로 보지
+ * 않는다. await 를 한 번이라도 건너면 연결이 끊겨 창이 막히고, SDK 는 막힌 창(null)에
+ * focus 를 부르다 TypeError 를 던진다 — 하객에게는 "공유 실패"로만 보인다.
+ */
+function initKakaoNow(): boolean {
+  if (!KAKAO_KEY || !window.Kakao) return false;
+  if (!window.Kakao.isInitialized()) window.Kakao.init(KAKAO_KEY);
+  return true;
+}
+
 export async function initKakao(): Promise<boolean> {
   if (!(await loadKakaoSdk())) return false;
-  // loadKakaoSdk 가 참을 준 뒤라 키와 window.Kakao 가 둘 다 있다.
-  if (!window.Kakao!.isInitialized()) window.Kakao!.init(KAKAO_KEY!);
-  return true;
+  return initKakaoNow();
+}
+
+function sendKakaoCard(): void {
+  window.Kakao!.Share.sendDefault({
+    objectType: "feed",
+    content: {
+      title: INVITE.share.title,
+      description: INVITE.share.description,
+      imageUrl: ogImageUrl(INVITE.siteUrl),
+      link: { mobileWebUrl: INVITE.siteUrl, webUrl: INVITE.siteUrl },
+    },
+    buttons: [
+      {
+        title: INVITE.share.buttonText,
+        link: { mobileWebUrl: INVITE.siteUrl, webUrl: INVITE.siteUrl },
+      },
+    ],
+  });
 }
 
 /**
@@ -114,23 +144,19 @@ export async function initKakao(): Promise<boolean> {
  * 순간 예외가 이 함수 밖으로 새어나가, 폴백은커녕 버튼이 아무 반응 없이 죽었다.
  */
 export async function shareKakao(): Promise<ShareResult> {
+  // 미리 받아 둔 SDK 가 있으면 여기서 끝난다 — 클릭과 이어진 유일한 경로다.
+  try {
+    if (initKakaoNow()) {
+      sendKakaoCard();
+      return "kakao";
+    }
+  } catch {
+    return shareFallback();
+  }
+
   try {
     if (await initKakao()) {
-      window.Kakao!.Share.sendDefault({
-        objectType: "feed",
-        content: {
-          title: INVITE.share.title,
-          description: INVITE.share.description,
-          imageUrl: ogImageUrl(INVITE.siteUrl),
-          link: { mobileWebUrl: INVITE.siteUrl, webUrl: INVITE.siteUrl },
-        },
-        buttons: [
-          {
-            title: INVITE.share.buttonText,
-            link: { mobileWebUrl: INVITE.siteUrl, webUrl: INVITE.siteUrl },
-          },
-        ],
-      });
+      sendKakaoCard();
       return "kakao";
     }
   } catch {
