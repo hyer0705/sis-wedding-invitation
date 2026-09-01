@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { INVITE } from "../invite";
 import { AFTER_MESSAGE, WEDDING_DAY_MESSAGE, countdownAt, type Countdown } from "../lib/countdown";
-import { scaled } from "../lib/textSize";
+import { scaled } from "../lib/typeScale";
 
 // CV-04 D-Day 카운트다운.
 //

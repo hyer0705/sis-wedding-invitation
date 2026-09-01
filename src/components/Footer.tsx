@@ -1,6 +1,6 @@
 import Reveal from "./Reveal";
 import { INVITE } from "../invite";
-import { scaled } from "../lib/textSize";
+import { scaled } from "../lib/typeScale";
 
 export default function Footer() {
   return (

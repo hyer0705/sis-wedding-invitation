@@ -21,7 +21,7 @@ import {
   type RsvpPayload,
   type RsvpValues,
 } from "../lib/rsvp";
-import { scaled } from "../lib/textSize";
+import { scaled } from "../lib/typeScale";
 
 // RS-01 참석 여부 회신 · RS-03 개인정보 수집 동의.
 //

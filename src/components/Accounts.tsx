@@ -4,7 +4,7 @@ import { useToast } from "./Toast";
 import { INVITE } from "../invite";
 import { copyText } from "../lib/clipboard";
 import type { Account } from "../lib/private-data";
-import { scaled } from "../lib/textSize";
+import { scaled } from "../lib/typeScale";
 
 // AC-01 계좌 안내 · AC-02 계좌번호 복사. c안 §7 을 옮기면서 배치가 달라졌다.
 //

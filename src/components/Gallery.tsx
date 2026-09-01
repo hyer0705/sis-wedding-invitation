@@ -4,7 +4,7 @@ import Reveal from "./Reveal";
 import { INVITE } from "../invite";
 import { imageSrcSet, imageUrl } from "../lib/imageUrl";
 import { clampIndex, scrollLeftAt, slideIndexAt } from "../lib/carousel";
-import { scaled } from "../lib/textSize";
+import { scaled } from "../lib/typeScale";
 
 // GL-01 — 고객 확정(2026-08-06)으로 c안의 2열 그리드를 가로 슬라이드로 바꿨다.
 // 사진을 눌러 크게 보는 기능(GL-02)은 고객이 거절해 만들지 않는다. 라이트박스를

@@ -6,7 +6,7 @@ import { copyText } from "../lib/clipboard";
 import { assetUrl } from "../lib/imageUrl";
 import { drawVenueMap, loadKakaoMaps } from "../lib/kakaoMap";
 import { kakaoMapUrl, naverAppUrl, naverWebUrl, openWithFallback, tmapAppUrl, tmapStoreUrl, type Place } from "../lib/mapLinks";
-import { scaled } from "../lib/textSize";
+import { scaled } from "../lib/typeScale";
 
 // MP-01~05 — 오시는 길. c안 §6 을 옮기면서 세 가지가 달라졌다.
 //   · 주소가 바뀌었다(경인로 577 → 새말로 97). 좌표·링크가 전부 여기에 매여 있다.

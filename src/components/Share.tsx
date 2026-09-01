@@ -1,7 +1,7 @@
 import Reveal from "./Reveal";
 import { useToast } from "./Toast";
 import { copyLink, loadKakaoSdk, shareKakao, type ShareResult } from "../lib/share";
-import { scaled } from "../lib/textSize";
+import { scaled } from "../lib/typeScale";
 
 // SH-01 카카오톡 공유 · SH-02 링크 복사. c안에 공유 UI 가 없어 새로 만들었다.
 //

@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { isLargeText, LARGE_SCALE, restoreTextSize, scaled, setLargeText, subscribeTextSize } from "./textSize";
+import { isLargeText, restoreTextSize, setLargeText, subscribeTextSize } from "./textSize";
+import { LARGE_SCALE } from "./typeScale";
 
 const root = document.documentElement;
 
@@ -7,12 +8,6 @@ afterEach(() => {
   localStorage.clear();
   setLargeText(false);
   vi.restoreAllMocks();
-});
-
-describe("scaled", () => {
-  it("글자 크기에 배율 변수를 물린다", () => {
-    expect(scaled(14.5)).toBe("calc(14.5px * var(--type-scale))");
-  });
 });
 
 describe("setLargeText", () => {

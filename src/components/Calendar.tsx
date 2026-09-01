@@ -4,7 +4,7 @@ import { useToast } from "./Toast";
 import { INVITE } from "../invite";
 import { WEEKDAY_LABELS, monthGridOf } from "../lib/monthGrid";
 import { buildIcs, downloadIcs, type CalendarEvent } from "../lib/ics";
-import { scaled } from "../lib/textSize";
+import { scaled } from "../lib/typeScale";
 
 // DT-01·DT-02·DT-03 — 예식 일시 표기 · 달력 · 캘린더 저장.
 //

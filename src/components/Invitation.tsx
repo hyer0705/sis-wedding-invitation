@@ -1,7 +1,7 @@
 import Reveal from "./Reveal";
 import { INVITE } from "../invite";
 import { parentNameLines } from "../lib/parents";
-import { scaled } from "../lib/textSize";
+import { scaled } from "../lib/typeScale";
 
 // IN-01 인사말 · IN-03 혼주 표기 · IN-04 고인 표기.
 //

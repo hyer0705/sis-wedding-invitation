@@ -3,7 +3,8 @@ import { screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { renderWithMotion } from "../test/renderWithMotion";
 import { TextSizeBar } from "./TextSize";
-import { LARGE_SCALE, setLargeText } from "../lib/textSize";
+import { setLargeText } from "../lib/textSize";
+import { LARGE_SCALE } from "../lib/typeScale";
 
 afterEach(() => {
   localStorage.clear();

@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { m, useMotionValue, useReducedMotionConfig } from "motion/react";
 import { INVITE } from "../invite";
 import { imageSrcSet, imageUrl } from "../lib/imageUrl";
-import { scaled } from "../lib/textSize";
+import { scaled } from "../lib/typeScale";
 
 // 커버 사진. 사진 교체 시 `npm run optimize` 산출물 이름만 여기서 바꾼다.
 // 실제 호스트는 VITE_IMAGE_BASE_URL(Cloudflare R2)이 정한다 — lib/imageUrl.ts 참고.
