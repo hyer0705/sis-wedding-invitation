@@ -18,7 +18,10 @@
 const STORAGE_KEY = "sis-text-scale";
 const SCALE_VAR = "--type-scale";
 
-export const LARGE_SCALE = 1.2;
+// 1.35 배다(2026-09-01 조정). 처음 잡은 1.2 로는 본문이 17.4px 에 그쳐, 노년 하객을
+// 대상으로 할 때 권장되는 본문 하한 19px 에 못 미친다. 1.35 면 본문 19.6px·보조 17.6px 로
+// 그 선을 넘는다. 더 키우면(1.5) 달력 한 줄과 D-Day 네 박스가 320px 에서 버티지 못한다.
+export const LARGE_SCALE = 1.35;
 export const NORMAL_SCALE = 1;
 
 /**

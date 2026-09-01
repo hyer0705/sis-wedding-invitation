@@ -2,8 +2,11 @@ import { useSyncExternalStore } from "react";
 import { m } from "motion/react";
 import { isLargeText, setLargeText, subscribeTextSize } from "../lib/textSize";
 
-const LABEL_ON = "큰 글씨로 변경";
-const LABEL_OFF = "원래 글씨로 변경";
+// 「변경」이 아니라 **무슨 일이 일어나는지**를 적는다 — 어른 하객이 누르기 전에 결과를
+// 알아야 누른다. 왼쪽의 작은 「가」·큰 「가」가 같은 말을 그림으로 한 번 더 하며, 켜면
+// 두 글자의 순서가 뒤집혀 이번에는 줄어든다는 것을 보여 준다.
+const LABEL_ON = "글씨 크게 보기";
+const LABEL_OFF = "글씨 원래대로";
 
 function useLargeText() {
   return useSyncExternalStore(subscribeTextSize, isLargeText, () => false);
@@ -33,7 +36,8 @@ export function TextSizeBar() {
         aria-pressed={large}
       >
         <span className="text-size-bar-mark" aria-hidden="true">
-          가
+          <span className="text-size-bar-mark-small">가</span>
+          <span className="text-size-bar-mark-large">가</span>
         </span>
         {large ? LABEL_OFF : LABEL_ON}
       </m.button>

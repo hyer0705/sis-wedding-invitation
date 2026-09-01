@@ -1019,7 +1019,7 @@ test.describe("청첩장 기본 동작", () => {
 
       expect(after).toBeGreaterThan(before);
       // 문구도 함께 바뀐다 — 색만으로 상태를 가르지 않는다.
-      await expect(page.getByRole("button", { name: /원래 글씨로 변경/ })).toBeVisible();
+      await expect(page.getByRole("button", { name: /글씨 원래대로/ })).toBeVisible();
     });
 
     // 배율은 글자에만 걸린다. 페이지를 통째로 확대(zoom)하면 확대된 좌표계에서 320px

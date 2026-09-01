@@ -16,7 +16,7 @@ describe("TextSizeBar", () => {
   it("누르면 글자 배율이 올라간다", async () => {
     renderWithMotion(<TextSizeBar />);
 
-    await userEvent.click(screen.getByRole("button", { name: /큰 글씨로 변경/ }));
+    await userEvent.click(screen.getByRole("button", { name: /글씨 크게 보기/ }));
 
     expect(scale()).toBe(String(LARGE_SCALE));
   });
@@ -24,28 +24,28 @@ describe("TextSizeBar", () => {
   it("다시 누르면 원래 크기로 돌아온다", async () => {
     renderWithMotion(<TextSizeBar />);
 
-    await userEvent.click(screen.getByRole("button", { name: /큰 글씨로 변경/ }));
-    await userEvent.click(screen.getByRole("button", { name: /원래 글씨로 변경/ }));
+    await userEvent.click(screen.getByRole("button", { name: /글씨 크게 보기/ }));
+    await userEvent.click(screen.getByRole("button", { name: /글씨 원래대로/ }));
 
     expect(scale()).toBe("1");
   });
 
   it("켜진 상태를 문구와 aria-pressed 로 함께 알린다", async () => {
-    // 색만으로 상태를 가르지 않는다 — 문구가 바뀌고 「가」도 굵어진다.
+    // 색만으로 상태를 가르지 않는다 — 문구가 바뀌고 「가」 두 글자의 순서도 뒤집힌다.
     renderWithMotion(<TextSizeBar />);
 
-    const button = screen.getByRole("button", { name: /큰 글씨로 변경/ });
+    const button = screen.getByRole("button", { name: /글씨 크게 보기/ });
     expect(button).toHaveAttribute("aria-pressed", "false");
 
     await userEvent.click(button);
 
-    expect(screen.getByRole("button", { name: /원래 글씨로 변경/ })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("button", { name: /글씨 원래대로/ })).toHaveAttribute("aria-pressed", "true");
   });
 
   it("켜고 끈 상태가 다음 방문까지 남는다", async () => {
     renderWithMotion(<TextSizeBar />);
 
-    await userEvent.click(screen.getByRole("button", { name: /큰 글씨로 변경/ }));
+    await userEvent.click(screen.getByRole("button", { name: /글씨 크게 보기/ }));
 
     expect(localStorage.getItem("sis-text-scale")).toBe("large");
   });
