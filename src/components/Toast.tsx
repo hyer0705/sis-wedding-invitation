@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { AnimatePresence, m } from "motion/react";
+import { scaled } from "../lib/textSize";
 
 // c안의 토스트(§TOAST). 복사처럼 화면이 바뀌지 않는 동작의 결과를 알린다.
 //
@@ -106,7 +107,7 @@ function Toast({ message }: { message: string | null }) {
               color: "var(--on-primary)",
               padding: "13px 26px",
               borderRadius: 40,
-              fontSize: 14,
+              fontSize: scaled(14),
               lineHeight: 1.5,
               textAlign: "center",
               // 문구에 넣은 줄 나눔을 그대로 살린다. 브라우저에 맡기면 320px 에서 마지막

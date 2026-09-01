@@ -21,6 +21,7 @@ import {
   type RsvpPayload,
   type RsvpValues,
 } from "../lib/rsvp";
+import { scaled } from "../lib/textSize";
 
 // RS-01 참석 여부 회신 · RS-03 개인정보 수집 동의.
 //
@@ -76,7 +77,15 @@ export default function Rsvp() {
     <Reveal>
       <div className="card">
         <div className="script-title">R.S.V.P</div>
-        <p style={{ margin: "10px 0 26px", fontSize: 14, color: "var(--text-sub)", lineHeight: 1.8, whiteSpace: "pre-line" }}>
+        <p
+          style={{
+            margin: "10px 0 26px",
+            fontSize: scaled(14),
+            color: "var(--text-body)",
+            lineHeight: 1.8,
+            whiteSpace: "pre-line",
+          }}
+        >
           {LEAD}
         </p>
 

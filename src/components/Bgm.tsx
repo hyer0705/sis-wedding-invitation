@@ -48,7 +48,7 @@ export default function Bgm() {
   }
 
   return (
-    <div className="bgm">
+    <>
       <audio ref={audioRef} src={bgmUrl()} loop muted={!playing} preload="none" data-testid="bgm-audio" />
       <m.button
         type="button"
@@ -60,6 +60,6 @@ export default function Bgm() {
       >
         {playing ? <SpeakerOnIcon /> : <SpeakerOffIcon />}
       </m.button>
-    </div>
+    </>
   );
 }

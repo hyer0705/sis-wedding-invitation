@@ -4,6 +4,7 @@ import Reveal from "./Reveal";
 import { INVITE } from "../invite";
 import { imageSrcSet, imageUrl } from "../lib/imageUrl";
 import { clampIndex, scrollLeftAt, slideIndexAt } from "../lib/carousel";
+import { scaled } from "../lib/textSize";
 
 // GL-01 — 고객 확정(2026-08-06)으로 c안의 2열 그리드를 가로 슬라이드로 바꿨다.
 // 사진을 눌러 크게 보는 기능(GL-02)은 고객이 거절해 만들지 않는다. 라이트박스를
@@ -118,7 +119,7 @@ export default function Gallery() {
       <div style={{ textAlign: "center", marginBottom: 22 }}>
         <div className="script-title">Our moments</div>
         {/* c안의 "사진을 탭하면 크게 볼 수 있어요"는 확대를 만들지 않으므로 바꿨다. */}
-        <div style={{ fontSize: 12.5, color: "var(--muted)", marginTop: 4 }}>옆으로 넘겨 보실 수 있어요</div>
+        <div style={{ fontSize: scaled(13), color: "var(--text-body)", marginTop: 4 }}>옆으로 넘겨 보실 수 있어요</div>
       </div>
 
       <div
@@ -266,7 +267,7 @@ function ArrowButton({
         width: 46,
         height: 46,
         borderRadius: "50%",
-        fontSize: 18,
+        fontSize: scaled(18),
         lineHeight: 1,
         cursor: disabled ? "default" : "pointer",
         opacity: disabled ? 0.35 : 1,

@@ -4,6 +4,7 @@ import { useToast } from "./Toast";
 import { INVITE } from "../invite";
 import { copyText } from "../lib/clipboard";
 import type { Account } from "../lib/private-data";
+import { scaled } from "../lib/textSize";
 
 // AC-01 계좌 안내 · AC-02 계좌번호 복사. c안 §7 을 옮기면서 배치가 달라졌다.
 //
@@ -30,7 +31,9 @@ export default function Accounts() {
         <div className="script-title">Thanks heart</div>
         {/* 초대글 카드와 같은 34px 구분선. 타이틀과 안내 문구를 떼어 놓는다. */}
         <div style={{ width: 34, height: 1, background: "var(--input-border)", margin: "18px auto 24px" }} />
-        <p style={{ margin: "0 0 26px", fontSize: 14, color: "var(--text-sub)", lineHeight: 1.9, whiteSpace: "pre-line" }}>
+        <p
+          style={{ margin: "0 0 26px", fontSize: scaled(14), color: "var(--text-body)", lineHeight: 1.9, whiteSpace: "pre-line" }}
+        >
           {LEAD}
         </p>
 
@@ -79,7 +82,7 @@ function AccountGroup({ side, label, accounts }: { side: "groom" | "bride"; labe
           borderRadius: 0,
           color: "var(--text)",
           fontFamily: "var(--font-serif)",
-          fontSize: 14.5,
+          fontSize: scaled(14.5),
           cursor: "pointer",
         }}
       >
@@ -92,7 +95,7 @@ function AccountGroup({ side, label, accounts }: { side: "groom" | "bride"; labe
             position: "absolute",
             right: 20,
             color: "var(--primary)",
-            fontSize: 13,
+            fontSize: scaled(13),
             lineHeight: 1,
             transform: open ? "rotate(180deg)" : "none",
             transition: "transform 0.25s",
@@ -138,14 +141,14 @@ function AccountRow({ side, account, first }: { side: "groom" | "bride"; account
       }}
     >
       <div>
-        <div style={{ fontSize: 15, color: "var(--text)" }}>
-          <span style={{ fontSize: 13, color: "var(--text-sub)", marginRight: 6 }}>{role}</span>
+        <div style={{ fontSize: scaled(15), color: "var(--text)" }}>
+          <span style={{ fontSize: scaled(13.5), color: "var(--text-body)", marginRight: 6 }}>{role}</span>
           {account.holder}
         </div>
         {/* 은행과 번호는 한 줄에 둔다. 예전 --muted(#a7a496)는 카드 배경 위 2.5:1 이라 여기 쓸 수
             없었다. 2026-08-13 토큰 조정으로 그 색은 사라졌고, CI 의 axe 가 color-contrast 를
             실제로 검사한다(SIS-18). */}
-        <div style={{ fontSize: 13.5, color: "var(--text-sub)", marginTop: 5 }}>
+        <div style={{ fontSize: scaled(14), color: "var(--text-body)", marginTop: 5 }}>
           {account.bank} {account.number}
         </div>
       </div>
@@ -166,7 +169,7 @@ function AccountRow({ side, account, first }: { side: "groom" | "bride"; account
           borderRadius: 12,
           color: "var(--on-surface)",
           fontFamily: "var(--font-serif)",
-          fontSize: 12,
+          fontSize: scaled(12),
           cursor: "pointer",
         }}
       >

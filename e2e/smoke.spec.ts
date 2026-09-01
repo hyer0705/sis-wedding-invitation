@@ -997,6 +997,65 @@ test.describe("청첩장 기본 동작", () => {
     });
   });
 
+  // 큰 글씨로 보기 (2026-09-01). 50대 후반~60대 초반 하객에게 글씨가 흐리다는
+  // 평이 있어 하객이 스스로 키울 수 있게 했다 — 근거는 src/lib/textSize.ts 머리말.
+  test.describe("큰 글씨로 보기", () => {
+    const bodyText = (page: Page) => page.getByText(INVITE.greeting.body[0].split("\n")[0].trim());
+
+    async function fontSize(page: Page) {
+      return page.evaluate(() => {
+        const paragraph = document.querySelector(".card p");
+        return paragraph ? parseFloat(getComputedStyle(paragraph).fontSize) : 0;
+      });
+    }
+
+    test("토글을 켜면 본문 글자가 실제로 커진다", async ({ page }) => {
+      await page.goto("/");
+      await bodyText(page).scrollIntoViewIfNeeded();
+
+      const before = await fontSize(page);
+      await page.locator(".text-size-button").click();
+      const after = await fontSize(page);
+
+      expect(after).toBeGreaterThan(before);
+      // 커버 버튼과 우상단 고정 버튼이 같은 상태를 본다.
+      await expect(page.locator(".text-size-toggle")).toHaveAttribute("aria-pressed", "true");
+    });
+
+    // 배율은 글자에만 걸린다. 페이지를 통째로 확대(zoom)하면 확대된 좌표계에서 320px
+    // 미디어쿼리가 평가되지 않아 지도 앱 버튼이 카드 밖으로 밀려났다.
+    test("큰 글씨에서도 카드 밖으로 밀려나는 것이 없다", async ({ page }) => {
+      await page.goto("/");
+      await page.locator(".text-size-button").click();
+      await page.locator(".map-links").scrollIntoViewIfNeeded();
+
+      const bleeding = await page.evaluate(() =>
+        [...document.querySelectorAll(".card")].flatMap((card) => {
+          const limit = card.getBoundingClientRect().right + 0.5;
+          return [...card.querySelectorAll("*")]
+            .filter((el) => el.getBoundingClientRect().right > limit)
+            .map((el) => `${el.tagName}.${el.className}`);
+        }),
+      );
+
+      expect(bleeding).toEqual([]);
+      expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(
+        await page.evaluate(() => window.innerWidth),
+      );
+    });
+
+    // 스크롤한 뒤에 끌 수 없으면 켜 본 하객이 되돌리지 못한다 — 배경음악 토글과 같은 이유다.
+    test("아래로 스크롤해도 토글이 화면에 남는다", async ({ page }) => {
+      await page.goto("/");
+
+      const toggle = page.locator(".text-size-toggle");
+      await expect(toggle).toBeInViewport();
+
+      await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+      await expect(toggle).toBeInViewport();
+    });
+  });
+
   // 페이드인이 진행 중이면 axe가 합성된 중간 색상을 읽어 색상 대비를 오탐한다.
   // reduced-motion으로 애니메이션을 건너뛰어 최종 상태를 검사하고,
   // 동시에 prefers-reduced-motion 대응(MotionConfig reducedMotion="user")도 함께 검증한다.
@@ -1028,26 +1087,23 @@ test.describe("청첩장 기본 동작", () => {
         ["--text", "--bg", SMALL, "제목"],
         ["--text", "--card", SMALL, "카드 제목·계좌 예금주"],
         ["--text-body", "--bg", SMALL, "본문"],
-        ["--text-body", "--card", SMALL, "달력 날짜·인사말"],
-        ["--text-sub", "--bg", SMALL, "커버 일시·장소 14px"],
-        ["--text-sub", "--card", SMALL, "예식장·주소·계좌·인용 출처 12.5~15px"],
-        ["--text-sub", "--surface-3", SMALL, "인사말 카드의 강조 배경 12.5px"],
-        ["--muted", "--bg", SMALL, "커버 날짜 캡션 11px·푸터 날짜 12px"],
-        ["--muted", "--card", SMALL, "갤러리 안내 문구 12.5px"],
-        ["--muted-2", "--surface", SMALL, "D-Day 일·시·분 라벨 10.5px"],
-        ["--muted-2", "--card", SMALL, "갤러리 카운터 18px·연락처 안내 문구 12.5px"],
-        ["--muted", "--surface-3", SMALL, "확인 팝업 항목 라벨 13px"],
+        ["--text-body", "--card", SMALL, "달력 날짜·요일 12px·인사말·안내 문구 13px"],
+        ["--text-sub", "--bg", SMALL, "커버 날짜 캡션 11.5px·푸터 날짜 13px"],
+        ["--text-sub", "--card", SMALL, "방명록 날짜 12.5px·글자 수 12.5px·입력 보조 문구 13px"],
+        ["--text-body", "--surface", SMALL, "D-Day 일·시·분 라벨 11.5px"],
+        ["--text-body", "--surface-3", SMALL, "확인 팝업 항목 라벨 13.5px"],
+        ["--muted-2", "--card", SMALL, "갤러리 카운터 18px"],
         ["--primary", "--bg", LARGE, "커버 30px·푸터 34px — 전부 큰 글씨"],
-        ["--primary", "--card", SMALL, "교통 안내 라벨 12.5px·혼주 관계 13px·D-Day 일수 14px 굵게"],
+        ["--primary", "--card", SMALL, "교통 안내 라벨 13.5px·혼주 관계 13px·D-Day 일수 14.5px 굵게"],
         ["--on-surface", "--surface-2", SMALL, "공유 버튼 13px"],
         ["--on-surface", "--surface", SMALL, "RSVP 미선택 버튼 14px·잠긴 제출 버튼 15px"],
-        ["--on-surface", "--surface-3", SMALL, "개인정보 처리방침 펼치기 12.5px"],
+        ["--on-surface", "--surface-3", SMALL, "개인정보 처리방침 펼치기 13px"],
         ["--text", "--surface-3", SMALL, "개인정보 안내 제목 13.5px·동의 문구 13px·확인 팝업 항목 값 14px"],
         // 새로 들인 오류색 (SIS-36). 카드 위 5.96:1 로, 그전까지 오류를 표시하던
         // --primary(4.81)보다 여유가 있다.
-        ["--error", "--card", SMALL, "오류 메시지 12.5px·오류 칸 테두리·초점 링"],
-        ["--on-primary", "--primary", SMALL, "달력 예식일 원 14.5px 굵게·지도 앱 버튼 13px"],
-        ["--on-primary-sub", "--primary", SMALL, "D-Day 「초」 라벨 10.5px"],
+        ["--error", "--card", SMALL, "오류 메시지 13px·오류 칸 테두리·초점 링"],
+        ["--on-primary", "--primary", SMALL, "달력 예식일 원 14.5px 굵게·주소 복사 버튼 14px"],
+        ["--on-primary-sub", "--primary", SMALL, "D-Day 「초」 라벨 11.5px"],
         ["--on-primary-title", "--primary", SMALL, "그린 배경 위 제목"],
       ];
 
