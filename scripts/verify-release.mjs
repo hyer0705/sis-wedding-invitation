@@ -41,7 +41,7 @@ for (const file of targets) {
 // Rsvp.tsx 가 그 경우다.
 const appSource = await readFile("src/App.tsx", "utf8");
 const imported = new Map(
-  [...appSource.matchAll(/^import\s+(?:{[^}]*}|(\w+))(?:\s*,\s*{[^}]*})?\s+from\s+"\.\/(components\/\w+)";/gm)]
+  [...appSource.matchAll(/^import\s+(?:{[^}]*}|(\w+))(?:\s*,\s*{[^}]*})?\s+from\s+"\.\/(components\/[\w/]+)";/gm)]
     .filter(([, name]) => name)
     .map(([, name, modulePath]) => [name, `src/${modulePath}.tsx`]),
 );

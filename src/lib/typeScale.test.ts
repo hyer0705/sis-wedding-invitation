@@ -13,7 +13,6 @@ describe("scaled", () => {
 
 describe("배율 값", () => {
   it("큰 글씨는 노년 하객 권장 하한(본문 19px)을 넘긴다", () => {
-    // 초대글 본문 14.5px 이 기준이다. 1.2 배로는 17.4px 에 그쳐 이 선에 닿지 못했다.
     expect(14.5 * LARGE_SCALE).toBeGreaterThanOrEqual(19);
   });
 

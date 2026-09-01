@@ -56,7 +56,6 @@ describe("restoreTextSize", () => {
   });
 
   it("저장소를 읽지 못해도 기본 크기로 연다", () => {
-    // 사파리 사생활 보호 창은 localStorage 접근 자체가 던진다.
     vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => {
       throw new Error("denied");
     });

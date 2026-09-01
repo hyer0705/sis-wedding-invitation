@@ -7,12 +7,8 @@ import { INVITE } from "../invite";
 import { monthGridOf } from "../lib/monthGrid";
 import { AFTER_MESSAGE } from "../lib/countdown";
 
-// 격자 계산 자체는 lib/monthGrid.test.ts 가 본다. 여기서는 화면이 INVITE 를 기준으로
-// 그려지는지, 저장 버튼이 실제로 .ics 를 내보내는지를 확인한다.
-
 const grid = monthGridOf(INVITE.dateISO);
 
-// jsdom 에는 Blob URL 이 없다. 다운로드 경로가 어디서 끊기는지 보려면 직접 심어야 한다.
 const createObjectURL = vi.fn<(blob: Blob) => string>(() => "blob:test");
 const revokeObjectURL = vi.fn();
 let icsText = "";
@@ -20,7 +16,6 @@ let icsText = "";
 beforeEach(() => {
   icsText = "";
   createObjectURL.mockClear().mockImplementation((blob: Blob) => {
-    // Blob.text() 는 비동기라 클릭 직후에는 읽을 수 없다. 생성 시점에 붙잡아 둔다.
     void blob.text().then((t) => (icsText = t));
     return "blob:test";
   });
@@ -31,8 +26,6 @@ beforeEach(() => {
 
 afterEach(() => {
   Reflect.deleteProperty(URL as unknown as Record<string, unknown>, "createObjectURL");
-  // revokeObjectURL 은 지우지 않는다. downloadIcs 가 남긴 1초 지연 타이머가 테스트가
-  // 끝난 뒤에 깨어나는데, 그때 없으면 TypeError 가 엉뚱한 테스트에 붙는다.
   Object.defineProperty(URL, "revokeObjectURL", { value: () => {}, configurable: true });
   vi.restoreAllMocks();
 });
@@ -41,8 +34,6 @@ describe("Calendar", () => {
   it("DT-01 예식 일시와 장소를 보여 준다", () => {
     renderWithMotion(<Calendar />);
 
-    // 날짜와 시각은 각각 span 으로 묶여 있다 — 320px 에서 덩어리째로만 줄바꿈되게 하려는
-    // 것이며, 이유는 컴포넌트 주석 참고.
     expect(screen.getByText(INVITE.dateText)).toBeInTheDocument();
     expect(screen.getByText(INVITE.dayText)).toBeInTheDocument();
     expect(screen.getByText(INVITE.venue)).toBeInTheDocument();
@@ -61,8 +52,6 @@ describe("Calendar", () => {
   it("DT-02 예식일에만 예식일 표시를 붙인다", () => {
     renderWithMotion(<Calendar />);
 
-    // 눈으로는 초록 원이지만, 색을 볼 수 없는 사람에게는 이 문구가 유일한 단서다.
-    // exact 매칭이라 같은 낱말이 든 <caption>("…예식일입니다")은 걸리지 않는다.
     const marks = screen.getAllByText("예식일");
     expect(marks).toHaveLength(1);
     expect(marks[0].parentElement).toHaveTextContent(String(grid.weddingDay));
@@ -88,7 +77,6 @@ describe("Calendar", () => {
 
     expect(click).toHaveBeenCalledTimes(1);
     expect(createObjectURL).toHaveBeenCalledTimes(1);
-    // 예식 시각 11:00 KST = 02:00 UTC. 여기가 틀리면 하객 캘린더에 엉뚱한 시각이 박힌다.
     await vi.waitFor(() => expect(icsText).toContain("DTSTART:20270124T020000Z"));
     expect(icsText).toContain(INVITE.venue);
   });
@@ -100,13 +88,10 @@ describe("Calendar", () => {
 
     await user.click(screen.getByRole("button", { name: "캘린더에 저장" }));
 
-    // 파일 저장은 화면이 그대로라, 알림이 없으면 눌렸는지조차 알 수 없다.
     expect(screen.getByRole("status")).toHaveTextContent("캘린더 앱에서 일정을 확인해 주세요");
   });
 
   it("DT-03 예식이 지난 뒤에는 저장 버튼을 감춘다", () => {
-    // 페이지는 예식 후 한 달간 열려 있다(CM-08). 지난 일정을 캘린더에 넣으라고
-    // 권하면 안 된다.
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2027-01-25T00:00:00+09:00"));
     try {
@@ -120,7 +105,6 @@ describe("Calendar", () => {
 
   it("DT-03 저장에 실패하면 직접 등록하라고 알린다", async () => {
     const user = userEvent.setup();
-    // 인앱 브라우저에서 Blob 생성이 막히는 상황을 흉내 낸다.
     createObjectURL.mockImplementation(() => {
       throw new Error("blocked");
     });

@@ -1,9 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { countdownAt } from "./countdown";
 
-// 예식 시각을 고정값으로 두고 경계 전후를 직접 찍는다. INVITE.dateISO를 쓰지 않는 것은
-// 고객이 일시를 바꿔도 경계 로직 자체의 검증이 흔들리지 않게 하기 위함이다.
-// INVITE와의 연결은 DDay 컴포넌트 테스트가 확인한다.
 const WEDDING = "2027-01-24T11:00:00+09:00";
 
 const at = (iso: string) => countdownAt(WEDDING, new Date(iso).getTime());
@@ -28,7 +25,7 @@ describe("countdownAt", () => {
     it("예식 전날 자정 직전에도 예식 전이다", () => {
       const t = at("2027-01-23T23:59:59+09:00");
       expect(t.phase).toBe("before");
-      expect(t.days).toBe(0); // 남은 시간이 하루 미만이므로 일 단위는 0이다
+      expect(t.days).toBe(0);
       expect(t.hours).toBe("11");
     });
   });
@@ -57,7 +54,6 @@ describe("countdownAt", () => {
     });
 
     it("페이지가 유지되는 한 달 뒤에도 예식 이후다", () => {
-      // CM-08 — 예식 후 1개월간 페이지가 열려 있다.
       expect(at("2027-02-24T11:00:00+09:00").phase).toBe("after");
     });
   });

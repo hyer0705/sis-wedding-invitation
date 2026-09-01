@@ -17,8 +17,6 @@ describe("readEnvFile", () => {
     expect(values.VITE_SUPABASE_URL).toBe("https://ref.supabase.co");
   });
 
-  // Vite(dotenv)가 따옴표를 벗기므로 앱은 정상 동작한다. 게이트만 다르게 읽으면
-  // 값이 맞는데도 배포가 막히고, 원인을 찾기가 특히 어렵다.
   it("감싼 큰따옴표를 벗긴다 — Vite 와 같게", async () => {
     const values = await envFileWith('VITE_SUPABASE_PUBLISHABLE_KEY="sb_publishable_abc"\n');
     expect(values.VITE_SUPABASE_PUBLISHABLE_KEY).toBe("sb_publishable_abc");

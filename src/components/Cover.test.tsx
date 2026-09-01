@@ -11,14 +11,11 @@ describe("Cover", () => {
     const heading = screen.getByRole("heading", { level: 1 });
     expect(heading).toHaveTextContent(`${INVITE.groom.name} & ${INVITE.bride.name}`);
     expect(screen.getByText(INVITE.dateDots)).toBeInTheDocument();
-    // 요일·시각과 예식장이 <br>로 이어진 한 덩어리라 부분 일치로 찾는다.
     expect(screen.getByText(INVITE.dayText, { exact: false })).toBeInTheDocument();
     expect(screen.getByText(`${INVITE.venue} ${INVITE.hall}`, { exact: false })).toBeInTheDocument();
   });
 
   it("이름은 국문만 쓴다 — 영문 이름 표기가 없다", () => {
-    // 장식용 영문(The wedding of)은 c안 디자인 요소라 남기되, 이름의 영문 표기는
-    // 미사용으로 확정됐다(2026-08-04). 라틴 문자로 된 이름이 섞이면 안 된다.
     renderWithMotion(<Cover />);
 
     expect(screen.getByText("The wedding of")).toBeInTheDocument();
@@ -46,10 +43,8 @@ describe("Cover", () => {
     const frame = () => screen.getByTestId("cover-frame");
     const photo = () => screen.getByRole("img");
 
-    /** jsdom 은 사진을 실제로 받지 않아 complete 가 늘 false 다. 도착을 흉내 낸다. */
     const markComplete = () => Object.defineProperty(photo(), "complete", { configurable: true, value: true });
 
-    /** 사진이 도착하고 load 이벤트까지 온 상태. */
     const arrive = () => {
       markComplete();
       fireEvent.load(photo());
@@ -68,13 +63,11 @@ describe("Cover", () => {
 
       fireEvent.load(photo());
 
-      // 면은 그대로 둔다 — 사진이 cover 로 덮으므로 페이드가 도는 동안의 뒷배경이 된다.
       expect(frame()).toHaveClass("is-loaded");
       expect(photo()).not.toHaveClass("image-pending");
     });
 
     it("사진을 못 받아도 기다리기를 그만둔다", () => {
-      // 빈 아치 위로 광택만 끝없이 돌고 대체 텍스트도 안 보이는 상태를 막는다.
       renderWithMotion(<Cover />);
 
       fireEvent.error(photo());
@@ -84,16 +77,12 @@ describe("Cover", () => {
     });
 
     it("로딩 화면이 걷힐 때까지 사진이 안 왔으면 페이드로 얹는다", () => {
-      // 상한(4초)에 걸려 걷힌 경우다. 하객이 이미 빈 아치를 보고 있으므로 사진이
-      // 뒤늦게 들어올 때 부드럽게 얹혀야 한다.
       renderWithMotion(<Cover coverReady />);
 
       expect(photo()).toHaveClass("image-fade");
     });
 
     it("사진이 먼저 온 정상 경로에는 페이드를 걸지 않는다", () => {
-      // SIS-17 이 커버의 opacity 0→1 을 걷어낸 자리다. 무조건 걸면 로딩 화면에 가려진
-      // 채 흘러가 회선마다 걷히는 모습이 달라지는 이중 연출이 되살아난다.
       const { rerender } = renderWithMotion(<Cover coverReady={false} />);
 
       arrive();
@@ -103,9 +92,6 @@ describe("Cover", () => {
     });
 
     it("사진이 이미 도착했다면 load 이벤트가 늦어도 페이드를 걸지 않는다", () => {
-      // 로딩 화면을 걷는 타이머와 img 의 load 이벤트는 서로 다른 태스크라, 사진이 도착한
-      // 뒤에도 setLoaded 가 아직 커밋되지 않은 순간이 있다. 그 틈에 state 로 판정하면
-      // 정상 경로에까지 페이드가 걸린다 — 판정은 요소의 complete 로 해야 한다.
       const { rerender } = renderWithMotion(<Cover coverReady={false} />);
 
       markComplete();
@@ -116,7 +102,6 @@ describe("Cover", () => {
   });
 
   it("모션을 줄인 설정에서는 패럴랙스를 걸지 않는다", () => {
-    // renderWithMotion은 MotionConfig reducedMotion="always"로 렌더한다.
     renderWithMotion(<Cover />);
 
     const image = screen.getByRole("img");

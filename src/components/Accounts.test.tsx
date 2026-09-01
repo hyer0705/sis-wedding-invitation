@@ -5,13 +5,6 @@ import { renderWithMotion } from "../test/renderWithMotion";
 import Accounts, { shortRole } from "./Accounts";
 import type { Account } from "../lib/private-data";
 
-// 계좌는 환경변수로만 들어오고 mock 폴백이 없다(src/invite.ts). 실행 환경마다 INVITE
-// 값이 달라지므로 — 로컬에는 .env 가 있고 CI 에는 없다 — 기대값을 INVITE 에서 가져오면
-// 테스트가 환경을 따라 흔들린다. 여기서는 고정 픽스처를 주입해 어디서든 같게 만든다.
-//
-// 픽스처 계좌번호는 모든 자리가 같은 숫자다. 검토 게이트(review-guard)가 이 형태를
-// placeholder 로 보고 통과시킨다. 다만 0 으로만 채운 번호는 쓰지 말 것 — 배포 게이트가
-// 그 값을 미완성 표시로 보고 막는다(scripts/verify-release.mjs 의 PLACEHOLDERS).
 const FULL: { groom: Account[]; bride: Account[] } = {
   groom: [
     { role: "신랑", bank: "행복은행", number: "111-111-111111", holder: "김신랑" },
@@ -23,7 +16,6 @@ const FULL: { groom: Account[]; bride: Account[] } = {
   ],
 };
 
-// getter 로 두어 테스트가 도중에 갈아 끼울 수 있게 한다.
 let accounts: { groom: Account[]; bride: Account[] } = FULL;
 
 vi.mock("../invite", async (importOriginal) => {
@@ -52,7 +44,6 @@ afterEach(() => {
   Reflect.deleteProperty(document as unknown as Record<string, unknown>, "execCommand");
 });
 
-/** Location.test 와 같은 이유 — userEvent.setup() 이 clipboard 를 갈아 끼우므로 그 뒤에 얹는다. */
 function setupUser() {
   const user = userEvent.setup();
   Object.defineProperty(navigator, "clipboard", { value: { writeText }, configurable: true });
@@ -63,8 +54,6 @@ const panelOf = (label: string) => screen.getByRole("button", { name: new RegExp
 const copyButtons = () => screen.getAllByRole("button", { name: /계좌번호 복사$/ });
 
 describe("Accounts", () => {
-  // CM-03 점검 — 다른 섹션은 Reveal.test.tsx 가 한꺼번에 본다. 이 섹션만 계좌가 없으면
-  // 통째로 사라지는 설계라 INVITE 픽스처가 있는 여기서 확인한다.
   it("Reveal 래퍼를 거친다", () => {
     const { container } = renderWithMotion(<Accounts />);
 
@@ -76,7 +65,6 @@ describe("Accounts", () => {
 
     expect(panelOf("신랑측")).toHaveAttribute("aria-expanded", "false");
     expect(panelOf("신부측")).toHaveAttribute("aria-expanded", "false");
-    // 닫혀 있는 동안에는 계좌가 DOM 에 없다 — 스크린리더가 접힌 내용을 읽어 버리지 않게 한다.
     expect(screen.queryByText(GROOM[0].holder, { exact: false })).not.toBeInTheDocument();
   });
 
@@ -84,7 +72,6 @@ describe("Accounts", () => {
     const user = setupUser();
     renderWithMotion(<Accounts />);
 
-    // 패널을 DOM 에서 빼므로, 닫힌 동안 aria-controls 를 남겨 두면 없는 id 를 가리킨다.
     expect(panelOf("신랑측")).not.toHaveAttribute("aria-controls");
 
     await user.click(panelOf("신랑측"));
@@ -100,7 +87,6 @@ describe("Accounts", () => {
 
     await user.click(panelOf("신랑측"));
 
-    // 은행·번호와 역할·예금주가 서로 다른 엘리먼트로 갈리므로 조각별로 찾는다.
     for (const account of GROOM) {
       expect(screen.getByText(`${account.bank} ${account.number}`)).toBeInTheDocument();
     }
@@ -114,7 +100,6 @@ describe("Accounts", () => {
     await user.click(panelOf("신랑측"));
     await user.click(panelOf("신부측"));
 
-    // 한쪽을 연다고 다른 쪽이 닫히지 않는다 — 양가를 나란히 보려는 하객이 있다.
     expect(panelOf("신랑측")).toHaveAttribute("aria-expanded", "true");
     expect(panelOf("신부측")).toHaveAttribute("aria-expanded", "true");
     expect(screen.getByText(`${BRIDE[0].bank} ${BRIDE[0].number}`)).toBeInTheDocument();
@@ -132,7 +117,6 @@ describe("Accounts", () => {
     await user.click(panelOf("신랑측"));
     await user.click(copyButtons()[0]);
 
-    // 하이픈을 지우지 않는다. 붙여넣은 값을 화면과 눈으로 대조할 수 있어야 한다.
     expect(writeText).toHaveBeenCalledWith(GROOM[0].number);
   });
 
@@ -147,10 +131,7 @@ describe("Accounts", () => {
   });
 
   it("AC-02 복사에 실패하면 직접 복사하는 방법을 알려 준다", async () => {
-    // 카카오톡 인앱 브라우저처럼 두 경로가 모두 막힌 환경이다. 아무 말 없이 끝나면
-    // 하객은 복사가 됐는지 알 수 없다.
     writeText.mockRejectedValue(new Error("denied"));
-    // jsdom 에는 execCommand 가 아예 없어 spyOn 이 걸리지 않는다. 값을 직접 얹는다.
     Object.defineProperty(document, "execCommand", { value: vi.fn().mockReturnValue(false), configurable: true });
 
     const user = setupUser();
@@ -168,7 +149,6 @@ describe("Accounts", () => {
 
     await user.click(panelOf("신랑측"));
 
-    // 버튼이 넷 다 "복사"면 스크린리더로는 고를 수 없다.
     const first = GROOM[0];
     expect(
       screen.getByRole("button", { name: `${shortRole(first.role, "groom")} ${first.holder} 계좌번호 복사` }),
@@ -176,8 +156,6 @@ describe("Accounts", () => {
   });
 
   it("한쪽 계좌를 읽지 못하면 그 측 아코디언만 사라진다", () => {
-    // 환경변수 형식이 깨져 parseAccounts 가 전부 버린 상태다. mock 으로 메우지 않으므로
-    // 빈 배열이 그대로 온다 — 열어 봐야 아무것도 없는 아코디언을 두지 않는다.
     accounts = { groom: FULL.groom, bride: [] };
 
     renderWithMotion(<Accounts />);
@@ -187,7 +165,6 @@ describe("Accounts", () => {
   });
 
   it("계좌를 하나도 읽지 못하면 섹션째 사라진다", () => {
-    // 안내 문구만 남고 계좌가 없는 카드는 하객에게 고장으로 보인다.
     accounts = { groom: [], bride: [] };
 
     const { container } = renderWithMotion(<Accounts />);
@@ -205,7 +182,6 @@ describe("Accounts", () => {
 
 describe("shortRole", () => {
   it("아코디언 안에서는 집안 이름을 걷어낸다", () => {
-    // "신랑측" 아코디언 안의 "신랑 아버지"는 집안 이름이 두 번 나온 셈이다.
     expect(shortRole("신랑 아버지", "groom")).toBe("아버지");
     expect(shortRole("신부 어머니", "bride")).toBe("어머니");
   });
@@ -216,13 +192,10 @@ describe("shortRole", () => {
   });
 
   it("환경변수에 이미 짧게 적혀 와도 결과가 같다", () => {
-    // .env 를 누가 어떻게 적든 화면은 같아야 한다.
     expect(shortRole("아버지", "groom")).toBe("아버지");
   });
 
   it("반대편 집안 이름은 건드리지 않는다", () => {
-    // 신부측 아코디언에 "신랑 아버지"가 들어오는 것은 데이터가 잘못된 것이다.
-    // 조용히 다듬어 감추면 잘못 들어온 계좌를 알아채기 어려워진다.
     expect(shortRole("신랑 아버지", "bride")).toBe("신랑 아버지");
   });
 });

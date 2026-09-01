@@ -1,9 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { forbiddenReason, maskDates, scanText } from "./review-guard.mjs";
 
-// 이 파일에 등장하는 번호는 전부 형식만 흉내 낸 가짜 값이다.
-// (review-guard.mjs가 자기 자신과 이 테스트 파일을 스캔 예외로 두고 있다)
-
 describe("scanText — 개인정보", () => {
   it("3마디 계좌번호를 적발한다", () => {
     const found = scanText("계좌: 110-123-456789", "src/components/Accounts.tsx");
@@ -12,7 +9,6 @@ describe("scanText — 개인정보", () => {
   });
 
   it("4마디 계좌번호를 적발한다", () => {
-    // 기업은행처럼 마디가 넷인 형식도 실제로 쓰인다
     const found = scanText("계좌: 123-456789-01-011", "docs/notes.md");
     expect(found.map((f) => f.rule)).toContain("계좌번호");
   });
@@ -22,14 +18,11 @@ describe("scanText — 개인정보", () => {
     expect(found.map((f) => f.rule)).toContain("휴대폰 번호");
   });
 
-  // 입력칸의 힌트("ex) …")가 쓰는 값이다. 모두 같은 숫자로 적으면 게이트는 통과하지만
-  // 하객이 보고 「번호를 적는 칸」이라고 알아채지 못한다.
   it("예시 번호는 적발하지 않는다", () => {
     expect(scanText("ex) 01012345678", "src/components/Rsvp.tsx")).toEqual([]);
     expect(scanText("010-1234-5678", "src/components/Rsvp.tsx")).toEqual([]);
   });
 
-  // 예외는 목록에 적은 값에만 걸린다. 한 자리만 달라도 다시 잡혀야 한다.
   it("예시와 한 자리만 다른 번호는 적발한다", () => {
     const found = scanText("010-1234-5679", "src/components/Rsvp.tsx");
     expect(found.map((f) => f.rule)).toContain("휴대폰 번호");
@@ -41,7 +34,6 @@ describe("scanText — 개인정보", () => {
   });
 
   it("적발한 값을 그대로 노출하지 않는다", () => {
-    // 터미널·CI 로그에 원문이 남으면 유출이 한 번 더 일어난다
     const [found] = scanText("110-123-456789", "src/x.ts");
     expect(found.hint).not.toContain("456789");
     expect(found.hint).toContain("*");
@@ -53,13 +45,10 @@ describe("scanText — 개인정보", () => {
   });
 
   it("배포 게이트용 placeholder는 통과시킨다", () => {
-    // 000-000-000000은 CLAUDE.md·WORKFLOW.md·verify-release.mjs에 규칙으로 적혀 있다.
-    // 막으면 그 문서를 고칠 때마다 커밋이 실패한다.
     expect(scanText("placeholder(`000-000-000000`)가 남아 있으면 배포 금지", "CLAUDE.md")).toEqual([]);
   });
 
   it("휴대폰 번호를 계좌번호로 중복 보고하지 않는다", () => {
-    // 3마디라 계좌 정규식에도 걸린다
     const found = scanText("010-9876-5432", "src/x.ts");
     expect(found).toHaveLength(1);
   });
@@ -75,7 +64,6 @@ describe("scanText — 날짜 오탐 방지 (회귀 방지의 핵심)", () => {
   });
 
   it("이미지 폭 표기를 계좌번호로 오인하지 않는다", () => {
-    // 계좌 정규식을 2마디까지 넓히면 여기서 오탐이 난다
     expect(scanText("srcSet: wedding-480.webp 480w, wedding-960.webp 960w", "src/components/Gallery.tsx")).toEqual([]);
   });
 
@@ -107,7 +95,6 @@ describe("scanText — 시크릿", () => {
 
 describe("scanText — 예외 경로", () => {
   it("src/invite.ts 의 개인정보는 통과시킨다", () => {
-    // 고객 정보의 유일한 저장소다. 여기 있는 것이 정상이고 밖으로 나가는 것이 사고다
     expect(scanText("account: '110-123-456789'", "src/invite.ts")).toEqual([]);
   });
 

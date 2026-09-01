@@ -1,9 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { copyText } from "./clipboard";
 
-// 카카오톡 인앱 브라우저에서 navigator.clipboard 가 없거나 거부되는 경우를 흉내 낸다.
-// 폴백이 끊기면 하객이 주소를 손으로 옮겨 적어야 하므로 경로마다 결과를 고정해 둔다.
-
 const originalClipboard = Object.getOwnPropertyDescriptor(globalThis.navigator, "clipboard");
 
 function setClipboard(value: unknown) {
@@ -42,7 +39,6 @@ describe("copyText", () => {
   });
 
   it("두 방법이 모두 실패하면 실패로 알린다", async () => {
-    // 화면에 "복사되었습니다"를 띄워 놓고 실제로는 복사되지 않는 상황을 막는다.
     setClipboard(undefined);
     Object.defineProperty(document, "execCommand", { value: vi.fn().mockReturnValue(false), configurable: true });
 
