@@ -66,7 +66,6 @@ export default function GuestbookWriteDialog({ onClose, onCreated }: { onClose: 
           onChange={(event) => update("name", event.target.value)}
         />
 
-        {/* 글자 수 표시가 칸과 오류 사이에 들어가야 해서 Field 를 직접 쓴다. */}
         <Field variant="gb" label="축하 메시지" error={errors.message}>
           {({ className, ...control }) => (
             <>
