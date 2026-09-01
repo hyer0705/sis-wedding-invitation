@@ -10,11 +10,8 @@ import {
   type Place,
 } from "./mapLinks";
 
-// 좌표가 어긋나면 하객이 엉뚱한 건물 앞에 선다. 링크 형식은 눈으로 확인하기 어려우므로
-// 값이 어느 자리에 실리는지를 고정해 둔다. 특히 티맵은 x 가 경도라 순서가 뒤집히기 쉽다.
 const PLACE: Place = { name: "신도림 웨스턴베니비스", lat: 37.507009, lng: 126.890296 };
 
-// iPadOS 13+ 사파리는 자신을 맥으로 소개한다. UA 만 보면 PC 로 잘못 갈린다.
 const IPAD_UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 Version/17.0 Safari/605.1.15";
 const MAC_UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Chrome/128.0.0.0 Safari/537.36";
 
@@ -35,9 +32,6 @@ describe("naverAppUrl", () => {
   });
 
   it("공백을 + 가 아니라 %20 으로 인코딩한다", () => {
-    // URLSearchParams 는 폼 인코딩이라 공백을 + 로 바꾼다. 지도 앱이 퍼센트 디코딩만 하면
-    // 목적지 이름이 "신도림+웨스턴베니비스"로 보인다. not.toContain(" ") 만으로는 이 상태도
-    // 통과하므로 인코딩 방식을 직접 못 박는다.
     const url = naverAppUrl(PLACE, "example.com");
 
     expect(url).toContain("%20");
@@ -53,7 +47,6 @@ describe("naverWebUrl", () => {
 
 describe("kakaoMapUrl", () => {
   it("이름,위도,경도 순서로 길찾기 주소를 만든다", () => {
-    // 순서를 뒤집으면 카카오가 조용히 엉뚱한 곳을 찍는다.
     expect(decodeURIComponent(kakaoMapUrl(PLACE))).toBe(`https://map.kakao.com/link/to/${PLACE.name},37.507009,126.890296`);
   });
 
@@ -97,7 +90,6 @@ describe("tmapStoreUrl", () => {
   });
 
   it("아이패드는 데스크톱을 자처해도 App Store 로 보낸다", () => {
-    // iPadOS 13 부터 사파리가 맥 UA 를 보낸다. 터치 지점 수로만 갈린다.
     expect(tmapStoreUrl(IPAD_UA, 5)).toContain("apps.apple.com");
   });
 });
@@ -109,7 +101,6 @@ describe("isMobileDevice", () => {
   });
 
   it("PC 는 모바일이 아니다", () => {
-    // 여기서 참이 되면 PC 에서도 앱 스킴을 시도해 보던 탭이 덮인다.
     expect(isMobileDevice(MAC_UA)).toBe(false);
     expect(isMobileDevice("Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/128.0.0.0")).toBe(false);
   });
@@ -148,7 +139,6 @@ describe("openWithFallback", () => {
     vi.useFakeTimers();
     const navigate = vi.fn();
 
-    // 앱으로 넘어간 상태. 여기서 폴백이 나가면 돌아왔을 때 스토어가 떠 있다.
     openWithFallback("tmap://route", "https://example.com", { delayMs: 1200, navigate, isVisible: () => false });
     vi.advanceTimersByTime(1200);
 
@@ -174,7 +164,6 @@ describe("openWithFallback", () => {
     openWithFallback("tmap://route", "https://example.com", {
       delayMs: 1200,
       navigate,
-      // 숨겨진 뒤 다시 돌아온 상태를 흉내 낸다 — 타이머가 깰 때는 이미 보이는 중이다.
       isVisible: () => true,
       onHidden: (handler) => {
         hide = handler;
@@ -190,9 +179,6 @@ describe("openWithFallback", () => {
   it("정지됐다 뒤늦게 깨어난 타이머는 폴백하지 않는다", () => {
     vi.useFakeTimers();
     const navigate = vi.fn();
-    // iOS 는 앱 전환 중 JS 를 정지시킨다. 하객이 30초 뒤 청첩장으로 돌아오면 그때
-    // 타이머가 깨어나고 페이지는 다시 "보이는" 상태다. 여기서 폴백이 나가면 티맵이
-    // 이미 설치된 하객 앞에 App Store 가 열린다.
     const clock = [0, 30_000];
 
     openWithFallback("tmap://route", "https://example.com", {
@@ -210,7 +196,7 @@ describe("openWithFallback", () => {
   it("정상 범위 안에서 깨어났으면 폴백한다", () => {
     vi.useFakeTimers();
     const navigate = vi.fn();
-    const clock = [0, 1300]; // 예정보다 100ms 늦은 정도는 흔하다
+    const clock = [0, 1300];
 
     openWithFallback("tmap://route", "https://example.com", {
       delayMs: 1200,

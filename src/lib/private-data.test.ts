@@ -2,8 +2,6 @@ import { describe, expect, it } from "vitest";
 import { orMock, parseAccounts } from "./private-data";
 
 describe("parseAccounts", () => {
-  // 픽스처의 계좌번호는 모든 자리가 같은 숫자여야 한다. 진짜 형식으로 적으면
-  // 검토 게이트(scripts/review-guard.mjs)가 개인정보로 보고 커밋을 막는다.
   it("계좌 하나를 파싱한다", () => {
     expect(parseAccounts("신랑|국민은행|000000-00-000000|홍길동")).toEqual([
       { role: "신랑", bank: "국민은행", number: "000000-00-000000", holder: "홍길동" },
@@ -17,7 +15,6 @@ describe("parseAccounts", () => {
   });
 
   it("적은 순서를 유지한다", () => {
-    // 화면 표시 순서가 이 순서를 그대로 따른다.
     const parsed = parseAccounts("신부|카뱅|333|가;신부 어머니|하나|444|나");
     expect(parsed.map((a) => a.role)).toEqual(["신부", "신부 어머니"]);
   });
@@ -34,7 +31,6 @@ describe("parseAccounts", () => {
   });
 
   it("형식이 깨진 항목만 버리고 나머지는 살린다", () => {
-    // 계좌 하나가 잘못됐다고 섹션 전체를 날리지 않는다.
     const parsed = parseAccounts("신랑|국민|111|홍길동;망가진항목;신부|카뱅|222|김아무");
     expect(parsed.map((a) => a.role)).toEqual(["신랑", "신부"]);
   });

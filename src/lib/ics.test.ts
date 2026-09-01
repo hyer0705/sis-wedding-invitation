@@ -1,9 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { buildIcs, type CalendarEvent } from "./ics";
 
-// .ics 는 하객의 캘린더 앱이 읽는 파일이라, 틀려도 우리 화면에는 아무 표시가 나지 않는다.
-// 규격에서 실제로 앱이 거부하는 지점(CRLF·줄 길이·이스케이프)과 시각 변환을 못 박는다.
-
 const EVENT: CalendarEvent = {
   startISO: "2027-01-24T11:00:00+09:00",
   durationMin: 120,
@@ -15,7 +12,6 @@ const EVENT: CalendarEvent = {
 
 const NOW = Date.UTC(2026, 7, 11, 3, 0, 0);
 
-/** 접힌 줄(다음 줄이 공백으로 시작)을 원래 한 줄로 되돌린다. */
 function unfold(ics: string): string[] {
   const out: string[] = [];
   for (const line of ics.split("\r\n")) {
@@ -44,7 +40,6 @@ describe("buildIcs", () => {
   it("줄을 CRLF 로 끝낸다", () => {
     const ics = buildIcs(EVENT, NOW);
 
-    // LF 만 있는 줄바꿈이 하나도 없어야 한다 — 이것만으로 파일을 거부하는 앱이 있다.
     expect(ics.replace(/\r\n/g, "")).not.toContain("\n");
     expect(ics.endsWith("\r\n")).toBe(true);
   });
@@ -52,7 +47,6 @@ describe("buildIcs", () => {
   it("KST 예식 시각을 UTC 로 적는다", () => {
     const ics = buildIcs(EVENT, NOW);
 
-    // 11:00 +09:00 = 02:00 Z
     expect(valueOf(ics, "DTSTART")).toBe("20270124T020000Z");
     expect(valueOf(ics, "DTSTAMP")).toBe("20260811T030000Z");
   });
@@ -65,7 +59,6 @@ describe("buildIcs", () => {
   it("쉼표·세미콜론·역슬래시를 이스케이프한다", () => {
     const ics = buildIcs({ ...EVENT, location: "구로구 새말로 97, 7F; 지하 1층\\연결" }, NOW);
 
-    // 역슬래시를 먼저 바꾸지 않으면 앞서 넣은 이스케이프까지 다시 이스케이프된다.
     expect(valueOf(ics, "LOCATION")).toBe("구로구 새말로 97\\, 7F\\; 지하 1층\\\\연결");
   });
 
@@ -83,9 +76,7 @@ describe("buildIcs", () => {
     for (const line of ics.split("\r\n")) {
       expect(encoder.encode(line).length).toBeLessThanOrEqual(75);
     }
-    // 접기는 표현 방식일 뿐이다. 되돌리면 원문이 그대로 나와야 한다.
     expect(valueOf(ics, "LOCATION")).toBe(location);
-    // 글자 중간에서 잘렸다면 여기에 U+FFFD 가 섞인다.
     expect(ics).not.toContain("�");
   });
 });

@@ -32,7 +32,6 @@ describe("TextSizeBar", () => {
   });
 
   it("켜진 상태를 문구와 aria-pressed 로 함께 알린다", async () => {
-    // 색만으로 상태를 가르지 않는다 — 문구가 바뀌고 「가」 두 글자의 순서도 뒤집힌다.
     renderWithMotion(<TextSizeBar />);
 
     const button = screen.getByRole("button", { name: /글씨 크게 보기/ });

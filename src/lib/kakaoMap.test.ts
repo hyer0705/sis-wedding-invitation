@@ -2,9 +2,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { waitFor } from "@testing-library/react";
 import { drawVenueMap } from "./kakaoMap";
 
-// 지도 SDK 는 CI 에 키가 없어 실물로 검증할 수 없다. 대신 네임스페이스를 흉내 내
-// "우리가 SDK 에 무엇을 시키는지"와 마커 대체 텍스트 처리를 고정한다.
-
 type Recorded = { center: unknown; level: number; draggable?: boolean; scrollwheel?: boolean };
 
 let mapOptions: Recorded | null = null;
@@ -57,7 +54,6 @@ describe("drawVenueMap", () => {
   });
 
   it("지도를 끌거나 확대할 수 없게 둔다", () => {
-    // 지도가 제스처를 가져가면 하객이 청첩장을 더 내려보지 못한다.
     drawVenueMap(fakeMaps(), container, PLACE);
 
     expect(mapOptions?.draggable).toBe(false);
@@ -65,7 +61,6 @@ describe("drawVenueMap", () => {
   });
 
   it("마커 이미지맵의 빈 alt 를 채운다", () => {
-    // axe area-alt 가 critical 로 잡는 요소다. SDK 가 만드는 DOM 이라 밖에서 채운다.
     const area = document.createElement("area");
     area.setAttribute("href", "javascript:void(0)");
     area.setAttribute("alt", "");
@@ -77,8 +72,6 @@ describe("drawVenueMap", () => {
   });
 
   it("마커가 한참 뒤에 붙어도 채운다", async () => {
-    // 느린 회선에서는 타일 로딩이 끝난 뒤에야 마커 DOM 이 들어온다. 시간을 정해 두고
-    // 포기하면 그 뒤에 온 마커를 놓치는데, CI 는 지도 키가 없어 그 사실도 드러나지 않는다.
     drawVenueMap(fakeMaps(), container, PLACE);
 
     const area = document.createElement("area");
@@ -100,7 +93,6 @@ describe("drawVenueMap", () => {
   });
 
   it("정리하면 더 이상 마커를 지켜보지 않는다", async () => {
-    // 섹션을 벗어난 뒤에도 감시가 남으면 떠난 화면의 DOM 을 계속 들여다본다.
     const dispose = drawVenueMap(fakeMaps(), container, PLACE);
     dispose();
 
