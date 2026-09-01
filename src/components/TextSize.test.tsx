@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { renderWithMotion } from "../test/renderWithMotion";
-import { TextSizeButton, TextSizeToggle } from "./TextSize";
+import { TextSizeBar } from "./TextSize";
 import { LARGE_SCALE, setLargeText } from "../lib/textSize";
 
 afterEach(() => {
@@ -12,45 +12,40 @@ afterEach(() => {
 
 const scale = () => document.documentElement.style.getPropertyValue("--type-scale");
 
-describe("TextSize", () => {
-  it("커버 버튼을 누르면 글자 배율이 올라간다", async () => {
-    renderWithMotion(<TextSizeButton />);
+describe("TextSizeBar", () => {
+  it("누르면 글자 배율이 올라간다", async () => {
+    renderWithMotion(<TextSizeBar />);
 
-    await userEvent.click(screen.getByRole("button", { name: "큰 글씨로 보기" }));
+    await userEvent.click(screen.getByRole("button", { name: /큰 글씨로 변경/ }));
 
     expect(scale()).toBe(String(LARGE_SCALE));
   });
 
   it("다시 누르면 원래 크기로 돌아온다", async () => {
-    renderWithMotion(<TextSizeButton />);
+    renderWithMotion(<TextSizeBar />);
 
-    await userEvent.click(screen.getByRole("button", { name: "큰 글씨로 보기" }));
-    await userEvent.click(screen.getByRole("button", { name: "원래 글씨로 보기" }));
+    await userEvent.click(screen.getByRole("button", { name: /큰 글씨로 변경/ }));
+    await userEvent.click(screen.getByRole("button", { name: /원래 글씨로 변경/ }));
 
     expect(scale()).toBe("1");
   });
 
-  it("버튼 둘이 같은 상태를 본다", async () => {
-    // 커버 아래 버튼과 우상단 고정 버튼이 따로 놀면, 한쪽으로 켠 하객이 다른 쪽을
-    // 껐다고 생각하고 다시 누르게 된다.
-    renderWithMotion(
-      <>
-        <TextSizeButton />
-        <TextSizeToggle />
-      </>,
-    );
+  it("켜진 상태를 문구와 aria-pressed 로 함께 알린다", async () => {
+    // 색만으로 상태를 가르지 않는다 — 문구가 바뀌고 「가」도 굵어진다.
+    renderWithMotion(<TextSizeBar />);
 
-    await userEvent.click(screen.getAllByRole("button", { name: "큰 글씨로 보기" })[0]);
+    const button = screen.getByRole("button", { name: /큰 글씨로 변경/ });
+    expect(button).toHaveAttribute("aria-pressed", "false");
 
-    for (const button of screen.getAllByRole("button", { name: "원래 글씨로 보기" })) {
-      expect(button).toHaveAttribute("aria-pressed", "true");
-    }
+    await userEvent.click(button);
+
+    expect(screen.getByRole("button", { name: /원래 글씨로 변경/ })).toHaveAttribute("aria-pressed", "true");
   });
 
   it("켜고 끈 상태가 다음 방문까지 남는다", async () => {
-    renderWithMotion(<TextSizeButton />);
+    renderWithMotion(<TextSizeBar />);
 
-    await userEvent.click(screen.getByRole("button", { name: "큰 글씨로 보기" }));
+    await userEvent.click(screen.getByRole("button", { name: /큰 글씨로 변경/ }));
 
     expect(localStorage.getItem("sis-text-scale")).toBe("large");
   });

@@ -1009,24 +1009,24 @@ test.describe("청첩장 기본 동작", () => {
       });
     }
 
-    test("토글을 켜면 본문 글자가 실제로 커진다", async ({ page }) => {
+    test("바를 누르면 본문 글자가 실제로 커진다", async ({ page }) => {
       await page.goto("/");
       await bodyText(page).scrollIntoViewIfNeeded();
 
       const before = await fontSize(page);
-      await page.locator(".text-size-button").click();
+      await page.locator(".text-size-bar-button").click();
       const after = await fontSize(page);
 
       expect(after).toBeGreaterThan(before);
-      // 커버 버튼과 우상단 고정 버튼이 같은 상태를 본다.
-      await expect(page.locator(".text-size-toggle")).toHaveAttribute("aria-pressed", "true");
+      // 문구도 함께 바뀐다 — 색만으로 상태를 가르지 않는다.
+      await expect(page.getByRole("button", { name: /원래 글씨로 변경/ })).toBeVisible();
     });
 
     // 배율은 글자에만 걸린다. 페이지를 통째로 확대(zoom)하면 확대된 좌표계에서 320px
     // 미디어쿼리가 평가되지 않아 지도 앱 버튼이 카드 밖으로 밀려났다.
     test("큰 글씨에서도 카드 밖으로 밀려나는 것이 없다", async ({ page }) => {
       await page.goto("/");
-      await page.locator(".text-size-button").click();
+      await page.locator(".text-size-bar-button").click();
       await page.locator(".map-links").scrollIntoViewIfNeeded();
 
       const bleeding = await page.evaluate(() =>
@@ -1044,15 +1044,35 @@ test.describe("청첩장 기본 동작", () => {
       );
     });
 
-    // 스크롤한 뒤에 끌 수 없으면 켜 본 하객이 되돌리지 못한다 — 배경음악 토글과 같은 이유다.
-    test("아래로 스크롤해도 토글이 화면에 남는다", async ({ page }) => {
+    // 이 바가 아이콘 토글을 대신한 이유가 이것이다 — 어디를 보고 있든 눈에 남아야 한다.
+    test("어디로 스크롤해도 바가 화면 아래에 남는다", async ({ page }) => {
       await page.goto("/");
 
-      const toggle = page.locator(".text-size-toggle");
-      await expect(toggle).toBeInViewport();
+      const bar = page.locator(".text-size-bar");
+      await expect(bar).toBeInViewport();
 
       await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
-      await expect(toggle).toBeInViewport();
+      await expect(bar).toBeInViewport();
+    });
+
+    // 바가 화면 아래에 붙어 있으므로 페이지가 그만큼 비워 두어야 한다. 재는 것은 푸터의
+    // 화면 좌표가 아니라 페이지의 아래 여백이다 — 리빌(translateY 22px)이 도는 동안에는
+    // 푸터가 아직 제자리에 오지 않아, 좌표로 재면 애니메이션 타이밍에 따라 결과가 갈린다.
+    test("페이지가 바 높이만큼 아래를 비워 둔다", async ({ page }) => {
+      await page.goto("/");
+
+      const room = await page.evaluate(() => {
+        const pageEl = document.querySelector(".page");
+        const bar = document.querySelector(".text-size-bar");
+        if (!pageEl || !bar) return null;
+        return {
+          padding: parseFloat(getComputedStyle(pageEl).paddingBottom),
+          barHeight: bar.getBoundingClientRect().height,
+        };
+      });
+
+      expect(room).not.toBeNull();
+      expect(room!.padding).toBeGreaterThanOrEqual(room!.barHeight);
     });
   });
 

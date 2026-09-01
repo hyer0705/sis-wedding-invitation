@@ -3,7 +3,6 @@ import { m, useMotionValue, useReducedMotionConfig } from "motion/react";
 import { INVITE } from "../invite";
 import { imageSrcSet, imageUrl } from "../lib/imageUrl";
 import { scaled } from "../lib/textSize";
-import { TextSizeButton } from "./TextSize";
 
 // 커버 사진. 사진 교체 시 `npm run optimize` 산출물 이름만 여기서 바꾼다.
 // 실제 호스트는 VITE_IMAGE_BASE_URL(Cloudflare R2)이 정한다 — lib/imageUrl.ts 참고.
@@ -144,10 +143,6 @@ export default function Cover({ coverReady = false }: { coverReady?: boolean }) 
         {INVITE.dayText}
         <br />
         {INVITE.venue} {INVITE.hall}
-      </div>
-      {/* 큰 글씨로 보기 — 우상단 고정 버튼과 같은 상태를 나눠 쓴다. 이유는 lib/textSize.ts 머리말 */}
-      <div>
-        <TextSizeButton />
       </div>
       {/* SIS-18 — 색 두 개를 토큰 밖에서 직접 적어 두었던 자리다(#a9b3a1·#bcc4b2). 불투명일 때도
           배경 위 대비가 1.96·1.62 로, 페이지에서 가장 낮았다.

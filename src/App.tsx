@@ -13,7 +13,7 @@ import Share from "./components/Share";
 import Footer from "./components/Footer";
 import Loading, { removeBootScreen, useCoverReady } from "./components/Loading";
 import Bgm from "./components/Bgm";
-import { TextSizeToggle } from "./components/TextSize";
+import { TextSizeBar } from "./components/TextSize";
 import { currentRoute, subscribeRoute } from "./lib/navigation";
 
 export default function App() {
@@ -39,9 +39,7 @@ export default function App() {
           받은 링크를 열면 읽으려던 글 대신 로딩 화면을 마주하게 된다. 커버는 그 뒤에서
           그대로 받아 두므로 X 로 돌아오면 이미 준비돼 있다. */}
       <AnimatePresence>{!ready && route !== "guestbook" && <Loading key="loading" />}</AnimatePresence>
-      {/* 화면에 붙박이로 남는 버튼 둘. 배경음악(SIS-27)과 큰 글씨(2026-09-01)가 같은 줄에 선다 */}
       <div className="floating-controls">
-        <TextSizeToggle />
         <Bgm />
       </div>
       {/* 로딩이 걷힌 시점을 커버도 알아야 한다 — 그때까지 사진이 안 온 경우에만 페이드로 얹는다 (SIS-29) */}
@@ -60,6 +58,9 @@ export default function App() {
       {/* 공유 버튼은 푸터 위다 — 청첩장을 다 읽은 뒤에 "전해 주세요"가 나온다 (SIS-16) */}
       <Share />
       <Footer />
+      {/* 글자 크기 바는 화면 아래에 붙박이로 선다 (2026-09-01). 아이콘으로 두었더니
+          정작 이 기능이 필요한 하객이 눌러 볼 생각을 하지 않았다 — components/TextSize.tsx 머리말 */}
+      <TextSizeBar />
       {route === "guestbook" && <GuestbookAll />}
     </div>
   );

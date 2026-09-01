@@ -50,6 +50,10 @@
      SIS-41)·D-Day 숫자·달력 원의 지름. 이유는 src/lib/textSize.ts 머리말. */
   --type-scale: 1;
 
+  /* 화면 아래 글자 크기 바의 높이. 페이지 아래 여백과 토스트 위치가 이 값을 함께 본다 —
+     따로 적어 두면 바 높이를 고칠 때 한쪽만 남아 푸터가 가려지거나 토스트가 바에 걸린다. */
+  --text-size-bar-h: 68px;
+
   --font-script: "Parisienne", cursive;
   --font-serif: "Nanum Myeongjo", serif;
   --font-caption: "Gowun Dodum", sans-serif;
