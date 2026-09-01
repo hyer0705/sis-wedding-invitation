@@ -6,7 +6,7 @@ import Invitation from "./Invitation";
 import Calendar from "./Calendar";
 import Gallery from "./Gallery";
 import Location from "./Location";
-import Rsvp from "./Rsvp";
+import Rsvp from "./rsvp/Rsvp";
 import Share from "./Share";
 import Footer from "./Footer";
 

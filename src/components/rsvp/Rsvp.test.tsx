@@ -1,16 +1,16 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { renderWithMotion } from "../test/renderWithMotion";
+import { renderWithMotion } from "../../test/renderWithMotion";
 import Rsvp from "./Rsvp";
-import { submitRsvp } from "../lib/rsvp";
+import { submitRsvp } from "../../lib/rsvp";
 
 // 전송을 mock 으로 덮고 호출 여부와 인자만 본다. 이제 submitRsvp 는 실제로
 // Supabase 로 요청을 보내므로(SIS-20), 덮지 않으면 이 파일이 매번 네트워크를 탄다.
 // supabase-js 가 실제로 무엇을 어디로 보내는지는 유닛 테스트(lib/rsvp.test.ts)와
 // E2E(e2e/smoke.spec.ts)가 각각 본다.
-vi.mock("../lib/rsvp", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("../lib/rsvp")>();
+vi.mock("../../lib/rsvp", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../../lib/rsvp")>();
   return { ...actual, submitRsvp: vi.fn() };
 });
 
@@ -437,7 +437,7 @@ describe("Rsvp", () => {
     // 실패를 삼키면 하객도 고객도 회신이 유실된 것을 알 수 없다 (SIS-33).
     it("전송이 실패하면 완료 카드로 넘어가지 않고 다시 시도할 수 있다", async () => {
       const user = userEvent.setup();
-      // 실패 원인은 콘솔로 나간다(Rsvp.tsx). 여기서는 일부러 실패시키는 것이라
+      // 실패 원인은 콘솔로 나간다(RsvpForm.tsx). 여기서는 일부러 실패시키는 것이라
       // 테스트 출력에 섞이지 않게 덮되, 실제로 남는지는 확인한다.
       const logged = vi.spyOn(console, "error").mockImplementation(() => {});
       sendMock.mockRejectedValue(new Error("network"));

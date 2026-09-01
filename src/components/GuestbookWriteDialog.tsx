@@ -1,4 +1,6 @@
-import { useId, useState } from "react";
+import { useState } from "react";
+import Field from "./form/Field";
+import TextField from "./form/TextField";
 import GuestbookDialog from "./GuestbookDialog";
 import { useToast } from "./Toast";
 import {
@@ -24,12 +26,6 @@ export default function GuestbookWriteDialog({ onClose, onCreated }: { onClose: 
   const [errors, setErrors] = useState<GuestbookErrors>({});
   const [sending, setSending] = useState(false);
   const showToast = useToast();
-
-  const nameId = useId();
-  const messageId = useId();
-  const passwordId = useId();
-  const helpId = useId();
-  const errorIds = { name: `${nameId}-error`, message: `${messageId}-error`, password: `${passwordId}-error` };
 
   const update = (field: GuestbookField, value: string) => {
     setForm((current) => ({ ...current, [field]: value }));
@@ -60,75 +56,47 @@ export default function GuestbookWriteDialog({ onClose, onCreated }: { onClose: 
   return (
     <GuestbookDialog title={TITLE} lead={LEAD} closeLabel={CLOSE_LABEL} onClose={onClose}>
       <div style={{ display: "flex", flexDirection: "column", gap: 16, textAlign: "left" }}>
-        <div>
-          <label className="gb-label" htmlFor={nameId}>
-            이름
-          </label>
-          <input
-            id={nameId}
-            className={errors.name ? "gb-input gb-invalid" : "gb-input"}
-            value={form.name}
-            maxLength={NAME_MAX}
-            autoComplete="name"
-            onChange={(event) => update("name", event.target.value)}
-            aria-invalid={errors.name ? true : undefined}
-            aria-describedby={errors.name ? errorIds.name : undefined}
-          />
-          {errors.name && (
-            <p id={errorIds.name} className="gb-error" role="alert">
-              {errors.name}
-            </p>
-          )}
-        </div>
+        <TextField
+          variant="gb"
+          label="이름"
+          error={errors.name}
+          value={form.name}
+          maxLength={NAME_MAX}
+          autoComplete="name"
+          onChange={(event) => update("name", event.target.value)}
+        />
 
-        <div>
-          <label className="gb-label" htmlFor={messageId}>
-            축하 메시지
-          </label>
-          <textarea
-            id={messageId}
-            className={errors.message ? "gb-input gb-textarea gb-invalid" : "gb-input gb-textarea"}
-            rows={5}
-            value={form.message}
-            maxLength={MESSAGE_MAX}
-            onChange={(event) => update("message", event.target.value)}
-            aria-invalid={errors.message ? true : undefined}
-            aria-describedby={errors.message ? errorIds.message : undefined}
-          />
-          <p className="gb-counter">
-            {form.message.length} / {MESSAGE_MAX}
-          </p>
-          {errors.message && (
-            <p id={errorIds.message} className="gb-error" role="alert">
-              {errors.message}
-            </p>
+        {/* 글자 수 표시가 칸과 오류 사이에 들어가야 해서 Field 를 직접 쓴다. */}
+        <Field variant="gb" label="축하 메시지" error={errors.message}>
+          {({ className, ...control }) => (
+            <>
+              <textarea
+                {...control}
+                className={`${className} gb-textarea`}
+                rows={5}
+                value={form.message}
+                maxLength={MESSAGE_MAX}
+                onChange={(event) => update("message", event.target.value)}
+              />
+              <p className="gb-counter">
+                {form.message.length} / {MESSAGE_MAX}
+              </p>
+            </>
           )}
-        </div>
+        </Field>
 
-        <div>
-          <label className="gb-label" htmlFor={passwordId} style={{ marginBottom: 4 }}>
-            비밀번호
-          </label>
-          <span id={helpId} className="gb-help">
-            {PASSWORD_HELP}
-          </span>
-          <input
-            id={passwordId}
-            className={errors.password ? "gb-input gb-invalid" : "gb-input"}
-            type="password"
-            inputMode="numeric"
-            autoComplete="new-password"
-            value={form.password}
-            onChange={(event) => update("password", event.target.value)}
-            aria-invalid={errors.password ? true : undefined}
-            aria-describedby={errors.password ? `${helpId} ${errorIds.password}` : helpId}
-          />
-          {errors.password && (
-            <p id={errorIds.password} className="gb-error" role="alert">
-              {errors.password}
-            </p>
-          )}
-        </div>
+        <TextField
+          variant="gb"
+          label="비밀번호"
+          labelGap={4}
+          help={PASSWORD_HELP}
+          error={errors.password}
+          type="password"
+          inputMode="numeric"
+          autoComplete="new-password"
+          value={form.password}
+          onChange={(event) => update("password", event.target.value)}
+        />
       </div>
 
       <div className="gb-dialog-actions" style={{ marginTop: 22 }}>

@@ -1,4 +1,5 @@
-import { useId, useState } from "react";
+import { useState } from "react";
+import TextField from "./form/TextField";
 import GuestbookDialog from "./GuestbookDialog";
 import { useToast } from "./Toast";
 import { deleteGuestbookEntry, type GuestbookEntry, passwordError } from "../lib/guestbook";
@@ -23,8 +24,6 @@ export default function GuestbookDeleteDialog({
   const [error, setError] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
   const showToast = useToast();
-  const inputId = useId();
-  const errorId = useId();
 
   const submit = async () => {
     const tooShort = passwordError(password);
@@ -60,12 +59,10 @@ export default function GuestbookDeleteDialog({
         </p>
       </div>
 
-      <label className="gb-label" htmlFor={inputId}>
-        비밀번호
-      </label>
-      <input
-        id={inputId}
-        className={error ? "gb-input gb-invalid" : "gb-input"}
+      <TextField
+        variant="gb"
+        label="비밀번호"
+        error={error ?? undefined}
         type="password"
         inputMode="numeric"
         autoComplete="off"
@@ -74,14 +71,7 @@ export default function GuestbookDeleteDialog({
           setPassword(event.target.value);
           setError(null);
         }}
-        aria-invalid={error ? true : undefined}
-        aria-describedby={error ? errorId : undefined}
       />
-      {error && (
-        <p id={errorId} className="gb-error" role="alert">
-          {error}
-        </p>
-      )}
 
       <div className="gb-dialog-actions" style={{ marginTop: 22 }}>
         <button type="button" className="gb-dialog-btn gb-dialog-cancel" onClick={onClose}>

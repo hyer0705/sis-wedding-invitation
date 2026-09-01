@@ -8,7 +8,7 @@ import Location from "./components/Location";
 import Accounts from "./components/Accounts";
 import Guestbook from "./components/Guestbook";
 import GuestbookAll from "./components/GuestbookAll";
-import Rsvp from "./components/Rsvp";
+import Rsvp from "./components/rsvp/Rsvp";
 import Share from "./components/Share";
 import Footer from "./components/Footer";
 import Loading, { removeBootScreen, useCoverReady } from "./components/Loading";

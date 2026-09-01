@@ -232,6 +232,28 @@ export function toRsvpPayload(values: RsvpValues): RsvpPayload {
 }
 
 /**
+ * 확인 팝업에 싣는 항목. **채운 것만 싣는다.**
+ *
+ * 미참석의 인원(1)·식사(식사안함)는 DB 의 not null 을 채우려고 toRsvpPayload 가 넣은
+ * 값이라 화면에 내보내지 않는다 — 고르지도 않은 답을 확인하게 되고, 「1명이 안 온다」로
+ * 읽힐 수도 있다. 남는 넷은 참석·미참석 모두 필수라 빈 줄이 생기지 않는다.
+ */
+export function confirmRows(payload: RsvpPayload): { label: string; value: string }[] {
+  const attending = payload.attend === "참석";
+
+  return [
+    { label: "하객 구분", value: payload.side },
+    { label: "참석 여부", value: payload.attend },
+    { label: "성함", value: payload.name },
+    ...(attending ? [{ label: "참석 인원", value: `${payload.count}명` }] : []),
+    // 저장되는 모양 그대로 보인다(하이픈 없는 숫자). 국가번호를 붙여 적으면
+    // normalizePhone 이 국내 표기로 되돌리는데, 그 결과를 확인할 자리이기도 하다.
+    { label: "연락처", value: payload.phone },
+    ...(attending ? [{ label: "식사 여부", value: payload.meal }] : []),
+  ];
+}
+
+/**
  * 폼 입력을 검증해 페이로드를 만든다. 화면은 react-hook-form 이 같은 스키마로 검증하고,
  * 이 함수는 테스트와 스키마 밖에서 부르는 자리를 위한 얇은 껍데기다.
  */
