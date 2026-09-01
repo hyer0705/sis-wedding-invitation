@@ -1,6 +1,6 @@
 import Reveal from "./Reveal";
 import { INVITE } from "../invite";
-import { formatParents } from "../lib/parents";
+import { parentNameLines } from "../lib/parents";
 
 // IN-01 인사말 · IN-03 혼주 표기 · IN-04 고인 표기.
 //
@@ -31,6 +31,7 @@ const RULE_COLOR = "var(--input-border)";
 const CARD_PADDING_X = 26;
 const BODY_SIZE = 14.5;
 const PARENTS_SIZE = 14;
+const PARENTS_LINE_HEIGHT = 1.85;
 
 export default function Invitation() {
   return (
@@ -63,17 +64,28 @@ export default function Invitation() {
             borderTop: `1px solid ${RULE_COLOR}`,
             display: "flex",
             flexDirection: "column",
-            gap: 11,
+            gap: 16,
             fontSize: PARENTS_SIZE,
             color: "var(--text-body)",
             wordBreak: "keep-all",
           }}
         >
           {[INVITE.groom, INVITE.bride].map((side) => (
-            <div key={side.name}>
-              {formatParents(side.parents)}
-              <span style={{ color: "var(--primary)", margin: "0 7px", fontSize: 13 }}>의 {side.relation}</span>
-              {side.first}
+            <div key={side.name} style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 7 }}>
+              <span
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "flex-start",
+                  lineHeight: PARENTS_LINE_HEIGHT,
+                }}
+              >
+                {parentNameLines(side.parents).map((name) => (
+                  <span key={name}>{name}</span>
+                ))}
+              </span>
+              <span style={{ color: "var(--primary)", fontSize: 13 }}>의 {side.relation}</span>
+              <span>{side.first}</span>
             </div>
           ))}
         </div>

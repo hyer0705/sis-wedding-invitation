@@ -8,8 +8,14 @@ import { INVITE } from "../invite";
 // 문구에 고객이 지정한 \n 이 들어 있으므로 찾을 때도 같은 모양으로 눌러 준다.
 const flat = (text: string) => text.replace(/\s+/g, " ").trim();
 
-/** 혼주 줄은 `성함` + `<span>의 장남</span>` + `이름` 으로 쪼개져 있어 통째로는 못 찾는다. */
+/** 혼주 줄은 `성함 칸` + `<span>의 장남</span>` + `이름` 으로 쪼개져 있어 통째로는 못 찾는다. */
 const parentLine = (relation: string) => screen.getByText(`의 ${relation}`).parentElement;
+
+/** 그 줄에서 혼주 성함 칸(관계 표기 바로 앞)의 줄들만 꺼낸다. */
+const parentNames = (relation: string) => {
+  const names = screen.getByText(`의 ${relation}`).previousElementSibling;
+  return Array.from(names?.children ?? []);
+};
 
 describe("Invitation", () => {
   it("IN-01 인사말 네 문단을 접지 않고 모두 보여 준다", () => {
@@ -53,11 +59,17 @@ describe("Invitation", () => {
 
   it("IN-03 신랑측 혼주를 한 분만 표기한다", () => {
     // 신랑 어머니는 표기하지 않기로 고객이 확정했다(2026-08-11). 폴백 mock 이 되살아나면
-    // 가짜 성함이 하객에게 그대로 보인다. 가운뎃점은 두 분 이상일 때만 생기므로,
-    // 그것이 없다는 것이 곧 한 분만 나왔다는 뜻이다.
+    // 가짜 성함이 하객에게 그대로 보인다.
     renderWithMotion(<Invitation />);
 
-    expect(parentLine(INVITE.groom.relation)).not.toHaveTextContent("·");
+    expect(parentNames(INVITE.groom.relation)).toHaveLength(1);
+  });
+
+  it("IN-03 혼주 두 분은 한 분에 한 줄씩 세운다", () => {
+    // 2026-09-01 고객 요청. 한 줄에 이어 두면 관계 표기가 두 분 성함 뒤로 밀린다.
+    renderWithMotion(<Invitation />);
+
+    expect(parentNames(INVITE.bride.relation)).toHaveLength(INVITE.bride.parents.length);
   });
 
   it("IN-04 고인인 혼주 성함 앞에 故 를 붙인다", () => {
