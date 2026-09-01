@@ -6,6 +6,10 @@ import "./styles/global.css";
 import App from "./App";
 import { ToastProvider } from "./components/Toast";
 import { resolveRoute } from "./lib/route";
+import { restoreTextSize } from "./lib/textSize";
+
+// 지난 방문에서 큰 글씨를 켜 두었다면 첫 그림부터 큰 글씨다.
+restoreTextSize();
 
 // SIS-22 — 관리자 페이지는 **반드시 lazy 로 가른다.** 하객은 이 화면을 평생 열지
 // 않는데, 함께 묶으면 목록·CSV·인증 코드까지 모두가 내려받게 된다.

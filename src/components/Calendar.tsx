@@ -4,6 +4,7 @@ import { useToast } from "./Toast";
 import { INVITE } from "../invite";
 import { WEEKDAY_LABELS, monthGridOf } from "../lib/monthGrid";
 import { buildIcs, downloadIcs, type CalendarEvent } from "../lib/ics";
+import { scaled } from "../lib/typeScale";
 
 // DT-01·DT-02·DT-03 — 예식 일시 표기 · 달력 · 캘린더 저장.
 //
@@ -44,7 +45,7 @@ export default function Calendar() {
         <div className="script-title" style={{ marginBottom: 8 }}>
           Calendar
         </div>
-        <div style={{ fontSize: 15, color: "var(--text-sub)", letterSpacing: "0.12em" }}>
+        <div style={{ fontSize: scaled(15), color: "var(--text-body)", letterSpacing: "0.12em" }}>
           {grid.year} . {String(grid.month).padStart(2, "0")}
         </div>
 
@@ -86,15 +87,15 @@ export default function Calendar() {
         {/* 375px 이상에서는 한 줄이지만 320px 에서는 들어가지 않는다. 그냥 두면
             "…오전 11" / "시" 로 끊겨 마지막 한 글자만 다음 줄에 남는다.
             날짜와 시각을 각각 inline-block 으로 묶어, 넘칠 때 그 사이에서만 갈라지게 한다. */}
-        <div style={{ marginTop: 18, fontSize: 16, color: "var(--text-body)", wordBreak: "keep-all" }}>
+        <div style={{ marginTop: 18, fontSize: scaled(16), color: "var(--text-body)", wordBreak: "keep-all" }}>
           <span style={{ display: "inline-block" }}>{INVITE.dateText}</span>{" "}
           <span style={{ display: "inline-block" }}>{INVITE.dayText}</span>
         </div>
 
         <div style={{ width: 30, height: 1, background: "var(--input-border)", margin: "24px auto 18px" }} />
 
-        <div style={{ fontSize: 18, fontWeight: 700 }}>{INVITE.venue}</div>
-        <div style={{ fontSize: 14, color: "var(--text-sub)", marginTop: 6 }}>{INVITE.hall}</div>
+        <div style={{ fontSize: scaled(18), fontWeight: 700 }}>{INVITE.venue}</div>
+        <div style={{ fontSize: scaled(14.5), color: "var(--text-body)", marginTop: 6 }}>{INVITE.hall}</div>
 
         {!isOver && (
           <button
@@ -113,7 +114,7 @@ export default function Calendar() {
               background: "transparent",
               color: "var(--on-surface)",
               fontFamily: "var(--font-serif)",
-              fontSize: 15,
+              fontSize: scaled(15),
               cursor: "pointer",
             }}
           >

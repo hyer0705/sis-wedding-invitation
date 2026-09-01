@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { INVITE } from "../invite";
 import { AFTER_MESSAGE, WEDDING_DAY_MESSAGE, countdownAt, type Countdown } from "../lib/countdown";
+import { scaled } from "../lib/typeScale";
 
 // CV-04 D-Day 카운트다운.
 //
@@ -14,7 +15,7 @@ import { AFTER_MESSAGE, WEDDING_DAY_MESSAGE, countdownAt, type Countdown } from 
 
 const boxStyle = { flex: 1, background: "var(--surface)", borderRadius: 16, padding: "16px 4px" } as const;
 const numStyle = { fontSize: 28, fontWeight: 700, lineHeight: 1 } as const;
-const labelStyle = { fontSize: 10.5, letterSpacing: "0.1em", color: "var(--muted-2)", marginTop: 8 } as const;
+const labelStyle = { fontSize: scaled(11.5), letterSpacing: "0.1em", color: "var(--text-body)", marginTop: 8 } as const;
 
 /** 예식까지 남은 시간을 1초마다 센다. 예식이 지난 뒤에는 타이머를 걸지 않는다. */
 export function useCountdown(): Countdown {
@@ -53,7 +54,14 @@ export default function DDay({ countdown: t }: { countdown: Countdown }) {
           </div>
         </div>
       )}
-      <p style={{ margin: t.phase === "after" ? 0 : "24px 0 0", fontSize: 14, color: "var(--text-sub)", lineHeight: 1.7 }}>
+      <p
+        style={{
+          margin: t.phase === "after" ? 0 : "24px 0 0",
+          fontSize: scaled(14.5),
+          color: "var(--text-body)",
+          lineHeight: 1.7,
+        }}
+      >
         {t.phase === "before" ? (
           <>
             {INVITE.groom.first}, {INVITE.bride.first}의 결혼식까지{" "}

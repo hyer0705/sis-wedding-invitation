@@ -1,6 +1,7 @@
 import Reveal from "./Reveal";
 import { INVITE } from "../invite";
 import { parentNameLines } from "../lib/parents";
+import { scaled } from "../lib/typeScale";
 
 // IN-01 인사말 · IN-03 혼주 표기 · IN-04 고인 표기.
 //
@@ -28,9 +29,12 @@ const RULE_COLOR = "var(--input-border)";
 //
 // 줄 수를 세려면 실제 레이아웃이 있어야 해서 jsdom 으로는 볼 수 없다. 이 값들을
 // 지키는 것은 e2e/smoke.spec.ts 이며, 320px 은 11.5px 이하라야 지켜져 제외했다.
+// 아래 두 값은 기본 크기에서의 실측값이고, 하객이 「큰 글씨로 보기」를 켜면 배율을
+// 탄다. 그 모드에서는 고객이 지정한 줄바꿈이 한 줄씩 더 접히는데, 읽히지 않는
+// 원문보다 읽히는 재배치를 택한 것이다 — 기본 화면은 그대로다.
 const CARD_PADDING_X = 26;
-const BODY_SIZE = 14.5;
-const PARENTS_SIZE = 14;
+const BODY_SIZE = scaled(14.5);
+const PARENTS_SIZE = scaled(14);
 const PARENTS_LINE_HEIGHT = 1.85;
 
 export default function Invitation() {
@@ -84,7 +88,7 @@ export default function Invitation() {
                   <span key={name}>{name}</span>
                 ))}
               </span>
-              <span style={{ color: "var(--primary)", fontSize: 13 }}>의 {side.relation}</span>
+              <span style={{ color: "var(--primary)", fontSize: scaled(13) }}>의 {side.relation}</span>
               <span>{side.first}</span>
             </div>
           ))}
