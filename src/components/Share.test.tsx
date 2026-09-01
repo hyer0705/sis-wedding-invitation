@@ -66,13 +66,15 @@ describe("Share", () => {
     await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("청첩장 주소가 복사되었습니다"));
   });
 
-  it("복사가 막히면 길게 누르라고 안내한다", async () => {
-    // 카카오톡 인앱 브라우저에서 클립보드가 모두 막힌 경우다.
+  it("복사가 막히면 주소를 직접 복사하도록 안내한다", async () => {
+    // 카카오톡 인앱 브라우저에서 클립보드가 모두 막힌 경우이고, PC 에서 카카오 공유
+    // 팝업이 막힌 뒤 복사까지 실패한 경우도 여기로 온다. "길게 눌러" 라고만 적으면
+    // 마우스를 쓰는 쪽에는 할 수 없는 동작을 시키는 셈이다 (SIS-42).
     copyLink.mockResolvedValue("failed");
     renderWithMotion(<Share />);
     await userEvent.click(screen.getByRole("button", { name: "링크 복사" }));
 
-    await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("길게 눌러 복사해 주세요"));
+    await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("주소창의 주소를 복사해 주세요"));
   });
 
   it("공유가 예외로 터져도 버튼이 조용히 죽지 않는다", async () => {

@@ -5,7 +5,16 @@ import { INVITE } from "../invite";
 import { copyText } from "../lib/clipboard";
 import { assetUrl } from "../lib/imageUrl";
 import { drawVenueMap, loadKakaoMaps } from "../lib/kakaoMap";
-import { kakaoMapUrl, naverAppUrl, naverWebUrl, openWithFallback, tmapAppUrl, tmapStoreUrl, type Place } from "../lib/mapLinks";
+import {
+  isMobileDevice,
+  kakaoMapUrl,
+  naverAppUrl,
+  naverWebUrl,
+  openWithFallback,
+  tmapAppUrl,
+  tmapStoreUrl,
+  type Place,
+} from "../lib/mapLinks";
 import { scaled } from "../lib/typeScale";
 
 // MP-01~05 — 오시는 길. c안 §6 을 옮기면서 세 가지가 달라졌다.
@@ -23,6 +32,8 @@ const VENUE: Place = {
 // 네이버가 요구하는 호출자 식별자. 앱이 "어디서 부른 것인지"를 표시하는 데 쓴다.
 const NAVER_APP_NAME = new URL(INVITE.siteUrl).hostname;
 
+const TMAP_DESKTOP_NOTICE = "티맵 길안내는 휴대폰에서 열 수 있어요\n네이버지도나 카카오맵을 이용해 주세요";
+
 type MapState = "loading" | "ready" | "unavailable";
 
 export default function Location() {
@@ -33,7 +44,8 @@ export default function Location() {
 
   // 앱이 없을 때 갈 곳. 티맵만 기기별로 갈라진다.
   const naverWeb = naverWebUrl(VENUE);
-  const tmapStore = tmapStoreUrl(navigator.userAgent);
+  const isMobile = isMobileDevice(navigator.userAgent, navigator.maxTouchPoints);
+  const tmapStore = tmapStoreUrl(navigator.userAgent, navigator.maxTouchPoints);
 
   // 지도 SDK 는 커버·갤러리 사진과 대역폭을 다투지 않도록 이 섹션이 가까워졌을 때 받는다.
   // 하객 상당수가 데이터 통신으로 여는 만큼, 첫 화면에 필요 없는 것을 미리 받지 않는다.
@@ -162,12 +174,16 @@ export default function Location() {
             label="네이버지도"
             logo="logo-naver-map.webp"
             href={naverWeb}
-            appUrl={naverAppUrl(VENUE, NAVER_APP_NAME)}
-            fallbackUrl={naverWeb}
+            appUrl={isMobile ? naverAppUrl(VENUE, NAVER_APP_NAME) : undefined}
+            fallbackUrl={isMobile ? naverWeb : undefined}
           />
           {/* 카카오맵 주소 하나가 앱과 웹을 모두 처리한다. 스킴을 따로 시도하지 않는다. */}
           <MapLink label="카카오맵" logo="logo-kakao-map.webp" href={kakaoMapUrl(VENUE)} />
-          <MapLink label="티맵" logo="logo-tmap.webp" href={tmapStore} appUrl={tmapAppUrl(VENUE)} fallbackUrl={tmapStore} />
+          {isMobile ? (
+            <MapLink label="티맵" logo="logo-tmap.webp" href={tmapStore} appUrl={tmapAppUrl(VENUE)} fallbackUrl={tmapStore} />
+          ) : (
+            <MapNotice label="티맵" logo="logo-tmap.webp" notice={TMAP_DESKTOP_NOTICE} />
+          )}
         </div>
 
         <button
@@ -246,6 +262,24 @@ function MapLink({
 
   return (
     <a href={href} onClick={handleClick} target="_blank" rel="noopener">
+      <MapLinkFace label={label} logo={logo} />
+    </a>
+  );
+}
+
+function MapNotice({ label, logo, notice }: { label: string; logo: string; notice: string }) {
+  const showToast = useToast();
+
+  return (
+    <button type="button" onClick={() => showToast(notice)}>
+      <MapLinkFace label={label} logo={logo} />
+    </button>
+  );
+}
+
+function MapLinkFace({ label, logo }: { label: string; logo: string }) {
+  return (
+    <>
       <img
         src={assetUrl(logo)}
         alt=""
@@ -257,7 +291,7 @@ function MapLink({
         decoding="async"
       />
       {label}
-    </a>
+    </>
   );
 }
 
