@@ -54,6 +54,8 @@ export const INVITE = {
     },
   },
 
+  notices: ["화환은 보내주지 않으셔도 됩니다\n축하해 주시는 마음만으로 충분합니다"] as readonly string[],
+
   gallery: ["2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15"],
 
   greeting: {

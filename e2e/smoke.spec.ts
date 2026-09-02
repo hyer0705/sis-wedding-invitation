@@ -311,6 +311,31 @@ test.describe("청첩장 기본 동작", () => {
     });
   });
 
+  test.describe("예식 안내", () => {
+    test("안내 문구가 오시는 길과 RSVP 사이에 선다", async ({ page }) => {
+      await page.goto("/");
+
+      const notice = page.getByTestId("notice");
+      for (const line of INVITE.notices[0].split("\n")) {
+        await expect(notice).toContainText(line);
+      }
+
+      const order = await page.evaluate(() => {
+        const notice = document.querySelector('[data-testid="notice"]');
+        const map = document.querySelector('[data-testid="venue-map"]');
+        const rsvp = [...document.querySelectorAll(".script-title")].find((el) => el.textContent === "R.S.V.P");
+        if (!notice || !map || !rsvp) return null;
+
+        const precedes = (first: Element, second: Element) =>
+          Boolean(first.compareDocumentPosition(second) & Node.DOCUMENT_POSITION_FOLLOWING);
+
+        return { 오시는길다음: precedes(map, notice), RSVP앞: precedes(notice, rsvp) };
+      });
+
+      expect(order).toEqual({ 오시는길다음: true, RSVP앞: true });
+    });
+  });
+
   test.describe("마음 전하실 곳", () => {
     test("아코디언을 열면 계좌가 나오고 복사가 실제 클립보드에 들어간다", async ({ page, context, browserName }) => {
       test.skip(browserName !== "chromium", "clipboard-read 권한은 chromium 전용");

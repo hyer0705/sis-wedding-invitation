@@ -129,6 +129,14 @@ describe("INVITE", () => {
     });
   });
 
+  describe("예식 안내(NT-01)", () => {
+    it("빈 문구를 두지 않는다", () => {
+      for (const notice of INVITE.notices) {
+        expect(notice.trim()).not.toBe("");
+      }
+    });
+  });
+
   describe("RSVP 마감일", () => {
     it("deadlineText 가 deadline 과 같은 날을 가리킨다", () => {
       const [y, m, d] = INVITE.rsvp.deadline.split("-").map(Number);
