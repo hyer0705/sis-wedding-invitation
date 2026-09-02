@@ -3,22 +3,6 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <!--
-      아래 __대문자__ 자리는 vite.config.ts 의 inviteMeta 플러그인이 빌드 시점에
-      src/invite.ts 의 INVITE 값으로 채운다. 여기에 직접 적지 않는다 — 예전에
-      직접 적어 둔 날짜가 INVITE 와 어긋난 채 배포된 적이 있다(SIS-24).
-      카카오톡 스크래퍼는 절대 URL 만 읽으므로 og:image·og:url 이 절대 경로여야 한다.
-    -->
-    <!--
-      CM-07 개인정보 보호 — 검색엔진 색인 차단(2026-08-13 고객 확정).
-
-      청첩장 링크는 누구나 접속할 수 있고 혼주 성함·예식장·계좌가 그대로 실린다.
-      주소를 아는 하객만 보는 것과 검색으로 찾아지는 것은 다르다.
-
-      **robots.txt 로 막지 않는 이유**는 public/robots.txt 에 적어 두었다. 요약하면
-      크롤링을 막으면 크롤러가 이 태그를 읽지도 못하고, 카카오톡 공유 카드(SH-03)를
-      만드는 스크래퍼까지 함께 막힐 수 있다. 색인 차단은 이 한 줄이 한다.
-    -->
     <meta name="robots" content="noindex, nofollow" />
     <title>__OG_TITLE__</title>
     <meta name="description" content="__OG_DESCRIPTION__" />
@@ -27,13 +11,6 @@
     <meta property="og:description" content="__OG_DESCRIPTION__" />
     <meta property="og:image" content="__OG_IMAGE__" />
     <meta property="og:url" content="__SITE_URL__" />
-    <!--
-      Parisienne 만 self-host 한다(SIS-30). 부트 화면·로딩 화면·커버가 모두 이 서체로
-      「The wedding of」를 그리는데, Google Fonts 로 받으면 스타일시트를 파싱한 뒤에야
-      폰트 요청이 나가 Slow 3G 에서 9.9초에 도착했다 — 그때까지 폴백으로 그려지다
-      로딩 화면 위에서 서체가 바뀌었다. preload 는 HTML 파싱 즉시 받게 한다.
-      같은 출처라도 폰트는 CORS 요청이라 crossorigin 이 없으면 두 번 받는다.
-    -->
     <link rel="preload" as="font" type="font/woff2" href="/fonts/parisienne-latin.woff2" crossorigin />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -41,18 +18,6 @@
       href="https://fonts.googleapis.com/css2?family=Nanum+Myeongjo:wght@400;700;800&family=Gowun+Dodum&display=swap"
       rel="stylesheet"
     />
-    <!--
-      Parisienne 의 @font-face. **부트 화면 스타일과 일부러 분리한 블록이다** — 부트를
-      나중에 걷어낼 때 폰트 정의가 딸려 나가면 커버·로딩의 서체가 폴백으로 떨어진다.
-      번들 CSS(4.1초)에 두지 않는 것도 같은 이유다 — 부트는 그보다 먼저 그려진다.
-
-      latin subset 만 받는다(22KB). 이 서체가 그리는 글자는 전부 ASCII 다.
-
-      **optional 인 이유**: 제때 준비되지 않으면 그 방문 동안 아예 쓰지 않는다. 즉 화면
-      중간에 서체가 바뀌는 일이 구조적으로 불가능하다 — swap 이면 늦게 온 폰트가 이미
-      그려진 글씨를 밀어내며 튄다(SIS-30 이 고치는 증상). 한글 2종은 화면 간 불일치가
-      없어 Google Fonts 의 swap 을 그대로 둔다.
-    -->
     <style>
       @font-face {
         font-family: "Parisienne";
@@ -65,33 +30,11 @@
           U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
       }
     </style>
-    <!--
-      카카오톡 공유(SH-01)용 SDK 는 여기 두지 않는다 — src/lib/share.ts 가 붙인다(SIS-18).
-
-      예전에는 이 자리에 defer 스크립트 태그가 있었다. 그런데 defer 는 **실행만 미룰 뿐
-      다운로드는 미루지 않아서**, 27KB 가 위 렌더 차단 스타일시트들보다 먼저 내려와 첫
-      픽셀 앞에서 대역폭을 먹었다. Slow 3G 에서 첫 페인트 6.85초, 태그를 걷어내면 6.27초다.
-
-      JS 키는 번들에 그대로 노출되므로 숨길 수단이 없다. 카카오 개발자 콘솔의
-      플랫폼 도메인 화이트리스트가 유일한 방어선이다 — 배포·프리뷰 도메인을 등록한다.
-    -->
-    <!--
-      부트 화면(body 의 #boot)의 스타일. **반드시 head 에 둔다.**
-
-      body 안에, 그것도 마크업 뒤에 두었더니 문제가 있었다 — 브라우저는 HTML 을 받는
-      대로 파싱하며 그리는데, 5.6KB 짜리 이 파일은 3G 에서 여러 청크로 나뉘어 온다.
-      #boot 만 담긴 청크가 먼저 그려지면 스타일 없는 날문자가 좌상단에 뜬다. 숨김
-      규칙(.boot-sr)도 함께 늦어 스크린리더용 텍스트까지 화면에 나온다. 빈 화면을
-      메우려던 것이 되레 깨진 화면을 보이는 순간을 만든다.
-    -->
     <style>
       #boot {
         position: fixed;
         inset: 0;
         z-index: 100;
-        /* 청첩장 컬럼 폭. tokens.css 의 --page-max 와 같은 값이며 바꿀 때 함께 고친다 —
-           그 파일은 4.1초에야 오므로 여기서 var() 를 쓸 수 없다. 화면 전체를 덮어 두면
-           태블릿·PC 에서 배경이 가득 찼다가 컬럼으로 접힌다 (SIS-18). */
         max-width: 430px;
         margin: 0 auto;
         background: #f5f3ea;
@@ -100,7 +43,6 @@
         align-items: center;
         padding-top: 54px;
       }
-      /* global.css 의 .sr-only 와 같은 구실. 그 파일도 4.1초에야 오므로 여기 다시 적는다. */
       .boot-sr {
         position: absolute;
         width: 1px;
@@ -127,8 +69,6 @@
         width: 100%;
         height: 100%;
         background: #667662;
-        /* 키프레임에만 두면 안 된다. 아래 reduced-motion 에서 animation 을 끄는 순간
-           기본값 1 로 돌아가, React 로딩 화면(0.75)으로 넘어갈 때 선이 갑자기 옅어진다. */
         opacity: 0.75;
         transform-origin: top;
         animation: boot-fill 1.6s cubic-bezier(0.25, 0.6, 0.3, 1) infinite;
@@ -146,54 +86,15 @@
           opacity: 0;
         }
       }
-      /* MotionConfig 는 React 안에서만 도는 설정이라 여기까지 오지 않는다. 직접 끈다. */
       @media (prefers-reduced-motion: reduce) {
         .boot-track i {
           animation: none;
         }
       }
     </style>
-    <!--
-      파비콘. **위치는 성능과 무관하다** — 브라우저는 이 링크를 문서 파싱이 끝난 뒤
-      낮은 우선순위로 가져가므로 head 안 어디에 두어도 첫 픽셀 시점은 달라지지 않는다.
-      프리로드 스캐너가 먼저 집어 가 대역폭을 먹던 카카오 SDK(위 주석)와는 경우가
-      다르니, 그 사례를 근거로 다른 link 를 뒤로 옮기지 말 것.
-
-      **`.ico` 한 장인 이유**: 16·32·48·64px 를 한 파일에 담아 모든 브라우저를 덮으면서,
-      `.png` 커밋을 막는 review-guard(`og-image.jpg` 만 예외)를 건드리지 않는다.
-
-      **흰 바탕을 그대로 칠해 두었다.** 투명 배경 + 검은 선으로 두면 다크 모드 탭에서
-      선이 묻는데, 그 대응인 `prefers-color-scheme` 를 `.ico` 는 쓸 수 없다 (SIS-48).
-    -->
     <link rel="icon" href="/favicon.ico" type="image/x-icon" />
   </head>
   <body>
-    <!--
-      CM-04 부트 화면 — src/components/Loading.tsx 가 뜨기 전까지의 자리를 메운다.
-
-      로딩 화면은 React 컴포넌트라 번들이 도착해 실행돼야 보인다.
-
-      **다만 이 화면이 실제로 메우는 구간은 1초 남짓이다**(SIS-30 실측). HTML 은 2.1초에
-      오지만 head 의 렌더 차단 스타일시트 두 장(번들 CSS 4.1초, Google Fonts 6.8초)이
-      끝나야 첫 픽셀이 그려져 부트가 뜨는 것은 7.2초고, 번들은 8.4초에 온다. 인라인
-      마크업이어도 스타일시트는 건너뛰지 못한다 — 이 화면을 손볼 때 「2.2초에 뜬다」를
-      전제로 삼지 말 것.
-
-      **색상·치수를 직접 적은 이유**: 토큰이 담긴 CSS 파일도 4.1초에야 온다. var(--bg) 를
-      쓰면 그때까지 아무 색이 없다. head 의 값들은 tokens.css 의 --bg, --primary,
-      --input-border 와 **같은 값이며 바꿀 때 함께 고쳐야 한다.** 자리 값(54/20/44)은
-      Loading.tsx 와 맞춰 두 화면이 이어질 때 글씨가 움직이지 않게 한 것이다.
-
-      진행선이 여기서만 반복하는 것도 일부러다. 이 구간은 얼마나 걸릴지 알 수 없어
-      한 번 차고 멈추면 정지 화면이 된다. Loading.tsx 는 기다림의 끝이 보이므로 1회다.
-
-      **스타일은 head 에 있다.** 여기 두면 HTML 이 나뉘어 올 때 스타일 없는 날문자가
-      먼저 그려진다 — head 쪽 주석 참고.
-
-      aria-labelledby 로 아래 텍스트를 이름으로도 삼는다. status 는 내용으로 이름이
-      만들어지는 role 이 아니라, 이것이 없으면 이름 없는 알림 영역이 된다
-      (Loading.tsx 가 같은 이유로 같은 방식을 쓴다).
-    -->
     <div id="boot" role="status" aria-labelledby="boot-label">
       <span id="boot-label" class="boot-sr">청첩장을 불러오는 중</span>
       <span class="boot-title" aria-hidden="true">The wedding of</span>
