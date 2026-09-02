@@ -36,7 +36,6 @@ export const INVITE = {
   venue: "신도림 웨스턴베니비스",
   hall: "다이너스티홀 7F",
   address: "서울시 구로구 새말로 97, 7F",
-  addressOld: "서울시 구로구 구로동 3-25 신도림테크노마트 7F",
 
   coords: { lat: 37.507009, lng: 126.890296 },
 

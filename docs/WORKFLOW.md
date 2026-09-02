@@ -10,7 +10,7 @@
 | [`REVIEW.md`](REVIEW.md)           | PR 검토 기준, 유출 게이트, 보안 체크리스트          |
 | [`FEATURE-MAP.md`](FEATURE-MAP.md) | 명세서 기능 ID ↔ Linear 이슈 매핑, 미채택 기능 목록 |
 | [`manual-qa.md`](manual-qa.md)     | 자동화로 덮지 못하는 실기기 확인 목록                |
-| [`supabase.md`](supabase.md)       | 스키마 실행 절차, RLS 정책 근거, `smoke:rls` 가 보는 것 |
+| [`../supabase/README.md`](../supabase/README.md) | 스키마 실행 절차, RLS 정책 근거, `smoke:rls` 가 보는 것 |
 
 ## 1. 이슈 관리 — Linear
 

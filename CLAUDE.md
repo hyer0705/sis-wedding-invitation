@@ -10,7 +10,7 @@
 
 - 검토·보안 기준은 **`docs/REVIEW.md`**
 - 명세서 기능 ID ↔ 이슈 매핑과 **미채택 기능 목록**은 **`docs/FEATURE-MAP.md`**
-- Supabase 스키마 실행 절차와 RLS 정책 근거는 **`docs/supabase.md`**
+- Supabase 스키마 실행 절차와 RLS 정책 근거는 **`supabase/README.md`** (스키마를 대시보드에 붙이기 전에 읽는다)
 
 ## 고객 요구사항의 단일 기준
 
