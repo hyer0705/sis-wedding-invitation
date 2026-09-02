@@ -14,19 +14,22 @@ export default function Notice() {
         <div style={{ width: 34, height: 1, background: RULE_COLOR, margin: "18px auto 24px" }} />
 
         <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
-          {INVITE.notices.map((notice) => (
+          {INVITE.notices.map((lines) => (
             <p
-              key={notice}
+              key={lines.join(" ")}
               style={{
                 margin: 0,
                 fontSize: scaled(14.5),
                 lineHeight: 2,
                 color: "var(--text-body)",
-                whiteSpace: "pre-line",
                 wordBreak: "keep-all",
               }}
             >
-              {notice}
+              {lines.map((line, index) => (
+                <span key={line} className="notice-line">
+                  {index === lines.length - 1 ? line : `${line} `}
+                </span>
+              ))}
             </p>
           ))}
         </div>

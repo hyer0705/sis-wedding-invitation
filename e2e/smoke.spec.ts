@@ -316,8 +316,8 @@ test.describe("청첩장 기본 동작", () => {
       await page.goto("/");
 
       const notice = page.getByTestId("notice");
-      for (const line of INVITE.notices[0].split("\n")) {
-        await expect(notice).toContainText(line);
+      for (const lines of INVITE.notices) {
+        await expect(notice).toContainText(lines.join(" "));
       }
 
       const order = await page.evaluate(() => {
@@ -333,6 +333,19 @@ test.describe("청첩장 기본 동작", () => {
       });
 
       expect(order).toEqual({ 오시는길다음: true, RSVP앞: true });
+    });
+
+    test("큰 글씨에서는 고객이 정한 자리에서 줄을 바꾼다", async ({ page }) => {
+      await page.goto("/");
+      await page.locator(".text-size-bar-button").click();
+      await page.getByTestId("notice").scrollIntoViewIfNeeded();
+
+      const tops = await page
+        .locator('[data-testid="notice"] .notice-line')
+        .evaluateAll((els) => els.map((el) => Math.round(el.getBoundingClientRect().top)));
+
+      expect(tops).toHaveLength(INVITE.notices.flat().length);
+      expect(new Set(tops).size, `조각이 같은 줄에 겹쳤다 (top: ${tops.join(", ")})`).toBe(tops.length);
     });
   });
 
