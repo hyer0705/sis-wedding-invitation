@@ -4,8 +4,8 @@ import { renderWithMotion } from "../test/renderWithMotion";
 import Notice from "./Notice";
 
 const WREATH = [
-  ["화환은 보내주지", "않으셔도 됩니다"],
-  ["축하해 주시는", "마음만으로 충분합니다"],
+  ["화환은 보내주지", "않으셔도 됩니다."],
+  ["축하해 주시는", "마음만으로 충분합니다."],
 ];
 
 let notices: readonly (readonly string[])[] = WREATH;
@@ -44,7 +44,7 @@ describe("Notice", () => {
 
     const paragraphs = card().querySelectorAll("p");
     expect(paragraphs).toHaveLength(WREATH.length);
-    expect(paragraphs[0].textContent).toBe("화환은 보내주지 않으셔도 됩니다");
+    expect(paragraphs[0].textContent).toBe("화환은 보내주지 않으셔도 됩니다.");
   });
 
   it("NT-01 큰 글씨에서 줄을 세울 수 있게 조각마다 표시를 남긴다", () => {
