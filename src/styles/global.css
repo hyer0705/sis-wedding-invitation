@@ -168,6 +168,10 @@ body {
   flex-direction: column;
 }
 
+[data-text-size="large"] .notice-line {
+  display: block;
+}
+
 .calendar {
   width: 100%;
   table-layout: fixed;

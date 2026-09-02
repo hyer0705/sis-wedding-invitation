@@ -311,6 +311,44 @@ test.describe("청첩장 기본 동작", () => {
     });
   });
 
+  test.describe("예식 안내", () => {
+    test("안내 문구가 오시는 길과 RSVP 사이에 선다", async ({ page }) => {
+      await page.goto("/");
+
+      const notice = page.getByTestId("notice");
+      for (const lines of INVITE.notices) {
+        await expect(notice).toContainText(lines.join(" "));
+      }
+
+      const order = await page.evaluate(() => {
+        const notice = document.querySelector('[data-testid="notice"]');
+        const map = document.querySelector('[data-testid="venue-map"]');
+        const rsvp = [...document.querySelectorAll(".script-title")].find((el) => el.textContent === "R.S.V.P");
+        if (!notice || !map || !rsvp) return null;
+
+        const precedes = (first: Element, second: Element) =>
+          Boolean(first.compareDocumentPosition(second) & Node.DOCUMENT_POSITION_FOLLOWING);
+
+        return { 오시는길다음: precedes(map, notice), RSVP앞: precedes(notice, rsvp) };
+      });
+
+      expect(order).toEqual({ 오시는길다음: true, RSVP앞: true });
+    });
+
+    test("큰 글씨에서는 고객이 정한 자리에서 줄을 바꾼다", async ({ page }) => {
+      await page.goto("/");
+      await page.locator(".text-size-bar-button").click();
+      await page.getByTestId("notice").scrollIntoViewIfNeeded();
+
+      const tops = await page
+        .locator('[data-testid="notice"] .notice-line')
+        .evaluateAll((els) => els.map((el) => Math.round(el.getBoundingClientRect().top)));
+
+      expect(tops).toHaveLength(INVITE.notices.flat().length);
+      expect(new Set(tops).size, `조각이 같은 줄에 겹쳤다 (top: ${tops.join(", ")})`).toBe(tops.length);
+    });
+  });
+
   test.describe("마음 전하실 곳", () => {
     test("아코디언을 열면 계좌가 나오고 복사가 실제 클립보드에 들어간다", async ({ page, context, browserName }) => {
       test.skip(browserName !== "chromium", "clipboard-read 권한은 chromium 전용");

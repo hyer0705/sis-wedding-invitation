@@ -129,6 +129,25 @@ describe("INVITE", () => {
     });
   });
 
+  describe("예식 안내(NT-01)", () => {
+    it("빈 문구를 두지 않는다", () => {
+      for (const lines of INVITE.notices) {
+        expect(lines.length).toBeGreaterThan(0);
+        for (const line of lines) {
+          expect(line.trim()).not.toBe("");
+        }
+      }
+    });
+
+    it("한 조각 안에 줄바꿈을 넣지 않는다 — 줄은 조각으로 가른다", () => {
+      for (const lines of INVITE.notices) {
+        for (const line of lines) {
+          expect(line).not.toContain("\n");
+        }
+      }
+    });
+  });
+
   describe("RSVP 마감일", () => {
     it("deadlineText 가 deadline 과 같은 날을 가리킨다", () => {
       const [y, m, d] = INVITE.rsvp.deadline.split("-").map(Number);

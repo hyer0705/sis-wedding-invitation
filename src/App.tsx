@@ -5,6 +5,7 @@ import Invitation from "./components/Invitation";
 import Calendar from "./components/Calendar";
 import Gallery from "./components/Gallery";
 import Location from "./components/Location";
+import Notice from "./components/Notice";
 import Accounts from "./components/Accounts";
 import Guestbook from "./components/Guestbook";
 import GuestbookAll from "./components/GuestbookAll";
@@ -35,6 +36,7 @@ export default function App() {
       <Calendar />
       <Gallery />
       <Location />
+      <Notice />
       <Rsvp />
       <Accounts />
       <Guestbook />
