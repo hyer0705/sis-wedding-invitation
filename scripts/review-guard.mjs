@@ -1,37 +1,18 @@
-// 커밋·PR 전 유출 게이트 — 시크릿·개인정보·금지 파일이 리포에 들어가는 것을 막는다.
-//
-// 이 리포는 프라이빗 + GitHub 무료 플랜이라 브랜치 보호도 시크릿 스캐닝 푸시 차단도
-// 쓸 수 없다(관련 API가 403을 낸다). 로컬 pre-commit 훅과 CI가 유일한 방어선이며,
-// 훅은 `--no-verify`로 우회되므로 CI의 review 잡이 최종 게이트다.
-//
-//   npm run review          스테이징된 변경만 검사 (pre-commit 훅이 호출)
-//   npm run review:branch   기준 브랜치...HEAD 전체 + 커밋 메시지 (PR 직전·CI)
-//                           기준은 REVIEW_BASE → GITHUB_BASE_REF → develop 순으로 정해진다.
-//
-// 판정: 시크릿·개인정보·금지 파일은 차단(exit 1). PR 크기는 경고만 하고 통과시킨다.
 import { execFileSync } from "node:child_process";
 import path from "node:path";
 
 const BRANCH_MODE = process.argv.includes("--branch");
 const BASE = process.env.REVIEW_BASE || process.env.GITHUB_BASE_REF || "develop";
-const MAX_NEW_FILE_BYTES = 1024 * 1024; // 1MB
+const MAX_NEW_FILE_BYTES = 1024 * 1024;
 const PR_SIZE_WARN = 400;
 const PR_SIZE_SPLIT = 800;
 
-// ── 예외 경로 ─────────────────────────────────────────────────────────────
-// drafts/ 는 시안 보관용이고 읽기 전용이다(CLAUDE.md). 13MB 원본 JPEG가 이미
-// 히스토리에 있으므로 경로 전체를 검사에서 제외한다.
 const SKIP_ALL = (f) => f.startsWith("drafts/");
 
-// src/invite.ts 는 고객 정보의 유일한 저장소다. 여기 있는 것이 정상이고,
-// 여기 밖으로 나가는 것이 사고다.
 const SKIP_PII = (f) => f === "src/invite.ts";
 
-// 이 스캐너 자신과 검토 문서에는 룰 정의와 테스트 픽스처가 들어 있어
-// 자기 자신을 차단하게 된다. 대신 이 파일들은 사람이 직접 검토한다.
 const SELF = new Set(["scripts/review-guard.mjs", "scripts/review-guard.test.mjs", "docs/REVIEW.md"]);
 
-// ── 금지 파일 ─────────────────────────────────────────────────────────────
 const FORBIDDEN_PATHS = [
   { test: (f) => /(^|\/)\.env($|\.)/.test(f) && !f.endsWith(".env.example"), why: "환경변수 파일 — 시크릿이 들어 있다" },
   { test: (f) => path.basename(f) === ".DS_Store", why: "macOS 메타파일" },
@@ -45,7 +26,6 @@ const FORBIDDEN_PATHS = [
   },
 ];
 
-// ── 시크릿 패턴 ───────────────────────────────────────────────────────────
 const SECRET_RULES = [
   { name: "Google API 키", re: /AIza[0-9A-Za-z_-]{35}/g },
   { name: "Apps Script 배포 URL", re: /script\.google\.com\/macros\/s\/[A-Za-z0-9_-]{20,}/g },
@@ -54,49 +34,24 @@ const SECRET_RULES = [
   {
     name: "하드코딩된 시크릿",
     re: /(secret|token|password|api[_-]?key)\s*[:=]\s*["'][^"'\s]{8,}["']/gi,
-    // import.meta.env / process.env 참조는 값이 아니라 주입 지점이므로 통과시킨다.
     ignore: (m) => /import\.meta\.env|process\.env/.test(m),
   },
 ];
 
-// ── 개인정보 패턴 ─────────────────────────────────────────────────────────
-// 계좌는 최소 3마디로 좁혔다. 2마디(\d+-\d+)까지 잡으면 `480-960` 같은 이미지 폭
-// 표기가 전부 걸린다. 고객 계좌는 전부 3~4마디다.
 const PII_RULES = [
   { name: "휴대폰 번호", re: /\b01[016-9][-. ]?\d{3,4}[-. ]?\d{4}\b/g },
   { name: "주민등록번호", re: /\b\d{6}-\d{7}\b/g },
   { name: "계좌번호", re: /\b(?:\d{2,6}-){2,3}\d{2,8}\b/g },
 ];
 
-// 날짜는 계좌 정규식에 그대로 걸린다. INVITE.dateISO(2027-01-24)와 dateDots
-// (2027 . 01 . 24)는 .ics·OG 태그·화면 문구에 실제로 등장하는 값이므로,
-// 검사 전에 같은 길이의 공백으로 덮어 줄·열 번호를 유지한 채 무력화한다.
-//
-// 앞뒤 경계가 필수다. 없으면 4마디 계좌번호 `123-456789-01-011` 안의 `6789-01-01`이
-// 날짜로 잡혀 마스킹되고, 정작 계좌번호가 탐지되지 않는다.
 const DATE_PATTERNS = [/(?<![\d-])\d{4}-\d{2}-\d{2}(?![\d-])/g, /(?<!\d)\d{4}\s?\.\s?\d{1,2}\s?\.\s?\d{1,2}(?!\d)/g];
 
 export function maskDates(text) {
   return DATE_PATTERNS.reduce((t, re) => t.replace(re, (m) => "\0".repeat(m.length)), text);
 }
 
-// 화면에 보이는 예시 번호. 입력칸의 힌트("ex) …")가 쓴다.
-//
-// 모두 같은 숫자로 적으면(00000000000) 게이트는 통과하지만 하객이 그것을 보고
-// 「번호를 적는 칸」이라고 알아채지 못한다 — 예시가 예시 노릇을 하려면 진짜와 같은
-// 모양이어야 한다. 그래서 값을 하나하나 적어 허용한다.
-//
-// 테스트 픽스처도 같은 목록을 쓴다(SIS-22). CSV 로 내보낼 때 번호를 어떻게 끊는지
-// 검증하려면 자리 수가 실제와 같아야 하는데, 같은 숫자로 채우면 그 검증이 성립하지
-// 않는다 — 02·031 은 국번 자리가 다르다.
-//
-// ★ 이 목록에 값을 더할 때는 **순차 숫자처럼 한눈에 가짜인 것만** 넣는다. 진짜처럼
-//   보이는 번호를 여기 넣는 순간 이 게이트는 그 번호를 영원히 못 잡는다.
 const EXAMPLE_NUMBERS = new Set(["01012345678", "0212345678", "021234567", "0311234567"]);
 
-// 모든 자리가 같은 숫자면 실제 계좌·번호일 수 없다. 배포 게이트가 검사하는
-// placeholder `000-000-000000`이 CLAUDE.md·WORKFLOW.md·verify-release.mjs에
-// 규칙으로 적혀 있어, 제외하지 않으면 그 문서를 고칠 때마다 걸린다.
 function isPlaceholder(s) {
   const digits = s.replace(/\D/g, "");
   return new Set(digits).size === 1 || EXAMPLE_NUMBERS.has(digits);
@@ -106,10 +61,6 @@ function lineOf(text, index) {
   return text.slice(0, index).split("\n").length;
 }
 
-/**
- * 파일 내용에서 시크릿·개인정보를 찾는다. 순수 함수이며 테스트가 이 함수를 직접 부른다.
- * @returns {{kind: string, rule: string, line: number, hint: string}[]}
- */
 export function scanText(text, file) {
   if (SKIP_ALL(file) || SELF.has(file)) return [];
   const findings = [];
@@ -122,7 +73,6 @@ export function scanText(text, file) {
   }
 
   if (!SKIP_PII(file)) {
-    // 휴대폰이 계좌 패턴에도 걸리므로, 앞선 규칙이 잡은 구간은 덮어 중복 보고를 막는다.
     let remaining = maskDates(text);
     for (const { name, re } of PII_RULES) {
       const hits = [...remaining.matchAll(re)];
@@ -139,18 +89,15 @@ export function scanText(text, file) {
   return findings;
 }
 
-// 적발된 값을 그대로 출력하면 터미널 로그·CI 로그에 유출이 한 번 더 일어난다.
 function redact(s) {
   return s.length <= 6 ? "*".repeat(s.length) : `${s.slice(0, 3)}${"*".repeat(s.length - 5)}${s.slice(-2)}`;
 }
 
-/** 경로만 보고 판정한다. @returns {string|null} 차단 사유 */
 export function forbiddenReason(file) {
   if (SKIP_ALL(file)) return null;
   return FORBIDDEN_PATHS.find(({ test }) => test(file))?.why ?? null;
 }
 
-// ── git 헬퍼 ──────────────────────────────────────────────────────────────
 function git(args, { binary = false } = {}) {
   return execFileSync("git", args, {
     encoding: binary ? "buffer" : "utf8",
@@ -166,7 +113,6 @@ function tryGit(args, opts) {
   }
 }
 
-/** 비교 대상 base ref. 로컬에 develop이 없으면(CI 얕은 클론) origin/develop을 쓴다. */
 function baseRef() {
   if (tryGit(["rev-parse", "--verify", "--quiet", BASE])) return BASE;
   if (tryGit(["rev-parse", "--verify", "--quiet", `origin/${BASE}`])) return `origin/${BASE}`;
@@ -183,11 +129,6 @@ function changedFiles(base) {
     .filter(Boolean);
 }
 
-/**
- * 검사 대상 내용을 읽는다.
- * 스테이징 모드는 작업트리(`file`)가 아니라 인덱스(`:file`)를 봐야 정확하다.
- * 부분 스테이징(`git add -p`)했을 때 실제로 커밋될 내용은 인덱스 쪽이다.
- */
 function readBlob(file) {
   return tryGit(["show", BRANCH_MODE ? `HEAD:${file}` : `:${file}`], { binary: true });
 }
@@ -196,7 +137,6 @@ function isBinary(buf) {
   return buf.subarray(0, 8000).includes(0);
 }
 
-// ── 실행 ──────────────────────────────────────────────────────────────────
 function run() {
   const base = baseRef();
   if (BRANCH_MODE && !base) {
@@ -229,8 +169,6 @@ function run() {
     }
   }
 
-  // 커밋 메시지도 검사한다. CLAUDE.md가 "커밋 메시지에 개인정보 금지"를 규칙으로
-  // 두고 있으므로 기계로 강제한다.
   if (BRANCH_MODE) {
     const log = tryGit(["log", `${base}..HEAD`, "--format=%H%n%B%n---"]) ?? "";
     for (const f of scanText(log, "<커밋 메시지>")) {
@@ -238,7 +176,6 @@ function run() {
     }
   }
 
-  // PR 크기는 경고만 한다. 되돌리기 어려운 유출과 달리 크기는 판단의 문제다.
   if (BRANCH_MODE) {
     const numstat = tryGit(["diff", "--numstat", `${base}...HEAD`]) ?? "";
     let lines = 0;
@@ -266,5 +203,4 @@ function run() {
   console.log(`검토 게이트 통과 (${files.length}개 파일 검사${warnings.length ? `, 경고 ${warnings.length}건` : ""})`);
 }
 
-// 테스트가 import할 때는 실행하지 않는다.
 if (process.argv[1] && path.resolve(process.argv[1]).endsWith("review-guard.mjs")) run();

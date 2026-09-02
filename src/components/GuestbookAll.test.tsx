@@ -70,7 +70,6 @@ describe("GuestbookAll 더보기", () => {
     vi.mocked(fetchGuestbookPage).mockResolvedValue(pageFrom(PAGE_SIZE, PAGE_SIZE, false));
     await user.click(screen.getByRole("button", { name: "더보기" }));
 
-    // 앞 쪽을 덮어쓰지 않고 뒤에 붙어야 한다.
     await waitFor(() => expect(within(list()).getAllByRole("listitem")).toHaveLength(PAGE_SIZE * 2));
     expect(within(list()).getByText("축하해요 0")).toBeInTheDocument();
     expect(within(list()).getByText(`축하해요 ${PAGE_SIZE}`)).toBeInTheDocument();
@@ -110,8 +109,6 @@ describe("GuestbookAll 더보기", () => {
 });
 
 describe("GuestbookAll 삭제", () => {
-  // ★ 이 이슈의 회귀 지점이다. 지운 뒤 목록을 통째로 다시 읽으면 「더보기」로 쌓아 둔
-  // 쪽이 1쪽으로 되감겨, 한 건을 지웠는데 열 건 넘게 사라진다.
   it("쌓아 둔 쪽을 되감지 않고 지운 글만 뺀다", async () => {
     const user = userEvent.setup();
     renderWithMotion(<GuestbookAll />);

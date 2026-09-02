@@ -36,15 +36,12 @@ describe("signIn", () => {
     expect(rpc).toHaveBeenCalledWith("is_admin");
   });
 
-  // 원문(Invalid login credentials)은 로그인하는 사람이 읽을 글이 아니다.
   it("자격 오류를 한국어로 바꾼다", async () => {
     mockClient({ signInError: { message: "Invalid login credentials" } });
 
     await expect(signIn("admin@example.com", "틀린값")).rejects.toThrow("이메일 또는 비밀번호가 올바르지 않습니다");
   });
 
-  // 로그인만 된 계정은 RLS 가 회신을 한 건도 주지 않는데, 화면에서는 그것이
-  // 「아직 회신이 없어요」와 구별되지 않는다. 세션을 들고 있을 이유가 없다.
   it("관리자가 아니면 곧바로 로그아웃하고 알린다", async () => {
     const { supabaseSignOut } = mockClient({ adminResult: { data: false, error: null } });
 
