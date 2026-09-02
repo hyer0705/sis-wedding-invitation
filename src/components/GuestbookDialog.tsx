@@ -21,10 +21,6 @@ export default function GuestbookDialog({
   const titleId = useId();
   const leadId = useId();
 
-  // onClose 는 호출부가 인라인 화살표로 넘기는 일이 많아 렌더마다 새 함수다. 그것을
-  // effect 의존성에 두면 부모가 다시 렌더될 때마다 정리·재실행이 돌아, cleanup 의
-  // opener.focus() 가 입력 중인 칸에서 초점을 빼앗는다. 최신 값만 ref 로 들고
-  // effect 는 마운트에 한 번만 돌게 한다.
   const closeRef = useRef(onClose);
   closeRef.current = onClose;
 
