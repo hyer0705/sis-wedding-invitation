@@ -204,6 +204,95 @@ test.describe("청첩장 기본 동작", () => {
     });
   });
 
+  test.describe("초대글", () => {
+    const nameLefts = async (page: Page) => {
+      const blocks = page.locator(".parent-names");
+      const counts = await blocks.count();
+
+      const lefts: number[][] = [];
+      for (let index = 0; index < counts; index += 1) {
+        lefts.push(
+          await blocks
+            .nth(index)
+            .locator(".parent-name")
+            .evaluateAll((els) => els.map((el) => Math.round(el.getBoundingClientRect().left))),
+        );
+      }
+      return lefts;
+    };
+
+    test("IN-04 혼주 성함이 故 표시에 밀리지 않고 한쪽 안에서 같은 자리에 선다", async ({ page }) => {
+      await page.goto("/");
+      await page.evaluate(() => document.fonts.ready);
+
+      const lefts = await nameLefts(page);
+
+      expect(lefts.map((side) => side.length)).toEqual([INVITE.groom.parents.length, INVITE.bride.parents.length]);
+      for (const side of lefts) {
+        expect(new Set(side).size, `혼주 성함 시작점이 어긋났다 (left: ${side.join(", ")})`).toBe(1);
+      }
+    });
+
+    test("IN-04 큰 글씨에서도 혼주 성함 시작점이 어긋나지 않는다", async ({ page }) => {
+      await page.goto("/");
+      await page.locator(".text-size-bar-button").click();
+      await page.evaluate(() => document.fonts.ready);
+
+      for (const side of await nameLefts(page)) {
+        expect(new Set(side).size, `큰 글씨에서 혼주 성함 시작점이 어긋났다 (left: ${side.join(", ")})`).toBe(1);
+      }
+    });
+
+    const columnLefts = (page: Page) =>
+      page.evaluate(() => {
+        const grid = document.querySelector(".parents");
+        const cells = grid ? Array.from(grid.children) : [];
+        const left = (el: Element) => Math.round(el.getBoundingClientRect().left);
+        return {
+          names: cells.filter((el) => el.classList.contains("parent-names")).map(left),
+          relations: cells.filter((el) => el.previousElementSibling?.classList.contains("parent-names")).map(left),
+          children: cells
+            .filter((el) => el.previousElementSibling?.previousElementSibling?.classList.contains("parent-names"))
+            .map(left),
+        };
+      });
+
+    test("IN-04 신랑측·신부측 줄의 칸이 같은 세로선에 선다", async ({ page }) => {
+      await page.goto("/");
+      await page.evaluate(() => document.fonts.ready);
+
+      const { names, relations, children } = await columnLefts(page);
+
+      expect(names).toHaveLength(2);
+      expect(new Set(names).size, `혼주 이름 칸이 줄마다 어긋났다 (left: ${names.join(", ")})`).toBe(1);
+      expect(new Set(relations).size, `「의 관계」 칸이 줄마다 어긋났다 (left: ${relations.join(", ")})`).toBe(1);
+      expect(new Set(children).size, `자녀 이름 칸이 줄마다 어긋났다 (left: ${children.join(", ")})`).toBe(1);
+    });
+
+    test("IN-04 큰 글씨에서도 칸이 어긋나지 않고 카드 밖으로 밀려나지 않는다", async ({ page }) => {
+      await page.goto("/");
+      await page.locator(".text-size-bar-button").click();
+      await page.evaluate(() => document.fonts.ready);
+
+      const { names, relations, children } = await columnLefts(page);
+      for (const column of [names, relations, children]) {
+        expect(new Set(column).size, `큰 글씨에서 칸이 어긋났다 (left: ${column.join(", ")})`).toBe(1);
+      }
+
+      const room = await page.evaluate(() => {
+        const grid = document.querySelector(".parents");
+        const card = grid?.parentElement;
+        if (!grid || !card) return null;
+        const style = getComputedStyle(card);
+        const inner = card.getBoundingClientRect().width - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight);
+        return inner - grid.getBoundingClientRect().width;
+      });
+
+      expect(room).not.toBeNull();
+      expect(room!, "혼주 표기가 카드 안쪽 폭을 넘었다").toBeGreaterThanOrEqual(0);
+    });
+  });
+
   test.describe("갤러리 슬라이드", () => {
     const track = (page: Page) => page.getByRole("group", { name: "웨딩 사진 갤러리" });
     const counter = (page: Page) => page.getByTestId("gallery-counter");
@@ -387,6 +476,62 @@ test.describe("청첩장 기본 동작", () => {
       expect(order).toBe("before");
     });
 
+    test("두 버튼의 윤곽이 페이지 배경과 3:1 이상 갈린다", async ({ page }) => {
+      await page.goto("/");
+
+      const edges = await page.evaluate(() => {
+        const parse = (value: string) => (value.match(/[\d.]+/g) ?? []).slice(0, 3).map(Number);
+        const luminance = (c: number[]) => {
+          const ch = (v: number) => {
+            const s = v / 255;
+            return s <= 0.03928 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4;
+          };
+          return 0.2126 * ch(c[0]) + 0.7152 * ch(c[1]) + 0.0722 * ch(c[2]);
+        };
+        const ratio = (a: number[], b: number[]) => {
+          const [hi, lo] = [luminance(a), luminance(b)].sort((x, y) => y - x);
+          return (hi + 0.05) / (lo + 0.05);
+        };
+
+        const section = document.querySelector('[aria-label="청첩장 공유"]');
+        const buttons = section ? Array.from(section.querySelectorAll("button")) : [];
+        if (buttons.length !== 2) return null;
+
+        const pageBg = parse(getComputedStyle(document.body).backgroundColor);
+        return buttons.map((button) => {
+          const style = getComputedStyle(button);
+          return {
+            label: button.textContent?.trim() ?? "",
+            edge: ratio(parse(style.borderTopColor), pageBg),
+            text: ratio(parse(style.color), parse(style.backgroundColor)),
+          };
+        });
+      });
+
+      expect(edges).not.toBeNull();
+      for (const { label, edge, text } of edges!) {
+        expect(edge, `${label} 의 윤곽이 배경에 묻힌다`).toBeGreaterThanOrEqual(3);
+        expect(text, `${label} 의 글자가 AA 에 못 미친다`).toBeGreaterThanOrEqual(4.5);
+      }
+    });
+
+    test("큰 글씨로 보기에서도 두 버튼이 한 줄에 남는다", async ({ page }) => {
+      await page.goto("/");
+      await page.locator(".text-size-bar-button").click();
+
+      const rows = await page.evaluate(() => {
+        const section = document.querySelector('[aria-label="청첩장 공유"]');
+        const buttons = section ? Array.from(section.querySelectorAll("button")) : [];
+        if (buttons.length !== 2) return null;
+        const [a, b] = buttons.map((el) => el.getBoundingClientRect());
+        return { sameRow: Math.abs(a.top - b.top) < 1, overflow: b.right > document.documentElement.clientWidth };
+      });
+
+      expect(rows).not.toBeNull();
+      expect(rows!.sameRow).toBe(true);
+      expect(rows!.overflow).toBe(false);
+    });
+
     test("링크 복사가 배포 주소를 클립보드에 넣는다", async ({ page, context, browserName }) => {
       test.skip(browserName !== "chromium", "clipboard-read 권한은 chromium 전용");
       await context.grantPermissions(["clipboard-read", "clipboard-write"]);
@@ -411,6 +556,57 @@ test.describe("청첩장 기본 동작", () => {
       await expect(page.locator('meta[property="og:description"]')).toHaveAttribute("content", INVITE.share.description);
       await expect(page.locator('meta[property="og:url"]')).toHaveAttribute("content", INVITE.siteUrl);
       await expect(page.locator('meta[property="og:image"]')).toHaveAttribute("content", /^https:\/\/.+\/og-image\.jpg$/);
+    });
+  });
+
+  test.describe("푸터", () => {
+    const copyright = (page: Page) => page.getByText("© 2026 Lucyground");
+
+    test("제작자 저작권이 푸터 마지막 줄에 보인다", async ({ page }) => {
+      await page.goto("/");
+      await copyright(page).scrollIntoViewIfNeeded();
+
+      await expect(copyright(page)).toBeVisible();
+
+      const last = await page.evaluate(() => {
+        const footer = document.querySelector("footer");
+        return footer?.lastElementChild?.textContent?.trim();
+      });
+      expect(last).toBe("© 2026 Lucyground");
+    });
+
+    test("큰 글씨로 보기에서도 신랑·신부 이름보다 작다", async ({ page }) => {
+      await page.goto("/");
+      await page.locator(".text-size-bar-button").click();
+      await copyright(page).scrollIntoViewIfNeeded();
+
+      const sizes = await page.evaluate(() => {
+        const footer = document.querySelector("footer");
+        const lines = footer ? Array.from(footer.children) : [];
+        const size = (el: Element | undefined) => (el ? parseFloat(getComputedStyle(el).fontSize) : 0);
+        return { names: size(lines.at(-3)), copyright: size(lines.at(-1)) };
+      });
+
+      expect(sizes.copyright).toBeGreaterThan(0);
+      expect(sizes.copyright).toBeLessThan(sizes.names);
+    });
+
+    test("글자 크기 바가 저작권 줄을 가리지 않는다", async ({ page }) => {
+      await page.goto("/");
+      await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+      await expect(copyright(page)).toBeVisible();
+
+      const overlap = await page.evaluate(() => {
+        const line = Array.from(document.querySelectorAll("footer div")).find((el) =>
+          el.textContent?.includes("© 2026 Lucyground"),
+        );
+        const bar = document.querySelector(".text-size-bar");
+        if (!line || !bar) return null;
+        return line.getBoundingClientRect().bottom - bar.getBoundingClientRect().top;
+      });
+
+      expect(overlap).not.toBeNull();
+      expect(overlap!).toBeLessThanOrEqual(0);
     });
   });
 
@@ -774,16 +970,30 @@ test.describe("청첩장 기본 동작", () => {
   });
 
   test.describe("배경음악", () => {
-    test("자동으로 재생하지 않는다", async ({ page }) => {
+    test("켜진 상태로 시작한다", async ({ page }) => {
       await page.goto("/");
 
-      await expect(page.getByRole("button", { name: "배경음악" })).toHaveAttribute("aria-pressed", "false");
+      await expect(page.getByRole("button", { name: "배경음악" })).toHaveAttribute("aria-pressed", "true");
 
       const state = await page.evaluate(() => {
         const audio = document.querySelector("audio");
-        return audio ? { paused: audio.paused, muted: audio.muted, preload: audio.preload, loop: audio.loop } : null;
+        return audio ? { muted: audio.muted, preload: audio.preload, loop: audio.loop } : null;
       });
-      expect(state).toEqual({ paused: true, muted: true, preload: "none", loop: true });
+      expect(state).toEqual({ muted: false, preload: "none", loop: true });
+    });
+
+    test("토글을 누르면 멎고 음소거로 돌아간다", async ({ page }) => {
+      await page.goto("/");
+
+      const toggle = page.getByRole("button", { name: "배경음악" });
+      await toggle.click();
+
+      await expect(toggle).toHaveAttribute("aria-pressed", "false");
+      const state = await page.evaluate(() => {
+        const audio = document.querySelector("audio");
+        return audio ? { paused: audio.paused, muted: audio.muted } : null;
+      });
+      expect(state).toEqual({ paused: true, muted: true });
     });
 
     test("아래로 스크롤해도 토글이 화면에 남는다", async ({ page }) => {
@@ -934,12 +1144,12 @@ test.describe("청첩장 기본 동작", () => {
         ["--muted-2", "--card", SMALL, "갤러리 카운터 18px"],
         ["--primary", "--bg", LARGE, "커버 30px·푸터 34px — 전부 큰 글씨"],
         ["--primary", "--card", SMALL, "교통 안내 라벨 13.5px·혼주 관계 13px·D-Day 일수 14.5px 굵게"],
-        ["--on-surface", "--surface-2", SMALL, "공유 버튼 13px"],
+        ["--on-surface", "--surface-2", SMALL, "링크 복사 버튼 13px"],
         ["--on-surface", "--surface", SMALL, "RSVP 미선택 버튼 14px·잠긴 제출 버튼 15px"],
         ["--on-surface", "--surface-3", SMALL, "개인정보 처리방침 펼치기 13px"],
         ["--text", "--surface-3", SMALL, "개인정보 안내 제목 13.5px·동의 문구 13px·확인 팝업 항목 값 14px"],
         ["--error", "--card", SMALL, "오류 메시지 13px·오류 칸 테두리·초점 링"],
-        ["--on-primary", "--primary", SMALL, "달력 예식일 원 14.5px 굵게·주소 복사 버튼 14px"],
+        ["--on-primary", "--primary", SMALL, "달력 예식일 원 14.5px 굵게·주소 복사 버튼 14px·카카오톡 공유 버튼 13px"],
         ["--on-primary-sub", "--primary", SMALL, "D-Day 「초」 라벨 11.5px"],
         ["--on-primary-title", "--primary", SMALL, "그린 배경 위 제목"],
       ];

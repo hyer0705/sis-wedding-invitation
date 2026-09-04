@@ -1,3 +1,4 @@
+import { Fragment } from "react";
 import Reveal from "./Reveal";
 import { INVITE } from "../invite";
 import { parentNameLines } from "../lib/parents";
@@ -11,6 +12,8 @@ const CARD_PADDING_X = 26;
 const BODY_SIZE = scaled(14.5);
 const PARENTS_SIZE = scaled(14);
 const PARENTS_LINE_HEIGHT = 1.85;
+const COLUMN_GAP = 7;
+const BLANK_MARKER = "\u00a0";
 
 export default function Invitation() {
   return (
@@ -37,36 +40,50 @@ export default function Invitation() {
         ))}
 
         <div
+          className="parents"
           style={{
             marginTop: 36,
             paddingTop: 26,
             borderTop: `1px solid ${RULE_COLOR}`,
-            display: "flex",
-            flexDirection: "column",
-            gap: 16,
+            display: "grid",
+            gridTemplateColumns: "auto auto auto auto",
+            justifyContent: "center",
+            alignItems: "center",
+            columnGap: COLUMN_GAP,
+            rowGap: 16,
             fontSize: PARENTS_SIZE,
             color: "var(--text-body)",
             wordBreak: "keep-all",
           }}
         >
-          {[INVITE.groom, INVITE.bride].map((side) => (
-            <div key={side.name} style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 7 }}>
-              <span
-                style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  alignItems: "flex-start",
-                  lineHeight: PARENTS_LINE_HEIGHT,
-                }}
-              >
-                {parentNameLines(side.parents).map((name) => (
-                  <span key={name}>{name}</span>
-                ))}
-              </span>
-              <span style={{ color: "var(--primary)", fontSize: scaled(13) }}>의 {side.relation}</span>
-              <span>{side.first}</span>
-            </div>
-          ))}
+          {[INVITE.groom, INVITE.bride].map((side) => {
+            const lines = parentNameLines(side.parents);
+
+            return (
+              <Fragment key={side.name}>
+                <span
+                  className="parent-markers"
+                  style={{ display: "grid", justifyItems: "end", lineHeight: PARENTS_LINE_HEIGHT }}
+                >
+                  {lines.map(({ marker, name }) => (
+                    <span key={name}>{marker === "" ? BLANK_MARKER : marker}</span>
+                  ))}
+                </span>
+                <span
+                  className="parent-names"
+                  style={{ display: "grid", justifyItems: "start", lineHeight: PARENTS_LINE_HEIGHT }}
+                >
+                  {lines.map(({ name }) => (
+                    <span key={name} className="parent-name">
+                      {name}
+                    </span>
+                  ))}
+                </span>
+                <span style={{ color: "var(--primary)", fontSize: scaled(13) }}>의 {side.relation}</span>
+                <span>{side.first}</span>
+              </Fragment>
+            );
+          })}
         </div>
       </div>
     </Reveal>

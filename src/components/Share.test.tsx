@@ -34,6 +34,21 @@ describe("Share", () => {
     expect(screen.getByRole("button", { name: "링크 복사" })).toBeInTheDocument();
   });
 
+  it("두 버튼 모두 페이지 배경과 갈리는 윤곽을 갖는다", () => {
+    renderWithMotion(<Share />);
+
+    const kakao = screen.getByRole("button", { name: "카카오톡으로 공유" });
+    const link = screen.getByRole("button", { name: "링크 복사" });
+
+    expect(kakao.style.background).toBe("var(--primary)");
+    expect(kakao.style.color).toBe("var(--on-primary)");
+    expect(kakao.style.border).toBe("1px solid var(--primary)");
+
+    expect(link.style.background).toBe("var(--surface-2)");
+    expect(link.style.color).toBe("var(--on-surface)");
+    expect(link.style.border).toBe("1px solid var(--primary)");
+  });
+
   it("카카오톡 버튼이 카카오 공유를 부른다", async () => {
     renderWithMotion(<Share />);
     await userEvent.click(screen.getByRole("button", { name: "카카오톡으로 공유" }));

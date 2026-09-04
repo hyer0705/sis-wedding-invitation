@@ -101,6 +101,7 @@ M4가 별도인 이유: 방명록은 **읽기**가 필요하고 관리자 비밀
 | 1.2.1 | PC 에서 본 경우 수정 (SIS-42, 2026-08-27). 지도 앱 스킴·티맵 스토어·카카오 공유 팝업 |
 | 1.3.0 | 어른 하객 가독성 (SIS-43·SIS-44, 2026-09-01). 혼주 표기 줄 나눔, 보조 텍스트 대비·크기, 큰 글씨 바 |
 | 1.4.0 | 화환 안내·파비콘 (SIS-47·SIS-48, 2026-09-02). 함께 들어간 SIS-45·SIS-46 은 하객 화면을 바꾸지 않는다 |
+| 1.5.0 | 고객 요청 6건 (SIS-49~SIS-53·SIS-55, 2026-09-04). 화환 문구, 혼주 표기 정렬, 배경음악 기본 켜짐, 제작자 표기, 공유 버튼 대비. 함께 들어간 SIS-54 는 CI 만 바꾼다 |
 
 1.0.0 은 번호를 붙이기 전에 나간 M3 릴리스에 해당한다. 소급해 태그를 달지 않는다.
 
@@ -195,6 +196,7 @@ M4가 별도인 이유: 방명록은 **읽기**가 필요하고 관리자 비밀
 | Playwright 버전과 CI 이미지 | E2E 는 공식 컨테이너 이미지(`mcr.microsoft.com/playwright:v1.62.1-noble`) 안에서 돈다(SIS-34). **이미지 태그의 버전은 `package.json` 의 `@playwright/test` 와 정확히 같아야 한다** — 어긋나면 번들 브라우저를 찾지 못해 `Executable doesn't exist at /ms-playwright/…` 로 실패한다. **Playwright 를 올릴 때 `.github/workflows/ci.yml` 의 `container:` 줄도 함께 올린다.** 옛 방식(`playwright install --with-deps`)으로 되돌리지 말 것 — webkit 의 OS 라이브러리를 apt 로 매번 새로 깔아 18분 44초가 들었고, 브라우저 캐시로는 줄지 않는다. |
 | E2E 는 `invite.ts` 를 Vite 없이 직접 읽는다 | 그래서 스펙 안에서는 `import.meta.env` 가 없어 빈 객체로 떨어지고 **mock 값이 쓰인다** — 개발 화면과 같아지므로 대부분은 이 편이 맞다. **계좌만은 예외다.** mock 이 없어 이 경로에서는 빈 배열이 되는데, 빌드된 화면에는 `playwright.config.ts` 의 `webServer.env` 가 넣은 가짜 계좌가 박혀 있다. 즉 **스펙에서 `INVITE` 를 직접 읽어 계좌를 기대값으로 삼으면 어긋난다.** |
 | 유닛 테스트는 환경변수를 비운 채 돈다 | Vitest 도 Vite 라 `.env` 를 읽는다. 그대로 두면 `.env` 가 있는 로컬과 없는 CI 의 결과가 달라져 **로컬에서만 통과하는 테스트**가 생긴다 — 계좌에서 실제로 겪었다(SIS-13). 그래서 `vite.config.ts` 의 `test.env` 가 계좌·이미지 베이스·카카오 키·Supabase 값을 빈 문자열로 덮는다. 값이 필요한 테스트는 픽스처를 주입한다(`vi.stubEnv` 또는 인자 주입 — `src/lib/share.test.ts` 참고). **환경변수를 새로 쓰기 시작하면 이 목록에도 넣는다.** |
+| CI 의 취약점 검사와 npm 버전 | `review` 잡은 setup-node 뒤에 **npm 을 11 로 올린 다음** `npm audit` 을 돌린다(SIS-54). `node-version: 22` 가 물고 오는 npm 10 은 은퇴 중인 `audits/quick` 엔드포인트를 쳐서 **취약점이 없어도 500·503 으로 죽는다** — 재실행해도 같고 매번 5~7분을 태운다. npm 11 은 bulk advisory 엔드포인트를 쓴다. **`node-version` 을 올려 해결하지 않는다**: check·e2e 잡과 런타임이 갈라지면 그쪽에서만 나는 문제를 만들 수 있다. |
 | CI 의존성 설치              | `npm ci`를 쓰지 않고 `npm install`을 쓴다. sharp의 wasm32 변형이 요구하는 `@emnapi/runtime`·`core`가 lock에 최상위 엔트리로 없어(macOS에서 설치 대상이 아니라 npm이 생략) `npm ci`가 중단되고, lock을 재생성하면 이번엔 리눅스 네이티브 바이너리가 빠져 빌드가 깨진다. **`package-lock.json`을 재생성하지 말 것** — 현재 lock은 전 플랫폼 네이티브 바이너리를 담고 있다. sharp나 npm이 이 문제를 고치면 `npm ci`로 되돌린다. |
 
 ## 8. 명령어
