@@ -24,15 +24,21 @@ export default function Share() {
       <section aria-label="청첩장 공유" style={{ padding: "30px 20px 0" }}>
         <p style={{ margin: "0 0 14px", textAlign: "center", fontSize: scaled(13), color: "var(--text-body)" }}>{LEAD}</p>
         <div style={{ display: "flex", gap: 10 }}>
-          <ShareButton onClick={() => handle(shareKakao)}>카카오톡으로 공유</ShareButton>
-          <ShareButton onClick={() => handle(copyLink)}>링크 복사</ShareButton>
+          <ShareButton tone="filled" onClick={() => handle(shareKakao)}>
+            카카오톡으로 공유
+          </ShareButton>
+          <ShareButton tone="outlined" onClick={() => handle(copyLink)}>
+            링크 복사
+          </ShareButton>
         </div>
       </section>
     </Reveal>
   );
 }
 
-function ShareButton({ onClick, children }: { onClick: () => void; children: string }) {
+function ShareButton({ tone, onClick, children }: { tone: "filled" | "outlined"; onClick: () => void; children: string }) {
+  const filled = tone === "filled";
+
   return (
     <button
       type="button"
@@ -40,12 +46,13 @@ function ShareButton({ onClick, children }: { onClick: () => void; children: str
       style={{
         flex: 1,
         padding: "15px 8px",
-        background: "var(--surface-2)",
-        border: "none",
+        background: filled ? "var(--primary)" : "var(--surface-2)",
+        border: "1px solid var(--primary)",
         borderRadius: "var(--radius-control)",
-        color: "var(--on-surface)",
+        color: filled ? "var(--on-primary)" : "var(--on-surface)",
         fontFamily: "var(--font-serif)",
         fontSize: scaled(13),
+        wordBreak: "keep-all",
         cursor: "pointer",
       }}
     >

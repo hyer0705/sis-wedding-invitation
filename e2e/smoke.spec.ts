@@ -427,6 +427,62 @@ test.describe("청첩장 기본 동작", () => {
       expect(order).toBe("before");
     });
 
+    test("두 버튼의 윤곽이 페이지 배경과 3:1 이상 갈린다", async ({ page }) => {
+      await page.goto("/");
+
+      const edges = await page.evaluate(() => {
+        const parse = (value: string) => (value.match(/[\d.]+/g) ?? []).slice(0, 3).map(Number);
+        const luminance = (c: number[]) => {
+          const ch = (v: number) => {
+            const s = v / 255;
+            return s <= 0.03928 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4;
+          };
+          return 0.2126 * ch(c[0]) + 0.7152 * ch(c[1]) + 0.0722 * ch(c[2]);
+        };
+        const ratio = (a: number[], b: number[]) => {
+          const [hi, lo] = [luminance(a), luminance(b)].sort((x, y) => y - x);
+          return (hi + 0.05) / (lo + 0.05);
+        };
+
+        const section = document.querySelector('[aria-label="청첩장 공유"]');
+        const buttons = section ? Array.from(section.querySelectorAll("button")) : [];
+        if (buttons.length !== 2) return null;
+
+        const pageBg = parse(getComputedStyle(document.body).backgroundColor);
+        return buttons.map((button) => {
+          const style = getComputedStyle(button);
+          return {
+            label: button.textContent?.trim() ?? "",
+            edge: ratio(parse(style.borderTopColor), pageBg),
+            text: ratio(parse(style.color), parse(style.backgroundColor)),
+          };
+        });
+      });
+
+      expect(edges).not.toBeNull();
+      for (const { label, edge, text } of edges!) {
+        expect(edge, `${label} 의 윤곽이 배경에 묻힌다`).toBeGreaterThanOrEqual(3);
+        expect(text, `${label} 의 글자가 AA 에 못 미친다`).toBeGreaterThanOrEqual(4.5);
+      }
+    });
+
+    test("큰 글씨로 보기에서도 두 버튼이 한 줄에 남는다", async ({ page }) => {
+      await page.goto("/");
+      await page.locator(".text-size-bar-button").click();
+
+      const rows = await page.evaluate(() => {
+        const section = document.querySelector('[aria-label="청첩장 공유"]');
+        const buttons = section ? Array.from(section.querySelectorAll("button")) : [];
+        if (buttons.length !== 2) return null;
+        const [a, b] = buttons.map((el) => el.getBoundingClientRect());
+        return { sameRow: Math.abs(a.top - b.top) < 1, overflow: b.right > document.documentElement.clientWidth };
+      });
+
+      expect(rows).not.toBeNull();
+      expect(rows!.sameRow).toBe(true);
+      expect(rows!.overflow).toBe(false);
+    });
+
     test("링크 복사가 배포 주소를 클립보드에 넣는다", async ({ page, context, browserName }) => {
       test.skip(browserName !== "chromium", "clipboard-read 권한은 chromium 전용");
       await context.grantPermissions(["clipboard-read", "clipboard-write"]);
@@ -1039,12 +1095,12 @@ test.describe("청첩장 기본 동작", () => {
         ["--muted-2", "--card", SMALL, "갤러리 카운터 18px"],
         ["--primary", "--bg", LARGE, "커버 30px·푸터 34px — 전부 큰 글씨"],
         ["--primary", "--card", SMALL, "교통 안내 라벨 13.5px·혼주 관계 13px·D-Day 일수 14.5px 굵게"],
-        ["--on-surface", "--surface-2", SMALL, "공유 버튼 13px"],
+        ["--on-surface", "--surface-2", SMALL, "링크 복사 버튼 13px"],
         ["--on-surface", "--surface", SMALL, "RSVP 미선택 버튼 14px·잠긴 제출 버튼 15px"],
         ["--on-surface", "--surface-3", SMALL, "개인정보 처리방침 펼치기 13px"],
         ["--text", "--surface-3", SMALL, "개인정보 안내 제목 13.5px·동의 문구 13px·확인 팝업 항목 값 14px"],
         ["--error", "--card", SMALL, "오류 메시지 13px·오류 칸 테두리·초점 링"],
-        ["--on-primary", "--primary", SMALL, "달력 예식일 원 14.5px 굵게·주소 복사 버튼 14px"],
+        ["--on-primary", "--primary", SMALL, "달력 예식일 원 14.5px 굵게·주소 복사 버튼 14px·카카오톡 공유 버튼 13px"],
         ["--on-primary-sub", "--primary", SMALL, "D-Day 「초」 라벨 11.5px"],
         ["--on-primary-title", "--primary", SMALL, "그린 배경 위 제목"],
       ];
