@@ -31,6 +31,13 @@ jobs:
           node-version: 22
           cache: npm
 
+      # Node 22 가 물고 오는 npm 10 은 은퇴 중인 audits/quick 엔드포인트를 쳐서 500·503 을
+      # 받는다 — 취약점이 없어도 아래 검사가 매번 죽는다. npm 11 은 bulk advisory
+      # 엔드포인트를 쓴다 (SIS-54). node-version 을 올리지 않는 이유는 check·e2e 잡과
+      # 런타임을 갈라 두지 않기 위해서다.
+      - name: npm 을 11 로 올린다
+        run: npm install -g npm@^11
+
       - name: 의존성 설치
         run: npm install --no-audit --no-fund
 
