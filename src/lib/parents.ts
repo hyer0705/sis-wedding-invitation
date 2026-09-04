@@ -3,10 +3,15 @@ export type Parent = {
   deceased: boolean;
 };
 
-export function formatParentName(parent: Parent): string {
-  return parent.deceased ? `故 ${parent.name}` : parent.name;
-}
+export type ParentNameLine = {
+  marker: string;
+  name: string;
+};
 
-export function parentNameLines(parents: readonly Parent[]): string[] {
-  return parents.filter((parent) => parent.name.trim() !== "").map(formatParentName);
+const DECEASED_MARKER = "故";
+
+export function parentNameLines(parents: readonly Parent[]): ParentNameLine[] {
+  return parents
+    .filter((parent) => parent.name.trim() !== "")
+    .map((parent) => ({ marker: parent.deceased ? DECEASED_MARKER : "", name: parent.name }));
 }
