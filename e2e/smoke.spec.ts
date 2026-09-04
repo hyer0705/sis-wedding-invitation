@@ -242,6 +242,55 @@ test.describe("청첩장 기본 동작", () => {
         expect(new Set(side).size, `큰 글씨에서 혼주 성함 시작점이 어긋났다 (left: ${side.join(", ")})`).toBe(1);
       }
     });
+
+    const columnLefts = (page: Page) =>
+      page.evaluate(() => {
+        const grid = document.querySelector(".parents");
+        const cells = grid ? Array.from(grid.children) : [];
+        const left = (el: Element) => Math.round(el.getBoundingClientRect().left);
+        return {
+          names: cells.filter((el) => el.classList.contains("parent-names")).map(left),
+          relations: cells.filter((el) => el.previousElementSibling?.classList.contains("parent-names")).map(left),
+          children: cells
+            .filter((el) => el.previousElementSibling?.previousElementSibling?.classList.contains("parent-names"))
+            .map(left),
+        };
+      });
+
+    test("IN-04 신랑측·신부측 줄의 칸이 같은 세로선에 선다", async ({ page }) => {
+      await page.goto("/");
+      await page.evaluate(() => document.fonts.ready);
+
+      const { names, relations, children } = await columnLefts(page);
+
+      expect(names).toHaveLength(2);
+      expect(new Set(names).size, `혼주 이름 칸이 줄마다 어긋났다 (left: ${names.join(", ")})`).toBe(1);
+      expect(new Set(relations).size, `「의 관계」 칸이 줄마다 어긋났다 (left: ${relations.join(", ")})`).toBe(1);
+      expect(new Set(children).size, `자녀 이름 칸이 줄마다 어긋났다 (left: ${children.join(", ")})`).toBe(1);
+    });
+
+    test("IN-04 큰 글씨에서도 칸이 어긋나지 않고 카드 밖으로 밀려나지 않는다", async ({ page }) => {
+      await page.goto("/");
+      await page.locator(".text-size-bar-button").click();
+      await page.evaluate(() => document.fonts.ready);
+
+      const { names, relations, children } = await columnLefts(page);
+      for (const column of [names, relations, children]) {
+        expect(new Set(column).size, `큰 글씨에서 칸이 어긋났다 (left: ${column.join(", ")})`).toBe(1);
+      }
+
+      const room = await page.evaluate(() => {
+        const grid = document.querySelector(".parents");
+        const card = grid?.parentElement;
+        if (!grid || !card) return null;
+        const style = getComputedStyle(card);
+        const inner = card.getBoundingClientRect().width - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight);
+        return inner - grid.getBoundingClientRect().width;
+      });
+
+      expect(room).not.toBeNull();
+      expect(room!, "혼주 표기가 카드 안쪽 폭을 넘었다").toBeGreaterThanOrEqual(0);
+    });
   });
 
   test.describe("갤러리 슬라이드", () => {
