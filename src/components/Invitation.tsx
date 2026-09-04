@@ -1,3 +1,4 @@
+import { Fragment } from "react";
 import Reveal from "./Reveal";
 import { INVITE } from "../invite";
 import { parentNameLines } from "../lib/parents";
@@ -11,6 +12,7 @@ const CARD_PADDING_X = 26;
 const BODY_SIZE = scaled(14.5);
 const PARENTS_SIZE = scaled(14);
 const PARENTS_LINE_HEIGHT = 1.85;
+const MARKER_GAP = scaled(5);
 
 export default function Invitation() {
   return (
@@ -52,15 +54,19 @@ export default function Invitation() {
           {[INVITE.groom, INVITE.bride].map((side) => (
             <div key={side.name} style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 7 }}>
               <span
+                className="parent-names"
                 style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  alignItems: "flex-start",
+                  display: "grid",
+                  gridTemplateColumns: "auto auto",
+                  justifyContent: "start",
                   lineHeight: PARENTS_LINE_HEIGHT,
                 }}
               >
-                {parentNameLines(side.parents).map((name) => (
-                  <span key={name}>{name}</span>
+                {parentNameLines(side.parents).map(({ marker, name }) => (
+                  <Fragment key={name}>
+                    <span style={marker === "" ? undefined : { paddingRight: MARKER_GAP }}>{marker}</span>
+                    <span className="parent-name">{name}</span>
+                  </Fragment>
                 ))}
               </span>
               <span style={{ color: "var(--primary)", fontSize: scaled(13) }}>의 {side.relation}</span>

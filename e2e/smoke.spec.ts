@@ -204,6 +204,46 @@ test.describe("청첩장 기본 동작", () => {
     });
   });
 
+  test.describe("초대글", () => {
+    const nameLefts = async (page: Page) => {
+      const blocks = page.locator(".parent-names");
+      const counts = await blocks.count();
+
+      const lefts: number[][] = [];
+      for (let index = 0; index < counts; index += 1) {
+        lefts.push(
+          await blocks
+            .nth(index)
+            .locator(".parent-name")
+            .evaluateAll((els) => els.map((el) => Math.round(el.getBoundingClientRect().left))),
+        );
+      }
+      return lefts;
+    };
+
+    test("IN-04 혼주 성함이 故 표시에 밀리지 않고 한쪽 안에서 같은 자리에 선다", async ({ page }) => {
+      await page.goto("/");
+      await page.evaluate(() => document.fonts.ready);
+
+      const lefts = await nameLefts(page);
+
+      expect(lefts.map((side) => side.length)).toEqual([INVITE.groom.parents.length, INVITE.bride.parents.length]);
+      for (const side of lefts) {
+        expect(new Set(side).size, `혼주 성함 시작점이 어긋났다 (left: ${side.join(", ")})`).toBe(1);
+      }
+    });
+
+    test("IN-04 큰 글씨에서도 혼주 성함 시작점이 어긋나지 않는다", async ({ page }) => {
+      await page.goto("/");
+      await page.locator(".text-size-bar-button").click();
+      await page.evaluate(() => document.fonts.ready);
+
+      for (const side of await nameLefts(page)) {
+        expect(new Set(side).size, `큰 글씨에서 혼주 성함 시작점이 어긋났다 (left: ${side.join(", ")})`).toBe(1);
+      }
+    });
+  });
+
   test.describe("갤러리 슬라이드", () => {
     const track = (page: Page) => page.getByRole("group", { name: "웨딩 사진 갤러리" });
     const counter = (page: Page) => page.getByTestId("gallery-counter");
