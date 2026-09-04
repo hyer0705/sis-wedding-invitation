@@ -814,16 +814,30 @@ test.describe("청첩장 기본 동작", () => {
   });
 
   test.describe("배경음악", () => {
-    test("자동으로 재생하지 않는다", async ({ page }) => {
+    test("켜진 상태로 시작한다", async ({ page }) => {
       await page.goto("/");
 
-      await expect(page.getByRole("button", { name: "배경음악" })).toHaveAttribute("aria-pressed", "false");
+      await expect(page.getByRole("button", { name: "배경음악" })).toHaveAttribute("aria-pressed", "true");
 
       const state = await page.evaluate(() => {
         const audio = document.querySelector("audio");
-        return audio ? { paused: audio.paused, muted: audio.muted, preload: audio.preload, loop: audio.loop } : null;
+        return audio ? { muted: audio.muted, preload: audio.preload, loop: audio.loop } : null;
       });
-      expect(state).toEqual({ paused: true, muted: true, preload: "none", loop: true });
+      expect(state).toEqual({ muted: false, preload: "none", loop: true });
+    });
+
+    test("토글을 누르면 멎고 음소거로 돌아간다", async ({ page }) => {
+      await page.goto("/");
+
+      const toggle = page.getByRole("button", { name: "배경음악" });
+      await toggle.click();
+
+      await expect(toggle).toHaveAttribute("aria-pressed", "false");
+      const state = await page.evaluate(() => {
+        const audio = document.querySelector("audio");
+        return audio ? { paused: audio.paused, muted: audio.muted } : null;
+      });
+      expect(state).toEqual({ paused: true, muted: true });
     });
 
     test("아래로 스크롤해도 토글이 화면에 남는다", async ({ page }) => {
