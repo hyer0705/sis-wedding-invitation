@@ -1,6 +1,10 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { m } from "motion/react";
 import { bgmUrl } from "../lib/bgm";
+
+const EARLY_GESTURE_EVENTS = ["pointerdown", "touchstart"];
+const ACTIVATING_GESTURE_EVENTS = ["touchend", "click", "keydown"];
+const GESTURE_EVENTS = [...EARLY_GESTURE_EVENTS, ...ACTIVATING_GESTURE_EVENTS];
 
 function SpeakerOnIcon() {
   return (
@@ -23,37 +27,79 @@ function SpeakerOffIcon() {
 
 export default function Bgm() {
   const audioRef = useRef<HTMLAudioElement>(null);
-  const [playing, setPlaying] = useState(false);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const [playing, setPlaying] = useState(true);
 
-  async function toggle() {
+  useEffect(() => {
     const audio = audioRef.current;
     if (!audio) return;
 
-    if (playing) {
+    const silence = () => {
       audio.pause();
       audio.muted = true;
-      setPlaying(false);
+    };
+
+    if (!playing) {
+      silence();
       return;
     }
 
-    setPlaying(true);
-    audio.muted = false;
-    try {
-      await audio.play();
-    } catch {
-      audio.pause();
-      audio.muted = true;
-      setPlaying(false);
+    let cancelled = false;
+
+    const start = async () => {
+      audio.muted = false;
+      try {
+        await audio.play();
+        return true;
+      } catch {
+        return false;
+      }
+    };
+
+    const waitForGesture = () => {
+      GESTURE_EVENTS.forEach((type) => document.addEventListener(type, onGesture, { passive: true }));
+    };
+
+    const stopWaiting = () => {
+      GESTURE_EVENTS.forEach((type) => document.removeEventListener(type, onGesture));
+    };
+
+    function onGesture(event: Event) {
+      if (buttonRef.current?.contains(event.target as Node)) return;
+
+      void start().then((started) => {
+        if (cancelled) return;
+        if (started) {
+          stopWaiting();
+          return;
+        }
+        if (!ACTIVATING_GESTURE_EVENTS.includes(event.type)) return;
+
+        stopWaiting();
+        silence();
+        setPlaying(false);
+      });
     }
-  }
+
+    void start().then((started) => {
+      if (cancelled || started) return;
+      waitForGesture();
+    });
+
+    return () => {
+      cancelled = true;
+      stopWaiting();
+    };
+  }, [playing]);
 
   return (
     <>
-      <audio ref={audioRef} src={bgmUrl()} loop muted={!playing} preload="none" data-testid="bgm-audio" />
+      <audio ref={audioRef} src={bgmUrl()} loop preload="none" data-testid="bgm-audio" />
       <m.button
+        ref={buttonRef}
         type="button"
         className="bgm-toggle"
-        onClick={toggle}
+        onClick={() => setPlaying((on) => !on)}
         whileTap={{ scale: 0.94 }}
         aria-pressed={playing}
         aria-label="배경음악"
