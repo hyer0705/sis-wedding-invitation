@@ -28,8 +28,13 @@ function toggle() {
   return screen.getByRole("button", { name: "배경음악" });
 }
 
-function tapScreen() {
+function touchScreen() {
   fireEvent.pointerDown(document.body);
+  fireEvent.touchStart(document.body);
+}
+
+function liftFinger() {
+  fireEvent.touchEnd(document.body);
 }
 
 describe("Bgm", () => {
@@ -60,19 +65,36 @@ describe("Bgm", () => {
     expect(toggle()).toHaveAttribute("aria-pressed", "true");
 
     play.mockResolvedValue(undefined);
-    tapScreen();
+    touchScreen();
 
-    await waitFor(() => expect(play).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(audio().muted).toBe(false));
+    expect(play.mock.calls.length).toBeGreaterThan(1);
     expect(toggle()).toHaveAttribute("aria-pressed", "true");
-    expect(audio().muted).toBe(false);
   });
 
-  it("첫 터치에도 막히면 꺼진 모양으로 되돌아간다", async () => {
+  it("iOS 처럼 손가락이 닿는 순간 거절당해도 끄지 않고 손을 뗄 때 다시 시도한다", async () => {
+    const { play } = mockBlockedPlayback();
+    renderWithMotion(<Bgm />);
+    await waitFor(() => expect(play).toHaveBeenCalledTimes(1));
+
+    touchScreen();
+    await waitFor(() => expect(play.mock.calls.length).toBeGreaterThan(1));
+    expect(toggle()).toHaveAttribute("aria-pressed", "true");
+
+    play.mockResolvedValue(undefined);
+    liftFinger();
+
+    await waitFor(() => expect(audio().muted).toBe(false));
+    expect(toggle()).toHaveAttribute("aria-pressed", "true");
+  });
+
+  it("손을 뗄 때까지 막혀 있으면 꺼진 모양으로 되돌아간다", async () => {
     const { play } = mockBlockedPlayback();
     renderWithMotion(<Bgm />);
 
     await waitFor(() => expect(play).toHaveBeenCalledTimes(1));
-    tapScreen();
+    touchScreen();
+    liftFinger();
 
     await waitFor(() => expect(toggle()).toHaveAttribute("aria-pressed", "false"));
     expect(audio().muted).toBe(true);
@@ -111,7 +133,8 @@ describe("Bgm", () => {
     await waitFor(() => expect(toggle()).toHaveAttribute("aria-pressed", "false"));
 
     const callsAfterOff = play.mock.calls.length;
-    tapScreen();
+    touchScreen();
+    liftFinger();
 
     await waitFor(() => expect(toggle()).toHaveAttribute("aria-pressed", "false"));
     expect(play).toHaveBeenCalledTimes(callsAfterOff);

@@ -2,7 +2,9 @@ import { useEffect, useRef, useState } from "react";
 import { m } from "motion/react";
 import { bgmUrl } from "../lib/bgm";
 
-const GESTURE_EVENTS = ["pointerdown", "touchend", "keydown"] as const;
+const EARLY_GESTURE_EVENTS = ["pointerdown", "touchstart"];
+const ACTIVATING_GESTURE_EVENTS = ["touchend", "click", "keydown"];
+const GESTURE_EVENTS = [...EARLY_GESTURE_EVENTS, ...ACTIVATING_GESTURE_EVENTS];
 
 function SpeakerOnIcon() {
   return (
@@ -55,7 +57,7 @@ export default function Bgm() {
     };
 
     const waitForGesture = () => {
-      GESTURE_EVENTS.forEach((type) => document.addEventListener(type, onGesture));
+      GESTURE_EVENTS.forEach((type) => document.addEventListener(type, onGesture, { passive: true }));
     };
 
     const stopWaiting = () => {
@@ -65,9 +67,15 @@ export default function Bgm() {
     function onGesture(event: Event) {
       if (buttonRef.current?.contains(event.target as Node)) return;
 
-      stopWaiting();
       void start().then((started) => {
-        if (cancelled || started) return;
+        if (cancelled) return;
+        if (started) {
+          stopWaiting();
+          return;
+        }
+        if (!ACTIVATING_GESTURE_EVENTS.includes(event.type)) return;
+
+        stopWaiting();
         silence();
         setPlaying(false);
       });
