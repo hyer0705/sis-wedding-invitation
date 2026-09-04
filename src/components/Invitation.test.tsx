@@ -6,7 +6,7 @@ import { INVITE } from "../invite";
 
 const flat = (text: string) => text.replace(/\s+/g, " ").trim();
 
-const parentLine = (relation: string) => screen.getByText(`의 ${relation}`).parentElement;
+const childName = (relation: string) => screen.getByText(`의 ${relation}`).nextElementSibling;
 
 const parentNames = (relation: string) => {
   const names = screen.getByText(`의 ${relation}`).previousElementSibling;
@@ -44,8 +44,8 @@ describe("Invitation", () => {
   it("IN-03 양가 혼주와 자녀 관계를 표기한다", () => {
     renderWithMotion(<Invitation />);
 
-    expect(parentLine(INVITE.groom.relation)).toHaveTextContent(INVITE.groom.first);
-    expect(parentLine(INVITE.bride.relation)).toHaveTextContent(INVITE.bride.first);
+    expect(childName(INVITE.groom.relation)).toHaveTextContent(INVITE.groom.first);
+    expect(childName(INVITE.bride.relation)).toHaveTextContent(INVITE.bride.first);
   });
 
   it("IN-03 신랑측 혼주를 한 분만 표기한다", () => {
@@ -63,7 +63,10 @@ describe("Invitation", () => {
   it("IN-04 고인인 혼주 성함 앞에 故 를 붙인다", () => {
     renderWithMotion(<Invitation />);
 
-    expect(parentLine(INVITE.bride.relation)).toHaveTextContent("故");
+    const markers = screen.getByText(`의 ${INVITE.bride.relation}`).previousElementSibling?.previousElementSibling;
+
+    expect(markers).toHaveTextContent("故");
+    expect(markers?.className).toBe("parent-markers");
   });
 
   it("IN-04 故 를 성함과 다른 칸에 세워 성이 같은 자리에서 시작하게 한다", () => {
