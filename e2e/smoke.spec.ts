@@ -454,6 +454,57 @@ test.describe("청첩장 기본 동작", () => {
     });
   });
 
+  test.describe("푸터", () => {
+    const copyright = (page: Page) => page.getByText("© 2026 Lucyground");
+
+    test("제작자 저작권이 푸터 마지막 줄에 보인다", async ({ page }) => {
+      await page.goto("/");
+      await copyright(page).scrollIntoViewIfNeeded();
+
+      await expect(copyright(page)).toBeVisible();
+
+      const last = await page.evaluate(() => {
+        const footer = document.querySelector("footer");
+        return footer?.lastElementChild?.textContent?.trim();
+      });
+      expect(last).toBe("© 2026 Lucyground");
+    });
+
+    test("큰 글씨로 보기에서도 신랑·신부 이름보다 작다", async ({ page }) => {
+      await page.goto("/");
+      await page.locator(".text-size-bar-button").click();
+      await copyright(page).scrollIntoViewIfNeeded();
+
+      const sizes = await page.evaluate(() => {
+        const footer = document.querySelector("footer");
+        const lines = footer ? Array.from(footer.children) : [];
+        const size = (el: Element | undefined) => (el ? parseFloat(getComputedStyle(el).fontSize) : 0);
+        return { names: size(lines.at(-3)), copyright: size(lines.at(-1)) };
+      });
+
+      expect(sizes.copyright).toBeGreaterThan(0);
+      expect(sizes.copyright).toBeLessThan(sizes.names);
+    });
+
+    test("글자 크기 바가 저작권 줄을 가리지 않는다", async ({ page }) => {
+      await page.goto("/");
+      await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+      await expect(copyright(page)).toBeVisible();
+
+      const overlap = await page.evaluate(() => {
+        const line = Array.from(document.querySelectorAll("footer div")).find((el) =>
+          el.textContent?.includes("© 2026 Lucyground"),
+        );
+        const bar = document.querySelector(".text-size-bar");
+        if (!line || !bar) return null;
+        return line.getBoundingClientRect().bottom - bar.getBoundingClientRect().top;
+      });
+
+      expect(overlap).not.toBeNull();
+      expect(overlap!).toBeLessThanOrEqual(0);
+    });
+  });
+
   test.describe("색인 차단", () => {
     test("robots 메타가 noindex 를 싣는다", async ({ page }) => {
       await page.goto("/");

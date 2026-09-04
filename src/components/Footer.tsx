@@ -2,6 +2,8 @@ import Reveal from "./Reveal";
 import { INVITE } from "../invite";
 import { scaled } from "../lib/typeScale";
 
+const COPYRIGHT = "© 2026 Lucyground";
+
 export default function Footer() {
   return (
     <Reveal>
@@ -17,6 +19,9 @@ export default function Footer() {
         </div>
         <div style={{ fontSize: scaled(13), color: "var(--text-sub)", marginTop: 8 }}>
           {INVITE.dateDots.replaceAll(" . ", ". ")}
+        </div>
+        <div style={{ fontSize: scaled(12.5), color: "var(--text-sub)", letterSpacing: "0.04em", marginTop: 28 }}>
+          {COPYRIGHT}
         </div>
       </footer>
     </Reveal>
